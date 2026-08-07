@@ -21,6 +21,15 @@ import {
   type Tier,
 } from "@/lib/suvarna";
 import { CloseIcon, TierMark } from "./Icons";
+import { EvidenceMark, HealthMark } from "./NodeCard";
+import {
+  COMPLETENESS_LABEL,
+  COMPLETENESS_MEANING,
+  HEALTH_LABEL,
+  HEALTH_MEANING,
+  nodeById,
+  pathTo,
+} from "@/lib/canvas";
 
 /**
  * One right-hand slot, shared by every detail view. Never two panels at once —
@@ -33,6 +42,7 @@ export type PanelTarget =
   | { kind: "gap"; id: string }
   | { kind: "claim"; id: string }
   | { kind: "source"; id: string }
+  | { kind: "node"; id: string }
   | null;
 
 interface PanelContextValue {
@@ -119,6 +129,7 @@ function EvidencePanel() {
             {target.kind === "gap" && "Gap detail"}
             {target.kind === "claim" && "Claim detail"}
             {target.kind === "source" && "Source"}
+            {target.kind === "node" && "Process detail"}
           </span>
           <button
             type="button"
@@ -134,6 +145,7 @@ function EvidencePanel() {
           {target.kind === "gap" && <GapDetail id={target.id} />}
           {target.kind === "claim" && <ClaimDetail id={target.id} />}
           {target.kind === "source" && <SourceDetail id={target.id} />}
+          {target.kind === "node" && <NodeDetail id={target.id} />}
         </div>
       </div>
     </>
@@ -324,6 +336,146 @@ function ClaimDetail({ id }: { id: string }) {
           </p>
         </Block>
       )}
+    </div>
+  );
+}
+
+function NodeDetail({ id }: { id: string }) {
+  const node = nodeById(id);
+  const trail = pathTo(id);
+  const value = node.gapIds.reduce((s, gid) => s + (gapById(gid).amountCr ?? 0), 0);
+
+  return (
+    <div>
+      <nav aria-label="Level" className="text-micro text-muted-foreground">
+        {trail.map((n, i) => (
+          <span key={n.id}>
+            {i > 0 && <span aria-hidden> → </span>}
+            {i === 0 ? `Level 0 · ${n.name}` : n.name}
+          </span>
+        ))}
+      </nav>
+
+      <h2 className="mt-1.5 text-h3 font-medium tracking-tight">{node.name}</h2>
+      <p className="mt-1.5 text-small text-muted-foreground measure">{node.plainLine}</p>
+
+      {/* The two axes, stated separately and never merged into one badge. */}
+      <dl className="mt-3 grid grid-cols-2 gap-3 border-y border-border py-3">
+        <div>
+          <dt className="text-micro uppercase tracking-[0.08em] text-muted-foreground">
+            How this is running
+          </dt>
+          <dd className="mt-1 flex items-center gap-1.5 text-small font-medium">
+            <HealthMark
+              health={node.health}
+              className={
+                node.health === "critical"
+                  ? "text-health-critical"
+                  : node.health === "watch"
+                    ? "text-health-watch"
+                    : "text-health-healthy"
+              }
+            />
+            {HEALTH_LABEL[node.health]}
+          </dd>
+          <dd className="mt-0.5 text-micro text-muted-foreground">{HEALTH_MEANING[node.health]}</dd>
+        </div>
+        <div>
+          <dt className="text-micro uppercase tracking-[0.08em] text-muted-foreground">
+            Evidence we have
+          </dt>
+          <dd className="mt-1 flex items-center gap-1.5 text-small font-medium">
+            <EvidenceMark completeness={node.completeness} />
+            {COMPLETENESS_LABEL[node.completeness]}
+          </dd>
+          <dd className="mt-0.5 text-micro text-muted-foreground">
+            {COMPLETENESS_MEANING[node.completeness]}
+          </dd>
+        </div>
+      </dl>
+
+      {node.completeness === "none" && (
+        <p className="mt-3 rounded-md border border-dashed border-border-strong bg-muted px-3 py-2 text-small measure">
+          <span className="font-medium">Read the colour carefully. </span>
+          We have nothing from Suvarna on this. The health above is what this process usually looks
+          like in food processing, not something we checked.
+        </p>
+      )}
+
+      {node.metricIds.length > 0 && (
+        <Block title="The numbers here">
+          <ul className="space-y-2">
+            {node.metricIds.map((mid) => {
+              const m = metricById(mid);
+              return (
+                <li key={mid} className="text-small">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span>{m.label}</span>
+                    <span className="tabular shrink-0">
+                      <span className="font-medium">
+                        {m.actual == null ? "—" : `${m.actual}${m.unit}`}
+                      </span>
+                      <span className="text-metric-best-in-class">
+                        {" "}
+                        vs {m.bestInClass}
+                        {m.unit}
+                      </span>
+                    </span>
+                  </div>
+                  <p className="text-micro text-muted-foreground">{m.gloss}</p>
+                </li>
+              );
+            })}
+          </ul>
+        </Block>
+      )}
+
+      <Block title={`Gaps here · ${node.gapIds.length}`}>
+        {node.gapIds.length > 0 ? (
+          <>
+            <p className="mb-2 tabular text-small font-medium">
+              {value > 0 ? `${money(value)} a year` : "Not priced"}
+            </p>
+            <ul className="space-y-1.5">
+              {node.gapIds.map((gid) => {
+                const g = gapById(gid);
+                return (
+                  <li key={gid} className="flex items-baseline justify-between gap-3 text-small">
+                    <span className="measure">{g.title}</span>
+                    <span className="tabular shrink-0 font-medium">{money(g.amountCr)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        ) : (
+          <p className="text-small text-muted-foreground measure">
+            {node.emptyKind === "confirmed-none"
+              ? "We looked and found nothing worth raising. This is a good outcome."
+              : node.emptyKind === "no-sources"
+                ? "We looked, but there is nothing to read. Add a transcript or filing and we'll research this."
+                : "Not yet researched. Nothing here is a finding either way."}
+          </p>
+        )}
+      </Block>
+
+      <Block title={`Sources · ${node.sourceIds.length}`}>
+        {node.sourceIds.length > 0 ? (
+          <ul className="space-y-1.5">
+            {node.sourceIds.map((sid) => {
+              const s = sourceById(sid);
+              return (
+                <li key={sid} className="text-small">
+                  {s.name}
+                  <span className="text-muted-foreground"> · {s.detail}</span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="text-small text-muted-foreground">Nothing attached to this process.</p>
+        )}
+      </Block>
     </div>
   );
 }

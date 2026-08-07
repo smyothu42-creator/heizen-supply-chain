@@ -125,8 +125,11 @@ function KnownBrief({ id, onOpen }: { id: string; onOpen: (gapId: string) => voi
           Hits their number — {money(valueForStakeholder(id))} of the ₹14.7 Cr
         </Eyebrow>
         <ul className="mt-1.5 space-y-1.5">
-          {theirGaps.map((gap) => (
-            <li key={gap.id}>
+          {theirGaps.map((gap, i) => (
+            // Rohan owns the three longest plain-language lines of anyone here,
+            // and at 375px the third one does not fit under his opening line.
+            // Two gaps that fit beat three that get cut off.
+            <li key={gap.id} className={cn(i === 2 && "hidden sm:block")}>
               <button
                 type="button"
                 onClick={() => onOpen(gap.id)}

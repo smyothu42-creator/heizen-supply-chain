@@ -296,16 +296,21 @@ these are the choices this repo makes today, not a decision on Jeet's behalf.
 | shadcn/ui | **Not installed.** Nothing in the Research directions needed a Radix primitive, and the config is Jeet's call. Token names follow `design-system` exactly so it drops in without a rewrite. |
 | Server state / validation / DB | None. The prototypes read one static file, `src/lib/suvarna.ts`. |
 | Tests | No Vitest or Playwright test suite. There is a headless verification harness in `scripts/` — see below. |
+| Surfaces built | All six. Canvas, Research (four directions × Brief/Full), Gaps, Questions, Compare, Sources. |
 
 ### Verification harness
 
-`scripts/verify.mjs` checks the constraints that are easy to claim and easy to get
-wrong. Run the production server first (`pnpm build && pnpm start -p 4311`), then
-`node scripts/verify.mjs`:
+`scripts/verify.mjs` (`pnpm check:ui`) checks the constraints that are easy to claim
+and easy to get wrong. Run the production server first (`pnpm build && pnpm start -p
+4311`):
 
-- Brief does not scroll, and nothing inside it is clipped, at 375×667 and 390×844
-- Text contrast meets AA against its computed background, in light **and** dark, on all eight pages
+- Research Brief does not scroll, and nothing inside it is clipped, at 375×667 and 390×844
+- Text contrast meets AA against its computed background, in light **and** dark, across all fourteen pages
 - Every interactive element is reachable by Tab; the detail panel opens on Enter, closes on Escape, and returns focus to its trigger
+
+One known blind spot: the contrast check reads the nearest opaque ancestor background,
+so it cannot see decorative overlays such as Canvas's hatch fill. Those have to be
+checked by eye — `pnpm shots` exists for that.
 
 `scripts/check-data.ts` (`pnpm check:data`) reconciles the numbers: every gap price,
 every money bucket, every stakeholder subtotal and every evidence tier must sum to

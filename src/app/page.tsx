@@ -3,6 +3,39 @@ import { directions } from "@/lib/directions";
 import { company } from "@/lib/suvarna";
 import { ThemeToggle } from "@/components/shell/ThemeToggle";
 
+const SURFACES = [
+  {
+    name: "Canvas",
+    href: "/canvas",
+    tag: "three levels",
+    line: "The supply chain mapped Level 0 → 1 → 2, with health and evidence encoded separately.",
+  },
+  {
+    name: "Gaps",
+    href: "/gaps",
+    tag: "₹14.7 Cr",
+    line: "Twelve findings, priced and evidenced, with tick-box plan selection and a live total.",
+  },
+  {
+    name: "Questions",
+    href: "/questions",
+    tag: "8, sequenced",
+    line: "The same component as Gaps in the opposite register — ordered, future tense, no prices.",
+  },
+  {
+    name: "Compare",
+    href: "/compare",
+    tag: "4 lanes",
+    line: "Stacked lanes aligned on shared stages, with the delta row given the most weight.",
+  },
+  {
+    name: "Sources",
+    href: "/sources",
+    tag: "4 ingested",
+    line: "What each source produced, plus connectors designed as real and labelled as roadmap.",
+  },
+] as const;
+
 const CONSTRAINTS = [
   "Brief is a single screen with no scrolling, and works at 375px",
   "Full is navigable by scanning, not reading — persistent section navigator, anchor links, summary strip per section",
@@ -38,6 +71,30 @@ export default function Home() {
           at the end of it, that direction has failed regardless of how good Full is.
         </p>
       </div>
+
+      <section className="mt-8">
+        <h2 className="text-base font-medium">The other five surfaces</h2>
+        <p className="mt-1 text-small text-muted-foreground measure">
+          All built and navigable from the tab bar. Research is the only one carrying competing
+          directions — the rest have one design each.
+        </p>
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+          {SURFACES.map((s) => (
+            <li key={s.href}>
+              <Link
+                href={s.href}
+                className="block h-full rounded-lg border border-border bg-card px-3.5 py-3 hover:border-border-strong"
+              >
+                <span className="flex items-baseline justify-between gap-3">
+                  <span className="text-base font-medium">{s.name}</span>
+                  <span className="shrink-0 text-micro text-muted-foreground">{s.tag}</span>
+                </span>
+                <span className="mt-0.5 block text-small text-muted-foreground">{s.line}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <ol className="mt-8 space-y-4">
         {directions.map((d, i) => (

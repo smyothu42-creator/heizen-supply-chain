@@ -18,15 +18,18 @@ export function GapRow({
   gap,
   showRank = true,
   className,
+  as: As = "li",
 }: {
   gap: Gap;
   showRank?: boolean;
   className?: string;
+  /** "div" when the caller already provides the list item, e.g. a plan tick-box. */
+  as?: "li" | "div";
 }) {
   const { open } = usePanel();
 
   return (
-    <li className={cn("py-3.5 first:pt-0", className)}>
+    <As className={cn(As === "li" && "py-3.5 first:pt-0", className)}>
       <div className="flex items-start gap-3">
         {showRank && (
           <span className="tabular mt-[3px] w-5 shrink-0 text-small text-muted-foreground">
@@ -103,6 +106,6 @@ export function GapRow({
           </div>
         </div>
       </div>
-    </li>
+    </As>
   );
 }
