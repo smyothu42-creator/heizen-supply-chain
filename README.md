@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Meridian — Research tab, four directions
 
-## Getting Started
+Prototypes for the highest-priority problem in the product: the Research tab shows
+too much at once, and Aryan cannot get "what do I say on this call?" out of it.
 
-First, run the development server:
+Four directions, each sorted by a different axis. Same data throughout.
+
+| Direction | Sorted by | The idea |
+|---|---|---|
+| **Money-first** | Rupees | The dossier is a decomposition of ₹14.7 Cr. Company facts only appear where they explain a slice of it. |
+| **Call-first** | Time | Laid out in the order the discovery call happens: open, establish, probe, land, next. |
+| **Certainty-first** | Confidence | A claim ledger — confirmed, inferred, unverified — with the basis always attached. |
+| **Stakeholder-first** | Person | Pick who you are meeting and the whole dossier re-sorts to what they own and are measured on. |
+
+## Run it
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The landing page lists all four with what each optimises for and what it sacrifices.
+Every direction has a **Brief** and a **Full**, switchable in the top bar, and you can
+flip between directions without losing your place.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Open Brief first and give yourself thirty seconds, the way Aryan would. If you cannot
+say something useful out loud at the end of it, that direction has failed regardless
+of how good its Full is.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Verify
 
-## Learn More
+```bash
+pnpm build && pnpm start -p 4311
+node scripts/verify.mjs             # fit, contrast, keyboard
+node scripts/verify-stakeholder.mjs # fit for every stakeholder selection
+node scripts/shots.mjs              # writes screenshots/
+```
 
-To learn more about Next.js, take a look at the following resources:
+Current state: Brief fits 375×667 with nothing clipped in all four directions, zero
+AA contrast failures across eight pages in both light and dark, and every interactive
+element is keyboard reachable with a working panel focus round-trip.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Where things live
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/lib/suvarna.ts            all the data — 12 gaps, 4 sources, 18 claims, 8 questions
+src/lib/directions.ts         the four principles, and what each sacrifices
+src/app/globals.css           semantic tokens, light + dark
+src/components/meridian/      MetricDelta, EvidenceChain, ConfidenceBadge, GapRow,
+                              QuestionRow, EmptyState, the shared detail panel
+src/components/directions/    the four directions, Brief and Full each
+```
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Change a gap's price or an excerpt in `src/lib/suvarna.ts` and it updates identically
+in all four. Nothing is hard-coded into a layout.

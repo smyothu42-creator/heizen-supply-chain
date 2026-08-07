@@ -1,26 +1,214 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Meridian design tokens
+   Semantic only. Never a raw hex or a bare Tailwind palette class in a
+   component — when the palette changes, this file changes and nothing else.
+   See .claude/skills/design-system.
+   --------------------------------------------------------------------------- */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* surface */
+  --background: #faf9f7;
+  --foreground: #1c1917;
+  --card: #ffffff;
+  --card-foreground: #1c1917;
+  --muted: #f2f1ee;
+  --muted-foreground: #57534e;
+  --border: #e3e1dd;
+  --border-strong: #c9c6c0;
+  --ring: #1d4ed8;
+  --primary: #1c1917;
+  --primary-foreground: #faf9f7;
+
+  /* process health — the only axis that uses hue */
+  --health-critical: #b3261e;
+  --health-watch: #a55a07;
+  --health-healthy: #15703c;
+  --health-critical-surface: #fdf0ef;
+  --health-watch-surface: #fdf5e9;
+  --health-healthy-surface: #edf7f0;
+
+  /* evidence and provenance */
+  --evidence: #1d4ed8;
+  --evidence-muted: #eef3fe;
+
+  /* confidence — a neutral ramp, never a hue, so it never reads as health */
+  --confidence-low: #78716c;
+  --confidence-medium: #44403c;
+  --confidence-high: #1c1917;
+
+  /* benchmark comparison */
+  --metric-actual: #1c1917;
+  --metric-best-in-class: #57534e;
+  --metric-delta: #b3261e;
+  --metric-delta-good: #15703c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: #0c0a09;
+    --foreground: #f5f4f1;
+    --card: #1a1817;
+    --card-foreground: #f5f4f1;
+    --muted: #232120;
+    --muted-foreground: #a8a29e;
+    --border: #332f2d;
+    --border-strong: #4d4844;
+    --ring: #7ba7fb;
+    --primary: #f5f4f1;
+    --primary-foreground: #0c0a09;
+
+    --health-critical: #f4867c;
+    --health-watch: #e3a54a;
+    --health-healthy: #6cc78d;
+    --health-critical-surface: #2a1614;
+    --health-watch-surface: #2a1e0f;
+    --health-healthy-surface: #12241a;
+
+    --evidence: #8ab4fc;
+    --evidence-muted: #16203a;
+
+    --confidence-low: #8a827c;
+    --confidence-medium: #c4bdb7;
+    --confidence-high: #f5f4f1;
+
+    --metric-actual: #f5f4f1;
+    --metric-best-in-class: #a8a29e;
+    --metric-delta: #f4867c;
+    --metric-delta-good: #6cc78d;
+  }
+}
+
+[data-theme="dark"] {
+  --background: #0c0a09;
+  --foreground: #f5f4f1;
+  --card: #1a1817;
+  --card-foreground: #f5f4f1;
+  --muted: #232120;
+  --muted-foreground: #a8a29e;
+  --border: #332f2d;
+  --border-strong: #4d4844;
+  --ring: #7ba7fb;
+  --primary: #f5f4f1;
+  --primary-foreground: #0c0a09;
+
+  --health-critical: #f4867c;
+  --health-watch: #e3a54a;
+  --health-healthy: #6cc78d;
+  --health-critical-surface: #2a1614;
+  --health-watch-surface: #2a1e0f;
+  --health-healthy-surface: #12241a;
+
+  --evidence: #8ab4fc;
+  --evidence-muted: #16203a;
+
+  --confidence-low: #8a827c;
+  --confidence-medium: #c4bdb7;
+  --confidence-high: #f5f4f1;
+
+  --metric-actual: #f5f4f1;
+  --metric-best-in-class: #a8a29e;
+  --metric-delta: #f4867c;
+  --metric-delta-good: #6cc78d;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-health-critical: var(--health-critical);
+  --color-health-watch: var(--health-watch);
+  --color-health-healthy: var(--health-healthy);
+  --color-health-critical-surface: var(--health-critical-surface);
+  --color-health-watch-surface: var(--health-watch-surface);
+  --color-health-healthy-surface: var(--health-healthy-surface);
+
+  --color-evidence: var(--evidence);
+  --color-evidence-muted: var(--evidence-muted);
+
+  --color-confidence-low: var(--confidence-low);
+  --color-confidence-medium: var(--confidence-medium);
+  --color-confidence-high: var(--confidence-high);
+
+  --color-metric-actual: var(--metric-actual);
+  --color-metric-best-in-class: var(--metric-best-in-class);
+  --color-metric-delta: var(--metric-delta);
+  --color-metric-delta-good: var(--metric-delta-good);
+
+  /* Type scale — fixed and small. Four body sizes, three headings, one display.
+     A dense product with eleven type sizes reads as noise. */
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1rem;
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.125rem;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.4rem;
+  --text-lead: 1.0625rem;
+  --text-lead--line-height: 1.55rem;
+  --text-h3: 1.25rem;
+  --text-h3--line-height: 1.6rem;
+  --text-h2: 1.625rem;
+  --text-h2--line-height: 2rem;
+  --text-h1: 2.25rem;
+  --text-h1--line-height: 2.4rem;
+  --text-display: 3.5rem;
+  --text-display--line-height: 1;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-instrument-serif), Georgia, serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Focus is never invisible. Accessibility is not a later pass. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Digits line up in every column they appear in. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  ::selection {
+    background: var(--evidence-muted);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Prose in the dossier caps at ~75 characters. Full-width paragraphs on a wide
+   monitor are unreadable, and the dossier is genuinely read as text. */
+.measure {
+  max-width: 68ch;
 }
