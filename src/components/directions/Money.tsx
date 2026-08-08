@@ -3,22 +3,15 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { money, moneyParts, share } from "@/lib/format";
-import {
-  bucketTotal,
-  buckets,
-  company,
-  gapById,
-  gaps,
-  metrics,
-  sources,
-} from "@/lib/suvarna";
-import { BriefFrame, FullFrame, SummaryStrip, type SectionRef } from "./Frames";
+import { bucketTotal, buckets, company, gapById, gaps, metrics, sources } from "@/lib/suvarna";
+import { BriefFrame, FullFrame, Section, SummaryStrip, type SectionRef } from "./Frames";
 import { ConfidenceBadge } from "@/components/meridian/Confidence";
-import { Eyebrow, SectionHeading } from "@/components/meridian/Primitives";
+import { Eyebrow } from "@/components/meridian/Primitives";
 import { GapRow } from "@/components/meridian/GapRow";
 import { MetricDelta } from "@/components/meridian/MetricDelta";
 import { EmptyState } from "@/components/meridian/EmptyState";
 import { SourceChip } from "@/components/meridian/Evidence";
+import { AboutView } from "@/components/meridian/PageHeader";
 import { ArrowIcon } from "@/components/meridian/Icons";
 
 /* -------------------------------------------------------------------------- */
@@ -56,22 +49,19 @@ export function MoneyBrief() {
           <span className="pb-1 text-small text-muted-foreground">leaking a year</span>
         </div>
         <p className="mt-2 text-small text-muted-foreground measure">
-          Against ₹1,150 Cr of revenue — about 1.3 paise in every rupee they sell, lost to how
-          procurement is run rather than to what they buy.
+          1.3 paise in every rupee they sell — lost to how procurement runs, not to what they buy.
         </p>
       </div>
 
-      {/* Proportion bar. Labels below carry the meaning; the bar only shows shape. */}
-      <div>
-        <div className="flex h-2 w-full overflow-hidden rounded-full" aria-hidden>
-          {ordered.map((b, i) => (
-            <div
-              key={b.id}
-              className={cn(SEGMENT_TONE[i], i > 0 && "border-l border-background")}
-              style={{ width: `${(bucketTotal(b.id) / total) * 100}%` }}
-            />
-          ))}
-        </div>
+      {/* Proportion bar. Labels below carry the meaning; the bar shows shape. */}
+      <div className="flex h-2 w-full overflow-hidden rounded-full" aria-hidden>
+        {ordered.map((b, i) => (
+          <div
+            key={b.id}
+            className={cn(SEGMENT_TONE[i], i > 0 && "border-l border-background")}
+            style={{ width: `${(bucketTotal(b.id) / total) * 100}%` }}
+          />
+        ))}
       </div>
 
       <ul className="min-h-0 flex-1 divide-y divide-border overflow-hidden">
@@ -92,11 +82,7 @@ export function MoneyBrief() {
                     <span className="tabular shrink-0 text-base font-medium">{money(value)}</span>
                   </span>
                   <span className="mt-0.5 flex items-baseline justify-between gap-3">
-                    {/* Never truncated — an ellipsis here removes the only
-                        plain-language line the bucket has. */}
-                    <span className="text-small text-muted-foreground">
-                      {BUCKET_HEADLINE[b.id]}
-                    </span>
+                    <span className="text-small text-muted-foreground">{BUCKET_HEADLINE[b.id]}</span>
                     <span className="tabular shrink-0 text-small text-muted-foreground">
                       {share(value, total)}
                     </span>
@@ -112,11 +98,11 @@ export function MoneyBrief() {
         <div className="flex items-end justify-between gap-4">
           <ConfidenceBadge
             level={company.confidence}
-            reason="From the FY25 report, 2 calls and 1 email thread. No ERP data yet."
+            reason="FY25 report, 2 calls, 1 email thread. No ERP data yet."
           />
           <Link
             href="/research/money/full"
-            className="inline-flex shrink-0 items-center gap-1.5 text-small text-foreground underline-offset-4 hover:underline"
+            className="inline-flex shrink-0 items-center gap-1.5 text-small underline-offset-4 hover:underline"
           >
             Full breakdown
             <ArrowIcon />
@@ -130,10 +116,10 @@ export function MoneyBrief() {
 /* -------------------------------------------------------------------------- */
 
 const SECTIONS: SectionRef[] = [
-  { id: "the-number", label: "The number", meta: "₹14.7 Cr" },
   ...buckets.map((b) => ({ id: b.id, label: b.name, meta: money(bucketTotal(b.id)) })),
-  { id: "not-priced", label: "Not priced yet", meta: "1 gap" },
-  { id: "context", label: "Company context", meta: "supporting" },
+  { id: "not-priced", label: "Not priced", meta: "1 gap" },
+  { id: "context", label: "Company", meta: "6 facts" },
+  { id: "benchmarks", label: "Benchmarks", meta: "12" },
 ];
 
 export function MoneyFull() {
@@ -142,153 +128,125 @@ export function MoneyFull() {
 
   return (
     <FullFrame sections={SECTIONS}>
-      {/* ---------------------------------------------------------------- */}
-      <section>
-        <h1 id="the-number" className="scroll-mt-6 sr-only">
-          The number
-        </h1>
+      <header>
         <Eyebrow>{company.name} · annual leakage</Eyebrow>
-        <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-2">
+        <div className="mt-1.5 flex flex-wrap items-end gap-x-3 gap-y-1">
           <span className="font-display text-display leading-[0.85] tabular">₹14.7</span>
           <span className="font-display text-h1 leading-none pb-1">Cr</span>
           <span className="pb-2 text-base text-muted-foreground">a year</span>
         </div>
+        <p className="mt-3 text-lead measure">{company.thesis}</p>
 
-        <p className="mt-4 text-lead measure">{company.thesis}</p>
-
-        <div className="mt-5">
+        <div className="mt-4">
           <SummaryStrip
             items={[
-              { label: "Revenue", value: "₹1,150 Cr" },
-              { label: "Leakage", value: "₹14.7 Cr" },
-              { label: "Share of revenue", value: "1.3%" },
-              { label: "Gaps found", value: "12" },
-              { label: "Priced", value: "11 of 12" },
-              { label: "Sources", value: "4" },
+              { label: "revenue", value: "₹1,150 Cr" },
+              { label: "of revenue", value: "1.3%" },
+              { label: "gaps priced", value: "11 of 12" },
+              { label: "sources", value: "4" },
             ]}
           />
         </div>
 
-        <div className="mt-5 grid gap-5 sm:grid-cols-2">
-          <div>
-            <Eyebrow>How sure we are</Eyebrow>
-            <div className="mt-1.5">
-              <ConfidenceBadge level={company.confidence} reason={company.confidenceReason} />
-            </div>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {sources.map((s) => (
-                <SourceChip key={s.id} sourceId={s.id} />
-              ))}
-            </div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <ConfidenceBadge level={company.confidence} showReason={false} />
+          <div className="flex flex-wrap gap-1.5">
+            {sources.map((s) => (
+              <SourceChip key={s.id} sourceId={s.id} />
+            ))}
           </div>
-          <div>
-            <Eyebrow>What is not in this number</Eyebrow>
-            <ul className="mt-1.5 space-y-1 text-small text-muted-foreground measure">
-              <li>
-                Quality rejections at goods receipt — no volumes shared, so it is listed and left
-                unpriced rather than guessed at.
-              </li>
-              <li>
-                Anything downstream of the Sangli expansion, which has not been sized.
-              </li>
-              <li>
-                Returns and reverse logistics — not researched. Nothing here says it is clean.
-              </li>
-            </ul>
-          </div>
+          <AboutView>
+            <p>{company.confidenceReason}</p>
+            <p>
+              Not in this number: quality rejections at goods receipt (no volumes shared), anything
+              downstream of the Sangli expansion, and returns — not researched.
+            </p>
+          </AboutView>
         </div>
-      </section>
+      </header>
 
-      {/* ---------------------------------------------------------------- */}
       {buckets.map((bucket) => {
+        const bucketGaps = bucket.gapIds
+          .map(gapById)
+          .sort((a, b) => (b.amountCr ?? 0) - (a.amountCr ?? 0));
         const value = bucketTotal(bucket.id);
-        const bucketGaps = bucket.gapIds.map(gapById).sort((a, b) => (b.amountCr ?? 0) - (a.amountCr ?? 0));
-        const priced = bucketGaps.filter((g) => g.amountCr != null);
         return (
-          <section key={bucket.id}>
-            <SectionHeading
-              id={bucket.id}
-              title={bucket.name}
-              summary={bucket.plainLine}
-              right={
-                <span className="tabular text-base font-medium text-foreground">
-                  {money(value)}{" "}
-                  <span className="text-small font-normal text-muted-foreground">
-                    · {share(value, total)} of the total
-                  </span>
+          <Section
+            key={bucket.id}
+            id={bucket.id}
+            title={bucket.name}
+            summary={bucket.plainLine}
+            right={
+              <span className="tabular text-base font-medium text-foreground">
+                {money(value)}{" "}
+                <span className="text-small font-normal text-muted-foreground">
+                  {share(value, total)}
                 </span>
-              }
-            />
-            <div className="mt-3">
-              <SummaryStrip
-                items={[
-                  { label: "Gaps", value: String(bucketGaps.length) },
-                  { label: "Priced", value: `${priced.length} of ${bucketGaps.length}` },
-                  { label: "Largest", value: money(priced[0]?.amountCr ?? null) },
-                  {
-                    label: "Quickest",
-                    value: `${Math.min(...bucketGaps.map((g) => g.weeks))} weeks`,
-                  },
-                ]}
-              />
-            </div>
-            <ul className="mt-2 divide-y divide-border">
+              </span>
+            }
+            stats={[
+              { label: "gaps", value: String(bucketGaps.length) },
+              { label: "largest", value: money(bucketGaps[0]?.amountCr ?? null) },
+              { label: "quickest", value: `${Math.min(...bucketGaps.map((g) => g.weeks))}w` },
+            ]}
+          >
+            <ul className="divide-y divide-border">
               {bucketGaps.map((gap) => (
                 <GapRow key={gap.id} gap={gap} />
               ))}
             </ul>
-          </section>
+          </Section>
         );
       })}
 
-      {/* ---------------------------------------------------------------- */}
-      <section>
-        <SectionHeading
-          id="not-priced"
-          title="Not priced yet"
-          summary="Found, but with nothing behind it worth putting a number on. Listed here rather than hidden, because an empty slot and a confirmed nothing are different answers."
-          right={<span className="tabular">—</span>}
-        />
-        <ul className="mt-2 divide-y divide-border">
+      <Section
+        id="not-priced"
+        title="Not priced"
+        summary="Found, with nothing behind it worth putting a number on."
+      >
+        <ul className="divide-y divide-border">
           {unpriced.map((gap) => (
             <GapRow key={gap.id} gap={gap} />
           ))}
         </ul>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
           <EmptyState kind="not-researched" scope="Returns and reverse logistics" compact />
           <EmptyState kind="confirmed-none" scope="Export documentation" compact />
         </div>
-      </section>
+      </Section>
 
-      {/* ---------------------------------------------------------------- */}
-      <section>
-        <SectionHeading
-          id="context"
-          title="Company context"
-          summary="Deliberately last. In this direction a company fact only earns space when it explains a slice of the number above."
-        />
-        <div className="mt-3 grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+      <Section
+        id="context"
+        title="Company"
+        summary="Last on purpose. A fact earns space here only by explaining a slice above."
+      >
+        <div className="grid gap-x-8 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {company.facts.map((f) => (
             <div key={f.label}>
-              <div className="text-micro uppercase tracking-[0.08em] text-muted-foreground">
-                {f.label}
+              <div className="flex items-baseline gap-2">
+                <span className="tabular text-base font-medium">{f.value}</span>
+                <span className="text-micro uppercase tracking-[0.08em] text-muted-foreground">
+                  {f.label}
+                </span>
               </div>
-              <div className="tabular text-base font-medium">{f.value}</div>
-              <div className="text-small text-muted-foreground measure">{f.detail}</div>
+              <div className="text-small text-muted-foreground">{f.detail}</div>
             </div>
           ))}
         </div>
+      </Section>
 
-        <h3 className="mt-8 text-base font-medium">Every benchmark on file</h3>
-        <p className="mt-1 text-small text-muted-foreground measure">
-          Each number that any gap above is built on, with what best-in-class looks like.
-        </p>
-        <div className="mt-3 grid gap-x-10 gap-y-5 sm:grid-cols-2">
+      <Section
+        id="benchmarks"
+        title="Benchmarks"
+        summary="Every number the gaps above are built on, against best-in-class."
+        defaultCollapsed
+      >
+        <div className="grid gap-x-10 gap-y-4 sm:grid-cols-2">
           {metrics.map((m) => (
             <MetricDelta key={m.id} metric={m} />
           ))}
         </div>
-      </section>
+      </Section>
     </FullFrame>
   );
 }

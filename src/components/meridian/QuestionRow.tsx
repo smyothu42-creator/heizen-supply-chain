@@ -1,17 +1,21 @@
 "use client";
 
+import { useId, useState } from "react";
 import { cn } from "@/lib/cn";
 import { gapById, stakeholderById, type Question } from "@/lib/suvarna";
-import { Disclosure } from "./Primitives";
 import { usePanel } from "./EvidencePanel";
 import { money } from "@/lib/format";
 
 /**
  * A question is an action, not a finding. Future-tense, sequenced, never priced.
- * It shares FindingCard's structure with GapRow and deliberately shares none of
- * its visual register: no money column, and the ask order is a structural
- * element rather than a sort key, because "ask this first, then this" is the
- * part that saves three calls.
+ *
+ * Shares FindingCard's structure with GapRow and none of its visual register:
+ * no money column, and the ask order is a structural element rather than a
+ * sort key, because "ask this first, then this" is the part that saves three
+ * calls.
+ *
+ * Collapsed it is the question and who to ask. Everything about why, and what
+ * the answers mean, is one interaction away.
  */
 
 function ordinal(n: number): string {
@@ -20,76 +24,92 @@ function ordinal(n: number): string {
 }
 
 export function QuestionRow({ question, last = false }: { question: Question; last?: boolean }) {
+  const [open, setOpen] = useState(false);
   const target = stakeholderById(question.targetId);
-  const { open } = usePanel();
+  const { open: openPanel } = usePanel();
+  const id = useId();
 
   return (
-    <li className="relative flex gap-4 pb-5 last:pb-0">
+    <li className="relative flex gap-3.5">
       {/* The spine. Order is visible as structure, not inferred from position. */}
-      <div className="relative flex w-14 shrink-0 flex-col items-center">
-        <span className="z-10 rounded-full border border-border-strong bg-card px-2 py-0.5 text-micro font-medium tabular whitespace-nowrap">
-          Ask {ordinal(question.askOrder)}
+      <div className="relative flex w-12 shrink-0 flex-col items-center pt-1.5">
+        <span className="z-10 rounded-full border border-border-strong bg-card px-1.5 py-0.5 text-micro font-medium tabular whitespace-nowrap">
+          {ordinal(question.askOrder)}
         </span>
-        {!last && <span className="absolute top-6 bottom-[-4px] w-px bg-border" aria-hidden />}
+        {!last && <span className="absolute bottom-0 top-7 w-px bg-border" aria-hidden />}
       </div>
 
-      <div className="min-w-0 flex-1">
-        <h3 className="text-base font-medium measure">{question.text}</h3>
-
-        {question.gloss && (
-          <p className="mt-1 text-small text-muted-foreground measure">{question.gloss}</p>
-        )}
-
-        <p className="mt-1.5 text-small">
-          <span className="text-muted-foreground">Ask </span>
-          <span className="font-medium">{target.name}</span>
-          <span className="text-muted-foreground">
-            {" "}
-            — {target.role}
-            {!target.met && " · not met yet"}
+      <div className="min-w-0 flex-1 pb-4">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={id}
+          onClick={() => setOpen((v) => !v)}
+          className="group flex w-full items-baseline gap-3 py-1 text-left"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-base group-hover:underline underline-offset-4">
+              {question.text}
+            </span>
+            <span className="mt-0.5 block truncate text-small text-muted-foreground">
+              {target.name} · {target.role}
+              {!target.met && " · not met"}
+            </span>
           </span>
-        </p>
+          <span
+            aria-hidden
+            className={cn(
+              "shrink-0 text-muted-foreground transition-transform",
+              open && "rotate-90",
+            )}
+          >
+            ›
+          </span>
+        </button>
 
-        <div className="mt-2 flex flex-wrap items-center gap-x-5">
-          <Disclosure label="Why this matters">
-            <p className="text-small measure">{question.whyItMatters}</p>
-          </Disclosure>
+        {open && (
+          <div id={id} className="mt-1.5 space-y-2.5">
+            {question.gloss && (
+              <p className="text-small text-muted-foreground measure">{question.gloss}</p>
+            )}
 
-          <Disclosure label="What the answers tell you">
-            <dl className="space-y-2 text-small measure">
+            <div>
+              <p className="text-micro font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                Why this matters
+              </p>
+              <p className="mt-0.5 text-small measure">{question.whyItMatters}</p>
+            </div>
+
+            <dl className="space-y-1.5 text-small measure">
               <div>
-                <dt className="font-medium">If the answer is weak</dt>
-                <dd className="text-muted-foreground">{question.badAnswer}</dd>
+                <dt className="inline font-medium">Weak answer — </dt>
+                <dd className="inline text-muted-foreground">{question.badAnswer}</dd>
               </div>
               <div>
-                <dt className="font-medium">If the answer is good</dt>
-                <dd className="text-muted-foreground">{question.goodAnswer}</dd>
+                <dt className="inline font-medium">Good answer — </dt>
+                <dd className="inline text-muted-foreground">{question.goodAnswer}</dd>
               </div>
             </dl>
-          </Disclosure>
-        </div>
 
-        {question.linkedGapIds.length > 0 && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-micro text-muted-foreground">Tests:</span>
-            {question.linkedGapIds.map((gid) => {
-              const gap = gapById(gid);
-              return (
-                <button
-                  key={gid}
-                  type="button"
-                  onClick={() => open({ kind: "gap", id: gid })}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border border-border bg-card",
-                    "px-2 py-0.5 text-micro text-muted-foreground",
-                    "hover:border-border-strong hover:text-foreground transition-colors",
-                  )}
-                >
-                  <span className="max-w-[26ch] truncate">{gap.title}</span>
-                  <span className="tabular">{money(gap.amountCr)}</span>
-                </button>
-              );
-            })}
+            {question.linkedGapIds.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-micro text-muted-foreground">Tests:</span>
+                {question.linkedGapIds.map((gid) => {
+                  const gap = gapById(gid);
+                  return (
+                    <button
+                      key={gid}
+                      type="button"
+                      onClick={() => openPanel({ kind: "gap", id: gid })}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2 py-0.5 text-micro text-muted-foreground hover:border-border-strong hover:text-foreground"
+                    >
+                      <span className="max-w-[26ch] truncate">{gap.title}</span>
+                      <span className="tabular">{money(gap.amountCr)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>

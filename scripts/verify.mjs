@@ -30,13 +30,23 @@ const PAGES = [
   ...DIRECTIONS.flatMap((d) => [`/research/${d}/brief`, `/research/${d}/full`]),
 ];
 
-/** Pages with the shared detail panel, for the focus round-trip check. */
-const PANEL_PAGES = [
-  "/canvas",
-  "/gaps",
-  "/sources",
-  ...DIRECTIONS.map((d) => `/research/${d}/full`),
-];
+/**
+ * How the detail panel is opened on each surface. Gap rows collapsed to one
+ * line no longer carry their own panel button, so those pages expand the row
+ * first — which is the real user path anyway.
+ */
+const PANEL_TRIGGERS = {
+  "/canvas": { click: "[data-node] button" },
+  "/sources": { click: "ul button" },
+  "/gaps": { expand: "li > div > button", click: 'button:has-text("Open in panel")' },
+  "/research/certainty/full": { click: "ul li button" },
+  "/research/money/full": { expand: "li > button", click: 'button:has-text("Open in panel")' },
+  "/research/call/full": { expand: "li > button", click: 'button:has-text("Open in panel")' },
+  "/research/stakeholder/full": {
+    expand: "li > button",
+    click: 'button:has-text("Open in panel")',
+  },
+};
 
 const VIEWPORTS = [
   { name: "375x667", width: 375, height: 667 },
@@ -166,11 +176,15 @@ for (const vp of VIEWPORTS) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, ...RM });
   for (const path of PAGES) {
     await page.goto(BASE + path, { waitUntil: "networkidle" });
+    // Only count what is genuinely focusable. Content inside a collapsed
+    // section is [hidden] and must not be in the tab order.
     const interactive = await page.evaluate(
       () =>
-        document.querySelectorAll(
-          'a[href],button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])',
-        ).length,
+        [
+          ...document.querySelectorAll(
+            'a[href],button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])',
+          ),
+        ].filter((el) => !el.closest("[hidden]") && el.offsetParent !== null).length,
     );
     const seen = new Set();
     for (let i = 0; i < interactive + 8; i++) {
@@ -188,13 +202,14 @@ for (const vp of VIEWPORTS) {
     }
 
     let panel = null;
-    if (PANEL_PAGES.includes(path)) {
-      // Canvas has no "Open detail" affordance — its nodes are the trigger.
-      const btn = page
-        .locator(
-          'button:has-text("Open detail"), button:has-text("See everything"), [data-node] button',
-        )
-        .first();
+    const trigger = PANEL_TRIGGERS[path];
+    if (trigger) {
+      if (trigger.expand) {
+        const row = page.locator(trigger.expand).first();
+        if (await row.count()) await row.click();
+        await page.waitForTimeout(120);
+      }
+      const btn = page.locator(trigger.click).first();
       if (await btn.count()) {
         const label = (await btn.textContent())?.trim();
         await btn.focus();

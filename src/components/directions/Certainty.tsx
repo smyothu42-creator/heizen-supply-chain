@@ -15,12 +15,13 @@ import {
   type Claim,
   type Tier,
 } from "@/lib/suvarna";
-import { BriefFrame, FullFrame, SummaryStrip, type SectionRef } from "./Frames";
+import { BriefFrame, FullFrame, Section, SummaryStrip, type SectionRef } from "./Frames";
 import { ConfidenceBadge, TIER_MEANING, TierBadge } from "@/components/meridian/Confidence";
-import { Eyebrow, SectionHeading } from "@/components/meridian/Primitives";
+import { Eyebrow } from "@/components/meridian/Primitives";
 import { EmptyState } from "@/components/meridian/EmptyState";
 import { SourceChip } from "@/components/meridian/Evidence";
 import { ArrowIcon, TierMark } from "@/components/meridian/Icons";
+import { AboutView } from "@/components/meridian/PageHeader";
 import { usePanel } from "@/components/meridian/EvidencePanel";
 
 /* -------------------------------------------------------------------------- */
@@ -127,109 +128,83 @@ const SECTIONS: SectionRef[] = [
 export function CertaintyFull() {
   return (
     <FullFrame sections={SECTIONS}>
-      <section>
+      <header>
         <Eyebrow>{company.name} · claim ledger</Eyebrow>
-        <h1 id="ledger" className="mt-1.5 scroll-mt-6 font-display text-h1 leading-tight measure">
+        <h1 id="ledger" className="mt-1.5 scroll-mt-6 font-display text-h1 leading-tight">
           What you can say, and what to check
         </h1>
-        <p className="mt-2 text-base text-muted-foreground measure">
-          Everything Meridian believes about Suvarna, sorted by how sure it is rather than by how
-          much it is worth. Nothing is hidden to make the output look stronger — the moment a
-          consultant is contradicted by a client on a claim presented as certain, the whole tool
-          loses credibility.
+        <p className="mt-1.5 text-small text-muted-foreground measure">
+          Sorted by how sure we are, not by what it is worth.
         </p>
 
         <div className="mt-4">
           <SummaryStrip
             items={[
-              { label: "Claims", value: "18" },
-              { label: "Confirmed", value: String(tierCounts.confirmed) },
-              { label: "Inferred", value: String(tierCounts.inferred) },
-              { label: "Unverified", value: String(tierCounts.unverified) },
-              { label: "Sources", value: "4" },
-              { label: "Overall", value: company.confidence },
+              { label: "confirmed", value: `${tierCounts.confirmed} · ${money(tierValue("confirmed"))}` },
+              { label: "inferred", value: `${tierCounts.inferred} · ${money(tierValue("inferred"))}` },
+              { label: "unverified", value: `${tierCounts.unverified} · —` },
+              { label: "overall", value: company.confidence },
             ]}
           />
         </div>
 
-        <dl className="mt-5 grid gap-4 sm:grid-cols-3">
-          {(["confirmed", "inferred", "unverified"] as Tier[]).map((tier) => (
-            <div key={tier} className="rounded-lg border border-border bg-card px-3.5 py-3">
-              <dt>
-                <TierBadge tier={tier} />
-              </dt>
-              <dd className="mt-1.5 text-small text-muted-foreground measure">
-                {TIER_MEANING[tier]}
-              </dd>
-              <dd className="mt-2 tabular text-lead font-medium">
-                {tier === "unverified" ? "—" : money(tierValue(tier))}
-                <span className="ml-1.5 text-small font-normal text-muted-foreground">
-                  {tier === "unverified" ? "not priced" : "of the total"}
-                </span>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
+        <div className="mt-3">
+          <AboutView>
+            <p>
+              Nothing is hidden to make the output look stronger. The moment a consultant is
+              contradicted by a client on a claim presented as certain, the whole tool loses
+              credibility.
+            </p>
+            <p>
+              Confirmed means traced to something they told us or published. Inferred means reasoned
+              from sector patterns, not their data. Unverified means ask before you say it.
+            </p>
+          </AboutView>
+        </div>
+      </header>
 
       {(["confirmed", "inferred", "unverified"] as Tier[]).map((tier) => (
-        <section key={tier}>
-          <SectionHeading
-            id={tier}
-            title={
-              tier === "confirmed"
-                ? "Confirmed"
-                : tier === "inferred"
-                  ? "Inferred"
-                  : "Unverified"
-            }
-            summary={TIER_MEANING[tier]}
-            right={
-              <span className="tabular">
-                {claimsByTier(tier).length} claims ·{" "}
-                {tier === "unverified" ? "—" : money(tierValue(tier))}
-              </span>
-            }
-          />
-          <ul className="mt-1 divide-y divide-border">
+        <Section
+          key={tier}
+          id={tier}
+          title={tier === "confirmed" ? "Confirmed" : tier === "inferred" ? "Inferred" : "Unverified"}
+          summary={TIER_MEANING[tier]}
+          right={
+            <span className="tabular">
+              {claimsByTier(tier).length} · {tier === "unverified" ? "—" : money(tierValue(tier))}
+            </span>
+          }
+        >
+          <ul className="divide-y divide-border">
             {claimsByTier(tier).map((claim) => (
               <ClaimRow key={claim.id} claim={claim} />
             ))}
           </ul>
-
           {tier === "unverified" && (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <EmptyState kind="no-sources" scope="Two claims with nothing attached" compact />
               <EmptyState kind="not-researched" scope="Returns and reverse logistics" compact />
             </div>
           )}
-        </section>
+        </Section>
       ))}
 
       {/* The direction's own weakness, stated rather than hidden. */}
-      <section>
-        <SectionHeading
-          id="gaps-by-tier"
-          title="The money by tier"
-          summary="Sorting by certainty puts a ₹42 L confirmed gap above a ₹2.1 Cr inferred one. That is backwards commercially, so the value is shown here explicitly — this is the part of the direction that needs a second sort."
-          right={<span className="tabular">₹14.7 Cr</span>}
-        />
-        <div className="mt-3 overflow-x-auto">
+      <Section
+        id="gaps-by-tier"
+        title="The money by tier"
+        summary="Sorting by certainty puts a ₹42 L confirmed gap above a ₹2.1 Cr inferred one. Backwards, commercially — this is the part that needs a second sort."
+        right={<span className="tabular">₹14.7 Cr</span>}
+        defaultCollapsed
+      >
+        <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] text-small">
             <thead>
               <tr className="border-b border-border text-left">
-                <th scope="col" className="py-2 pr-3 font-medium">
-                  Gap
-                </th>
-                <th scope="col" className="py-2 pr-3 font-medium">
-                  Basis
-                </th>
-                <th scope="col" className="py-2 pr-3 text-right font-medium">
-                  Value
-                </th>
-                <th scope="col" className="py-2 text-right font-medium">
-                  Rank by value
-                </th>
+                <th scope="col" className="py-2 pr-3 font-medium">Gap</th>
+                <th scope="col" className="py-2 pr-3 font-medium">Basis</th>
+                <th scope="col" className="py-2 pr-3 text-right font-medium">Value</th>
+                <th scope="col" className="py-2 text-right font-medium">Rank</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -256,30 +231,28 @@ export function CertaintyFull() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Section>
 
-      <section>
-        <SectionHeading
-          id="sources"
-          title="Sources"
-          summary="Four. Every claim above traces to one of these, or is marked as having nothing behind it."
-          right={<span className="tabular">4</span>}
-        />
-        <ul className="mt-3 space-y-3">
+      <Section
+        id="sources"
+        title="Sources"
+        summary="Four. Every claim above traces to one, or is marked as having nothing behind it."
+        right={<span className="tabular">4</span>}
+      >
+        <ul className="space-y-2">
           {sources.map((s) => {
             const supports = claims.filter((c) => c.sourceIds.includes(s.id));
             return (
               <li key={s.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <SourceChip sourceId={s.id} />
-                <span className="text-small text-muted-foreground">{s.detail}</span>
                 <span className="tabular text-small text-muted-foreground">
-                  · {supports.length} claims
+                  {supports.length} claims
                 </span>
               </li>
             );
           })}
         </ul>
-      </section>
+      </Section>
     </FullFrame>
   );
 }
@@ -291,7 +264,7 @@ function ClaimRow({ claim }: { claim: Claim }) {
   const gap = claim.linkedGapId ? gapById(claim.linkedGapId) : null;
 
   return (
-    <li className="py-3">
+    <li className="py-2.5">
       <div className="flex items-start gap-3">
         <span
           className={cn(
@@ -303,7 +276,13 @@ function ClaimRow({ claim }: { claim: Claim }) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-base measure">{claim.statement}</p>
+            <button
+              type="button"
+              onClick={() => open({ kind: "claim", id: claim.id })}
+              className="text-left text-base measure hover:underline underline-offset-4"
+            >
+              {claim.statement}
+            </button>
             {gap && (
               <span
                 className={cn(
@@ -315,27 +294,17 @@ function ClaimRow({ claim }: { claim: Claim }) {
               </span>
             )}
           </div>
-          {/* The basis is never collapsed. A tier without its reason is a badge. */}
-          <p className="mt-1 text-small text-muted-foreground measure">{claim.basis}</p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="text-micro uppercase tracking-[0.08em] text-muted-foreground">
-              {claim.category}
-            </span>
-            {claim.sourceIds.length > 0 ? (
-              claim.sourceIds.map((sid) => <SourceChip key={sid} sourceId={sid} />)
-            ) : (
-              <span className="text-micro italic text-muted-foreground">
-                Nothing attached — treat as a question, not a statement
-              </span>
+          {/* The basis travels with the tier — a level without its reason is a
+              badge. One line: enough to judge it, short enough that eighteen
+              claims still scan. The full basis is in the panel.
+              Sources are named, not chipped: eighteen rows of chips is twenty-five
+              more controls to skip past, and the row already opens them. */}
+          <p className="mt-0.5 line-clamp-1 text-small text-muted-foreground">
+            {claim.basis}
+            {claim.sourceIds.length === 0 && (
+              <span className="italic"> · nothing attached</span>
             )}
-            <button
-              type="button"
-              onClick={() => open({ kind: "claim", id: claim.id })}
-              className="text-micro text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-            >
-              Open detail
-            </button>
-          </div>
+          </p>
         </div>
       </div>
     </li>

@@ -52,10 +52,8 @@ export function CanvasList() {
         <div>
           <Eyebrow>{company.name} · supply chain map</Eyebrow>
           <h1 className="mt-1.5 font-display text-h1 leading-tight">How this company runs</h1>
-          <p className="mt-2 text-base text-muted-foreground measure">
-            Three levels. The top row is the same for every manufacturer alive, so it is here as
-            orientation only. Go down two levels and you reach the places where Suvarna is different
-            from everyone else — which is where the money is.
+          <p className="mt-1.5 text-small text-muted-foreground measure">
+            Three levels. The money is at the bottom one.
           </p>
         </div>
         <button
@@ -81,8 +79,8 @@ export function CanvasList() {
       </div>
 
       <p className="mt-3 text-small text-muted-foreground measure">
-        {counts.empty} of {counts.total} boxes have nothing behind them, and that is normal — clients
-        never hand over everything. An empty box is not a problem with the research.
+        {counts.empty} of {counts.total} boxes have nothing behind them. That is normal — clients
+        never hand over everything.
       </p>
 
       {showLegend && (
@@ -156,9 +154,7 @@ export function CanvasList() {
             <h2 className="text-micro font-medium uppercase tracking-[0.09em] text-muted-foreground">
               Level 2 · inside {selectedL1?.name ?? "—"}
             </h2>
-            <p className="mt-1 text-base font-medium">
-              This is where companies differ, and where a gap gets a price
-            </p>
+            <p className="mt-0.5 text-base font-medium">Where companies differ, and gaps get a price</p>
           </div>
           <span className="tabular text-base font-medium">
             {money(l2Nodes.reduce((s, n) => s + valueOf(n), 0))}
@@ -177,8 +173,7 @@ export function CanvasList() {
           <div className="mt-4 rounded-lg border border-dashed border-border-strong bg-muted px-4 py-5">
             <p className="text-base font-medium">Not yet researched</p>
             <p className="mt-1 text-small text-muted-foreground measure">
-              We have not broken {selectedL1?.name ?? "this area"} down. Nothing here is a finding
-              either way — it is simply not mapped.
+              {selectedL1?.name ?? "This area"} is not mapped. Nothing here is a finding either way.
             </p>
             <button
               type="button"
@@ -194,9 +189,7 @@ export function CanvasList() {
       <section className="mt-8 border-t border-border pt-5">
         <h2 className="text-base font-medium">Where the colours are a guess</h2>
         <p className="mt-1 text-small text-muted-foreground measure">
-          These boxes carry a health colour but no evidence at all. The colour is what this process
-          usually looks like in food processing — not something we checked at Suvarna. They are the
-          reason health and evidence have to be two separate encodings.
+          Health colour, no evidence. The colour is the sector default, not something we checked.
         </p>
         <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {nodes

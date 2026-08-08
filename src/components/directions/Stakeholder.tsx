@@ -13,9 +13,9 @@ import {
   stakeholders,
   valueForStakeholder,
 } from "@/lib/suvarna";
-import { BriefFrame, FullFrame, SummaryStrip, type SectionRef } from "./Frames";
+import { BriefFrame, FullFrame, Section, SummaryStrip, type SectionRef } from "./Frames";
 import { ConfidenceBadge } from "@/components/meridian/Confidence";
-import { Eyebrow, SectionHeading } from "@/components/meridian/Primitives";
+import { Eyebrow } from "@/components/meridian/Primitives";
 import { GapRow } from "@/components/meridian/GapRow";
 import { QuestionRow } from "@/components/meridian/QuestionRow";
 import { ArrowIcon } from "@/components/meridian/Icons";
@@ -216,74 +216,63 @@ const SECTIONS: SectionRef[] = [
 export function StakeholderFull() {
   return (
     <FullFrame sections={SECTIONS}>
-      <section>
+      <header>
         <Eyebrow>{company.name} · by who you are meeting</Eyebrow>
-        <h1 id="room" className="mt-1.5 scroll-mt-6 font-display text-h1 leading-tight measure">
+        <h1 id="room" className="mt-1.5 scroll-mt-6 font-display text-h1 leading-tight">
           Who is in the room
         </h1>
-        <p className="mt-2 text-base text-muted-foreground measure">
-          The same twelve gaps appear under every person below. What changes is the order, the
-          wording, and what to leave alone — because the first meeting is with an individual, not
-          with a company.
+        <p className="mt-1.5 text-small text-muted-foreground measure">
+          The same twelve gaps under every name. Order, wording and what to avoid change.
         </p>
 
         <div className="mt-4">
           <SummaryStrip
             items={[
-              { label: "People", value: "4" },
-              { label: "Met", value: "2 of 4" },
-              { label: "Gaps", value: "12" },
-              { label: "Total", value: "₹14.7 Cr" },
-              { label: "Confidence", value: company.confidence },
+              { label: "people", value: "4" },
+              { label: "met", value: "2 of 4" },
+              { label: "gaps", value: "12" },
+              { label: "total", value: "₹14.7 Cr" },
             ]}
           />
         </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[560px] text-small">
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[520px] text-small">
             <thead>
               <tr className="border-b border-border text-left">
-                <th scope="col" className="py-2 pr-3 font-medium">
-                  Person
-                </th>
-                <th scope="col" className="py-2 pr-3 font-medium">
-                  Owns
-                </th>
-                <th scope="col" className="py-2 pr-3 text-right font-medium">
-                  Gaps
-                </th>
-                <th scope="col" className="py-2 text-right font-medium">
-                  Worth to them
-                </th>
+                <th scope="col" className="py-1.5 pr-3 font-medium">Person</th>
+                <th scope="col" className="py-1.5 pr-3 font-medium">Owns</th>
+                <th scope="col" className="py-1.5 pr-3 text-right font-medium">Gaps</th>
+                <th scope="col" className="py-1.5 text-right font-medium">Worth</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {stakeholders.map((s) => (
-                <tr key={s.id}>
-                  <td className="py-2 pr-3 align-top">
-                    <a href={`#${s.id}`} className="font-medium underline-offset-4 hover:underline">
-                      {s.name}
+              {stakeholders.map((p) => (
+                <tr key={p.id}>
+                  <td className="py-1.5 pr-3 align-top">
+                    <a href={`#${p.id}`} className="font-medium underline-offset-4 hover:underline">
+                      {p.name}
                     </a>
                     <span className="block text-micro text-muted-foreground">
-                      {s.role}
-                      {!s.met && " · not met"}
+                      {p.role}
+                      {!p.met && " · not met"}
                     </span>
                   </td>
-                  <td className="py-2 pr-3 align-top text-muted-foreground">
-                    {s.owns.slice(0, 2).join(", ")}
+                  <td className="py-1.5 pr-3 align-top text-muted-foreground">
+                    {p.owns.slice(0, 2).join(", ")}
                   </td>
-                  <td className="tabular py-2 pr-3 text-right align-top">
-                    {gapsForStakeholder(s.id).length}
+                  <td className="tabular py-1.5 pr-3 text-right align-top">
+                    {gapsForStakeholder(p.id).length}
                   </td>
-                  <td className="tabular py-2 text-right align-top font-medium">
-                    {money(valueForStakeholder(s.id))}
+                  <td className="tabular py-1.5 text-right align-top font-medium">
+                    {money(valueForStakeholder(p.id))}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </section>
+      </header>
 
       {stakeholders.map((person) => {
         const theirGaps = gapsForStakeholder(person.id).sort(
@@ -291,108 +280,72 @@ export function StakeholderFull() {
         );
         const theirQuestions = questionsForStakeholder(person.id);
         return (
-          <section key={person.id}>
-            <SectionHeading
-              id={person.id}
-              title={person.name}
-              summary={`${person.role}${person.met ? " · met on both discovery calls" : " · not met yet"}`}
-              right={
-                <span className="tabular text-base font-medium text-foreground">
-                  {money(valueForStakeholder(person.id))}
-                </span>
-              }
-            />
-
-            <div className="mt-3 rounded-lg border border-border bg-card px-3.5 py-3">
+          <Section
+            key={person.id}
+            id={person.id}
+            title={person.name}
+            summary={`${person.role}${person.met ? " · met on both calls" : " · not met yet"}`}
+            right={
+              <span className="tabular text-base font-medium text-foreground">
+                {money(valueForStakeholder(person.id))}
+              </span>
+            }
+          >
+            <div className="rounded-lg border border-border bg-card px-3.5 py-2.5">
               <div className="text-micro font-medium uppercase tracking-[0.08em] text-muted-foreground">
                 Open with
               </div>
               <p className="mt-1 text-lead leading-snug measure">{person.openingLine}</p>
             </div>
 
-            <div className="mt-4 grid gap-5 sm:grid-cols-2">
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <div>
                 <Eyebrow>Measured on</Eyebrow>
-                <ul className="mt-1.5 space-y-1 text-small measure">
+                <ul className="mt-1 space-y-0.5 text-small measure">
                   {person.measuredOn.map((m) => (
-                    <li key={m} className="flex gap-2">
-                      <span className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-border-strong" aria-hidden />
-                      {m}
-                    </li>
+                    <li key={m}>{m}</li>
                   ))}
                 </ul>
               </div>
               <div>
                 <Eyebrow>Owns</Eyebrow>
-                <ul className="mt-1.5 space-y-1 text-small measure">
-                  {person.owns.map((m) => (
-                    <li key={m} className="flex gap-2">
-                      <span className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-border-strong" aria-hidden />
-                      {m}
-                    </li>
-                  ))}
-                </ul>
+                <p className="mt-1 text-small measure">{person.owns.join(", ")}</p>
               </div>
             </div>
 
-            <div className="mt-4 rounded-lg border border-dashed border-border-strong px-3.5 py-3">
-              <div className="text-micro font-medium uppercase tracking-[0.08em] text-health-watch">
-                Do not
-              </div>
-              <p className="mt-1 text-small measure">{person.avoid}</p>
-            </div>
+            <p className="mt-3 text-small measure">
+              <span className="font-medium text-health-watch">Do not: </span>
+              <span className="text-muted-foreground">{person.avoid}</span>
+            </p>
 
-            <h3 className="mt-6 text-base font-medium">
-              Gaps that land on them
-              <span className="ml-2 tabular text-small font-normal text-muted-foreground">
-                {theirGaps.length} · {money(valueForStakeholder(person.id))}
-              </span>
-            </h3>
-            <ul className="mt-1 divide-y divide-border border-t border-border">
+            <ul className="mt-3 divide-y divide-border border-t border-border">
               {theirGaps.map((gap) => (
                 <GapRow key={gap.id} gap={gap} />
               ))}
             </ul>
 
             {theirQuestions.length > 0 && (
-              <>
-                <h3 className="mt-6 text-base font-medium">
-                  Ask them
-                  <span className="ml-2 tabular text-small font-normal text-muted-foreground">
-                    {theirQuestions.length}
-                  </span>
-                </h3>
-                <ol className="mt-3">
-                  {theirQuestions.map((q, i) => (
-                    <QuestionRow
-                      key={q.id}
-                      question={q}
-                      last={i === theirQuestions.length - 1}
-                    />
-                  ))}
-                </ol>
-              </>
+              <ol className="mt-4 border-t border-border pt-3">
+                {theirQuestions.map((q, i) => (
+                  <QuestionRow key={q.id} question={q} last={i === theirQuestions.length - 1} />
+                ))}
+              </ol>
             )}
-          </section>
+          </Section>
         );
       })}
 
-      <section>
-        <SectionHeading
-          id="unknown"
-          title="If you don't know who you're meeting"
-          summary="The common case, and this direction's weak point. Rather than falling back to an unsorted dossier, it falls back to the gaps that cross every function."
-        />
-        <div className="mt-3 rounded-lg border border-border bg-card px-3.5 py-3">
+      <Section
+        id="unknown"
+        title="If you don't know who you're meeting"
+        summary="The common case, and this direction's weak point. It falls back to the gaps that cross every function."
+      >
+        <div className="rounded-lg border border-border bg-card px-3.5 py-2.5">
           <div className="text-micro font-medium uppercase tracking-[0.08em] text-muted-foreground">
             First question on the call
           </div>
           <p className="mt-1 text-lead leading-snug measure">
             &ldquo;Before I start — whose numbers do these land on, yours or Finance&apos;s?&rdquo;
-          </p>
-          <p className="mt-1.5 text-small text-muted-foreground measure">
-            One question re-sorts the whole screen. Until it is answered, the three below are safe
-            with procurement, finance and operations alike.
           </p>
         </div>
         <ul className="mt-3 divide-y divide-border border-t border-border">
@@ -400,7 +353,7 @@ export function StakeholderFull() {
             <GapRow key={id} gap={gapById(id)} />
           ))}
         </ul>
-      </section>
+      </Section>
     </FullFrame>
   );
 }

@@ -220,15 +220,14 @@ export function CanvasLegend() {
     <div className="rounded-lg border border-border bg-card p-4">
       <h2 className="text-base font-medium">How to read a box</h2>
       <p className="mt-1 text-small text-muted-foreground measure">
-        Two separate things. The colour tells you how the process is running. The fill tells you how
-        much we actually know about it. A green box we know nothing about and a red box with full
-        evidence are opposite situations — they should never look similar.
+        Colour says how it runs. Fill says how much we know. A green box we know nothing about is
+        the opposite of a red box with full evidence.
       </p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
           <div className="text-micro font-medium uppercase tracking-[0.08em] text-muted-foreground">
-            Colour and shape — how this is running
+            Colour and shape
           </div>
           <ul className="mt-2 space-y-1.5">
             {healths.map((h) => (
@@ -243,7 +242,7 @@ export function CanvasLegend() {
 
         <div>
           <div className="text-micro font-medium uppercase tracking-[0.08em] text-muted-foreground">
-            Fill and bars — what evidence we have
+            Fill and bars
           </div>
           <ul className="mt-2 space-y-1.5">
             {completes.map((c) => (

@@ -76,6 +76,7 @@ how good its Full is.
 pnpm check:data                     # no server needed
 pnpm build && pnpm start -p 4311
 pnpm check:ui                       # fit, contrast, keyboard, panel focus
+pnpm check:density                  # words, controls and screens per page
 pnpm check:stakeholder              # fit for every stakeholder selection
 pnpm shots                          # writes screenshots/
 ```
@@ -90,6 +91,26 @@ Current state:
   that have one
 - Every subtotal reconciles to ₹14.7 Cr — by money bucket, by evidence tier, by
   stakeholder — and no gap is priced twice
+
+## On density
+
+Overwhelm is this product's failure mode, so the amount of text a screen puts in front
+of Aryan is measured, not argued about. `pnpm check:density` reports it.
+
+The first build was 9,244 visible words across 13 pages — Gaps alone was 830 words and
+76 controls for twelve findings. It is now around 5,200, and Gaps is 263 words in 41
+controls. What changed:
+
+- **One line per finding.** A gap collapsed is rank, what it is, what it costs.
+  Everything else is behind one expander instead of four.
+- **A fixed page header.** Label, title, one sentence, at most four numbers. Anything
+  longer sits behind *About this view*, closed by default.
+- **Section collapse that is remembered**, with the dense summary staying visible when
+  a section is folded — so a scanner gets the point without entering it.
+- **Reference material starts folded.** The twelve-metric glossary is there when wanted,
+  not in the way by default.
+- **Copy edited throughout.** Sentences that justified the design were cut; sentences
+  that tell a consultant something they can use were kept.
 
 ## Where things live
 

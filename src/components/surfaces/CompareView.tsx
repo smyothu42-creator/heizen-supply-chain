@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { currentLane, lanes, laneById, stages } from "@/lib/compare";
-import { Eyebrow } from "@/components/meridian/Primitives";
-import { SummaryStrip } from "@/components/directions/Frames";
+import { PageHeader } from "@/components/meridian/PageHeader";
 
 /**
  * Compare — lanes stacked, aligned on shared process stages.
@@ -39,32 +38,33 @@ export function CompareView() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-3 py-5 sm:px-4">
-      <Eyebrow>{currentLane.company} · against other work</Eyebrow>
-      <h1 className="mt-1.5 font-display text-h1 leading-tight">Where they sit</h1>
-      <p className="mt-2 text-base text-muted-foreground measure">
-        The same six steps, measured the same way, for every company. What matters is the row at the
-        bottom of each block — the distance between Suvarna and whoever you are holding them
-        against. That gap is the pitch.
-      </p>
-
-      <div className="mt-4">
-        <SummaryStrip
-          items={[
-            { label: "Stages compared", value: String(stages.length) },
-            { label: "Lanes on screen", value: String(stacked.length) },
-            { label: "Measured against", value: reference?.company ?? "—" },
-            {
-              label: "Widest gap",
-              value: worstStage ? worstStage.name : "—",
-            },
-          ]}
-        />
-      </div>
+      <PageHeader
+        eyebrow={currentLane.company}
+        title="Compare"
+        line="The same six steps, measured the same way. The gap is the pitch."
+        stats={[
+          { label: "stages", value: String(stages.length) },
+          { label: "lanes", value: String(stacked.length) },
+          { label: "widest gap", value: worstStage ? worstStage.name : "—" },
+        ]}
+        about={
+          <>
+            <p>
+              Suvarna&apos;s figures come from two calls and one email thread, not their ERP. Kesarwani
+              and Deccan are measured from delivered systems, so those are firmer numbers.
+            </p>
+            <p>
+              &ldquo;Best in class&rdquo; is an upper-quartile benchmark for food and beverage, not
+              a company. A blank means we never measured it — not zero, and not good.
+            </p>
+          </>
+        }
+      />
 
       {/* ------------------------------------------------- lane picker */}
       <fieldset className="mt-5">
         <legend className="text-micro uppercase tracking-[0.08em] text-muted-foreground">
-          Stack another lane below
+          Stack a lane below
         </legend>
         <div className="mt-2 flex flex-wrap gap-2">
           {lanes
@@ -98,8 +98,7 @@ export function CompareView() {
         <div className="mt-5 rounded-lg border border-dashed border-border-strong bg-muted px-4 py-5">
           <p className="text-base font-medium">Nothing to compare against</p>
           <p className="mt-1 text-small text-muted-foreground measure">
-            One lane on its own is a list of numbers. Tick a company above and the deltas appear —
-            that is the only thing on this screen worth reading out loud.
+            One lane alone is a list of numbers. Tick a company to see the deltas.
           </p>
         </div>
       )}
@@ -168,23 +167,6 @@ export function CompareView() {
         ))}
       </div>
 
-      <section className="mt-8 border-t border-border pt-5">
-        <h2 className="text-base font-medium">How to read this honestly</h2>
-        <ul className="mt-2 space-y-1.5 text-small text-muted-foreground measure">
-          <li>
-            Suvarna&apos;s figures come from two calls and one email thread, not from their ERP.
-            Kesarwani and Deccan are measured from delivered systems, so they are firmer numbers.
-          </li>
-          <li>
-            &ldquo;Best in class&rdquo; is an upper-quartile benchmark for food and beverage, not a
-            single real company. It is a target, not a competitor.
-          </li>
-          <li>
-            A blank means we never measured it for that client. It does not mean zero and it does
-            not mean good.
-          </li>
-        </ul>
-      </section>
     </div>
   );
 }

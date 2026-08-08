@@ -11,9 +11,9 @@ import {
   sources,
   stakeholders,
 } from "@/lib/suvarna";
-import { BriefFrame, FullFrame, SummaryStrip, type SectionRef } from "./Frames";
+import { BriefFrame, FullFrame, Section, SummaryStrip, type SectionRef } from "./Frames";
 import { ConfidenceBadge } from "@/components/meridian/Confidence";
-import { Eyebrow, SectionHeading, Card } from "@/components/meridian/Primitives";
+import { Eyebrow, Card } from "@/components/meridian/Primitives";
 import { QuestionRow } from "@/components/meridian/QuestionRow";
 import { GapRow } from "@/components/meridian/GapRow";
 import { SourceChip } from "@/components/meridian/Evidence";
@@ -140,46 +140,40 @@ const SECTIONS: SectionRef[] = [
 export function CallFull() {
   return (
     <FullFrame sections={SECTIONS}>
-      <div>
+      <header>
         <Eyebrow>{company.name} · discovery call plan</Eyebrow>
-        <h1 className="mt-1.5 font-display text-h1 leading-tight measure">The next 30 minutes</h1>
-        <p className="mt-2 text-base text-muted-foreground measure">
-          Read top to bottom before you dial. Everything Meridian found is in here — it is arranged
-          by when you would use it rather than by what kind of thing it is.
+        <h1 className="mt-1.5 font-display text-h1 leading-tight">The next 30 minutes</h1>
+        <p className="mt-1.5 text-small text-muted-foreground measure">
+          Arranged by when you would use it, not by what kind of thing it is.
         </p>
         <div className="mt-4">
           <SummaryStrip
             items={[
-              { label: "On the call", value: "Rohan Deshpande" },
-              { label: "Questions", value: "8" },
-              { label: "Gaps to name", value: "2 of 12" },
-              { label: "Worth", value: "₹14.7 Cr" },
-              { label: "Confidence", value: "Medium-high" },
+              { label: "on the call", value: "Rohan Deshpande" },
+              { label: "questions", value: "8" },
+              { label: "gaps to name", value: "3 of 12" },
+              { label: "worth", value: "₹14.7 Cr" },
             ]}
           />
         </div>
-      </div>
+      </header>
 
       {callBeats.map((beat) => (
-        <section key={beat.id}>
-          <SectionHeading
-            id={beat.id}
-            title={beat.phase}
-            summary={beat.intent}
-            right={<span className="tabular">{beat.minutes}</span>}
-          />
-
+        <Section
+          key={beat.id}
+          id={beat.id}
+          title={beat.phase}
+          summary={beat.intent}
+          right={<span className="tabular">{beat.minutes}</span>}
+        >
           {beat.lines.length > 0 && (
-            <div className="mt-3 space-y-3">
+            <div className="space-y-2.5">
               {beat.lines.map((line, i) => {
                 const isWarning = line.label.startsWith("Do not") || line.label === "Hold back";
                 return (
                   <Card
                     key={i}
-                    className={cn(
-                      "px-3.5 py-3",
-                      isWarning && "border-dashed bg-transparent",
-                    )}
+                    className={cn("px-3.5 py-2.5", isWarning && "border-dashed bg-transparent")}
                   >
                     <div
                       className={cn(
@@ -189,18 +183,11 @@ export function CallFull() {
                     >
                       {line.label}
                     </div>
-                    <p
-                      className={cn(
-                        "mt-1 measure",
-                        isWarning ? "text-base" : "text-lead leading-snug",
-                      )}
-                    >
+                    <p className={cn("mt-1 measure", isWarning ? "text-small" : "text-lead leading-snug")}>
                       {line.body}
                     </p>
                     {line.detail && (
-                      <p className="mt-1.5 text-small text-muted-foreground measure">
-                        {line.detail}
-                      </p>
+                      <p className="mt-1 text-small text-muted-foreground measure">{line.detail}</p>
                     )}
                   </Card>
                 );
@@ -208,62 +195,58 @@ export function CallFull() {
             </div>
           )}
 
-          {/* The probe beat is the question set itself. */}
           {beat.id === "beat-probe" && (
-            <ol className="mt-4">
+            <ol className="mt-1">
               {questions.map((q, i) => (
                 <QuestionRow key={q.id} question={q} last={i === questions.length - 1} />
               ))}
             </ol>
           )}
 
-          {/* The land beat carries the two gaps, in full, priced. */}
           {beat.id === "beat-land" && (
-            <ul className="mt-4 divide-y divide-border border-t border-border pt-3">
+            <ul className="mt-3 divide-y divide-border border-t border-border">
               {["g1", "g2", "g6"].map((id) => (
                 <GapRow key={id} gap={gapById(id)} showRank={false} />
               ))}
             </ul>
           )}
-        </section>
+        </Section>
       ))}
 
-      {/* ---------------------------------------------------------------- */}
-      <section>
-        <SectionHeading
-          id="if-asked"
-          title="If they ask"
-          summary="The direction's weak point, handled explicitly: facts that belong to no moment in the call, kept together so they are findable when someone asks a question out of order."
-        />
-        <div className="mt-3 grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+      <Section
+        id="if-asked"
+        title="If they ask"
+        summary="Facts that belong to no moment in the call, kept findable for when someone asks out of order."
+        defaultCollapsed
+      >
+        <div className="grid gap-x-8 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {company.facts.map((f) => (
             <div key={f.label}>
-              <div className="text-micro uppercase tracking-[0.08em] text-muted-foreground">
-                {f.label}
+              <div className="flex items-baseline gap-2">
+                <span className="tabular text-base font-medium">{f.value}</span>
+                <span className="text-micro uppercase tracking-[0.08em] text-muted-foreground">
+                  {f.label}
+                </span>
               </div>
-              <div className="tabular text-base font-medium">{f.value}</div>
-              <div className="text-small text-muted-foreground measure">{f.detail}</div>
+              <div className="text-small text-muted-foreground">{f.detail}</div>
             </div>
           ))}
         </div>
 
-        <h3 className="mt-6 text-base font-medium">The other nine gaps</h3>
-        <p className="mt-1 text-small text-muted-foreground measure">
-          Deliberately not on the call plan. If the conversation opens up, they are here.
-        </p>
+        <h3 className="mt-5 text-base font-medium">The other nine gaps</h3>
+        <p className="mt-0.5 text-small text-muted-foreground">Not on the call plan.</p>
         <ul className="mt-2 divide-y divide-border border-t border-border">
           {["g3", "g4", "g5", "g7", "g8", "g9", "g10", "g11", "g12"].map((id) => (
             <GapRow key={id} gap={gapById(id)} />
           ))}
         </ul>
 
-        <h3 className="mt-6 text-base font-medium">Where all of this came from</h3>
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-5 flex flex-wrap gap-1.5">
           {sources.map((s) => (
             <SourceChip key={s.id} sourceId={s.id} />
           ))}
         </div>
-      </section>
+      </Section>
     </FullFrame>
   );
 }

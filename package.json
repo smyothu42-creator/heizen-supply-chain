@@ -10,7 +10,8 @@
     "check:data": "node scripts/check-data.ts",
     "check:ui": "node scripts/verify.mjs",
     "check:stakeholder": "node scripts/verify-stakeholder.mjs",
-    "shots": "node scripts/shots.mjs"
+    "shots": "node scripts/shots.mjs",
+    "check:density": "node scripts/audit-density.mjs"
   },
   "dependencies": {
     "next": "16.3.0",

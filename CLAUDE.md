@@ -317,6 +317,11 @@ every money bucket, every stakeholder subtotal and every evidence tier must sum 
 ₹14.7 Cr, no gap may be priced by two claims, and nothing may appear without a
 source. It needs no server.
 
+`scripts/audit-density.mjs` (`pnpm check:density`) counts the visible words,
+focusable controls and screens of scroll on every page. Information density is the
+whole problem in this product, so it is measured rather than argued about. Baseline
+before the density pass was 9,244 words across 13 pages; it is now around 5,200.
+
 `scripts/verify-stakeholder.mjs` repeats the fit check for every stakeholder
 selection, because that direction's Brief changes height with the person chosen.
 `scripts/shots.mjs` writes `screenshots/` for review.

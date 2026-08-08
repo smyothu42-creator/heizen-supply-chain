@@ -2,114 +2,102 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/cn";
-import { company, questions, stakeholderById, stakeholders } from "@/lib/suvarna";
-import { Eyebrow } from "@/components/meridian/Primitives";
+import { company, questions, stakeholders } from "@/lib/suvarna";
 import { QuestionRow } from "@/components/meridian/QuestionRow";
-import { SummaryStrip } from "@/components/directions/Frames";
+import { PageHeader } from "@/components/meridian/PageHeader";
 
 /**
  * Questions — actions, not findings.
  *
- * Same component family as Gaps and deliberately the opposite register:
- * no money anywhere, future tense throughout, and the ask order carried as
- * structure rather than as a sort key. "Ask this first, then this" is the part
- * that saves three calls. See data-display-patterns.
+ * Same component family as Gaps, opposite register: no money anywhere, future
+ * tense throughout, and the ask order carried as structure rather than a sort.
  */
-
-type Group = "order" | "person";
-
 export function QuestionsView() {
-  const [group, setGroup] = useState<Group>("order");
+  const [byPerson, setByPerson] = useState(false);
 
   const ordered = [...questions].sort((a, b) => a.askOrder - b.askOrder);
-  const peopleWithQuestions = stakeholders.filter((s) =>
-    questions.some((q) => q.targetId === s.id),
-  );
+  const withQuestions = stakeholders.filter((s) => questions.some((q) => q.targetId === s.id));
+  const without = stakeholders.filter((s) => !questions.some((q) => q.targetId === s.id));
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-3 py-5 sm:px-4">
-      <Eyebrow>{company.name} · what to ask on the next call</Eyebrow>
-      <h1 className="mt-1.5 font-display text-h1 leading-tight">Eight questions, in this order</h1>
-      <p className="mt-2 text-base text-muted-foreground measure">
-        Not a checklist. The order is the point — each answer sets up the next question, and asking
-        them out of sequence costs you the one that matters. None of these carry a price, because a
-        question is something you do, not something you have found.
-      </p>
-
-      <div className="mt-4">
-        <SummaryStrip
-          items={[
-            { label: "Questions", value: String(questions.length) },
-            { label: "People to ask", value: String(peopleWithQuestions.length) },
-            { label: "Already met", value: `${peopleWithQuestions.filter((p) => p.met).length}` },
-            { label: "Gaps they test", value: "8 of 12" },
-            { label: "Calls this saves", value: "~3" },
-          ]}
-        />
-      </div>
-
-      <div className="mt-5 flex items-center gap-2">
-        <span className="text-micro uppercase tracking-[0.08em] text-muted-foreground">
-          Arrange by
-        </span>
-        <div className="flex rounded-md border border-border p-0.5" role="group" aria-label="Arrange by">
-          {(
-            [
-              ["order", "Ask order"],
-              ["person", "Who you are asking"],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={group === key}
-              onClick={() => setGroup(key)}
-              className={cn(
-                "rounded-[5px] px-2.5 py-0.5 text-small",
-                group === key ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {group === "order" ? (
-        <>
-          <p className="mt-5 text-small text-muted-foreground measure">
-            Straight through, start to finish. Questions 1 and 2 open on Rohan&apos;s own ground
-            before anything moves to Finance — that sequencing is deliberate.
-          </p>
-          <ol className="mt-4">
-            {ordered.map((q, i) => (
-              <QuestionRow key={q.id} question={q} last={i === ordered.length - 1} />
+    <div className="mx-auto w-full max-w-3xl px-3 py-5 sm:px-4">
+      <PageHeader
+        eyebrow={company.name}
+        title="Questions"
+        line="Ask in this order. Each answer sets up the next."
+        stats={[
+          { label: "questions", value: String(questions.length) },
+          { label: "people", value: String(withQuestions.length) },
+          { label: "gaps they test", value: "8 of 12" },
+        ]}
+        about={
+          <>
+            <p>
+              Every question either tests a gap we have priced or unlocks one we cannot. None carry
+              a price — a question is something you do, not something you have found.
+            </p>
+            <p>
+              The last one is a data request rather than a discovery question. It changes the
+              register of the call, and there is no way back from it.
+            </p>
+          </>
+        }
+        actions={
+          <div className="flex gap-0.5" role="group" aria-label="Arrange by">
+            {(
+              [
+                [false, "By order"],
+                [true, "By person"],
+              ] as const
+            ).map(([v, label]) => (
+              <button
+                key={label}
+                type="button"
+                aria-pressed={byPerson === v}
+                onClick={() => setByPerson(v)}
+                className={cn(
+                  "rounded-md px-2 py-0.5 text-small transition-colors",
+                  byPerson === v
+                    ? "bg-foreground font-medium text-background"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                {label}
+              </button>
             ))}
-          </ol>
-        </>
+          </div>
+        }
+      />
+
+      {!byPerson ? (
+        <ol className="border-t border-border pt-4">
+          {ordered.map((q, i) => (
+            <QuestionRow key={q.id} question={q} last={i === ordered.length - 1} />
+          ))}
+        </ol>
       ) : (
-        <div className="mt-5 space-y-8">
-          {peopleWithQuestions.map((person) => {
+        <div className="space-y-7 border-t border-border pt-4">
+          {withQuestions.map((person) => {
             const theirs = ordered.filter((q) => q.targetId === person.id);
             return (
               <section key={person.id}>
-                <div className="flex items-baseline justify-between gap-3 border-b border-border pb-2">
-                  <div>
-                    <h2 className="text-h3 font-medium tracking-tight">{person.name}</h2>
-                    <p className="mt-0.5 text-small text-muted-foreground">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <h2 className="text-h3 font-medium tracking-tight">
+                    {person.name}
+                    <span className="ml-2 text-small font-normal text-muted-foreground">
                       {person.role}
-                      {person.met ? " · met on both calls" : " · not met yet"}
-                    </p>
-                  </div>
-                  <span className="tabular shrink-0 text-small text-muted-foreground">
+                      {!person.met && " · not met"}
+                    </span>
+                  </h2>
+                  <span className="tabular text-small text-muted-foreground">
                     asks {theirs.map((q) => q.askOrder).join(", ")}
                   </span>
                 </div>
-                <p className="mt-2 text-small text-muted-foreground measure">
+                <p className="mt-1 text-small measure">
                   <span className="font-medium text-health-watch">Do not: </span>
-                  {person.avoid}
+                  <span className="text-muted-foreground">{person.avoid}</span>
                 </p>
-                <ol className="mt-4">
+                <ol className="mt-3">
                   {theirs.map((q, i) => (
                     <QuestionRow key={q.id} question={q} last={i === theirs.length - 1} />
                   ))}
@@ -118,36 +106,25 @@ export function QuestionsView() {
             );
           })}
 
-          {stakeholders
-            .filter((s) => !questions.some((q) => q.targetId === s.id))
-            .map((person) => (
-              <section key={person.id}>
-                <div className="border-b border-border pb-2">
-                  <h2 className="text-h3 font-medium tracking-tight">{person.name}</h2>
-                  <p className="mt-0.5 text-small text-muted-foreground">{person.role}</p>
-                </div>
-                <div className="mt-3 rounded-lg border border-dashed border-border-strong bg-muted px-4 py-4">
-                  <p className="text-base font-medium">Nothing to ask them yet</p>
-                  <p className="mt-1 text-small text-muted-foreground measure">
-                    {stakeholderById(person.id).role} has not come up in either call, so there is
-                    nothing here. That is an absence of research, not a judgement that they do not
-                    matter — {person.name.split(" ")[0]} owns{" "}
-                    {person.owns[0].toLowerCase()}, which is worth reaching.
-                  </p>
-                </div>
-              </section>
-            ))}
+          {without.map((person) => (
+            <section key={person.id}>
+              <h2 className="text-h3 font-medium tracking-tight">
+                {person.name}
+                <span className="ml-2 text-small font-normal text-muted-foreground">
+                  {person.role}
+                </span>
+              </h2>
+              <div className="mt-2 rounded-lg border border-dashed border-border-strong bg-muted px-3.5 py-3">
+                <p className="text-small font-medium">Nothing to ask them yet</p>
+                <p className="mt-0.5 text-small text-muted-foreground measure">
+                  They have not come up in either call. That is missing research, not a judgement —
+                  they own {person.owns[0].toLowerCase()}.
+                </p>
+              </div>
+            </section>
+          ))}
         </div>
       )}
-
-      <section className="mt-10 border-t border-border pt-5">
-        <h2 className="text-base font-medium">Why these and not others</h2>
-        <p className="mt-1 text-small text-muted-foreground measure">
-          Every question here either tests a gap we have priced or unlocks one we cannot price yet.
-          Question 8 is a data request rather than a discovery question, which is why it is last —
-          it changes the register of the call and there is no way back from it.
-        </p>
-      </section>
     </div>
   );
 }
