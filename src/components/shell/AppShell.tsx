@@ -28,13 +28,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const slug = onResearch ? (parts[1] ?? "money") : "money";
   const view = onResearch && parts[2] === "full" ? "full" : "brief";
 
-  // Brief is a single screen with no scrolling. Rather than guess the chrome
-  // height in pixels, the whole shell becomes a fixed-height flex column and
-  // the content area simply cannot overflow. Only Research/Brief is locked.
-  const briefLock = onResearch && view === "brief";
+  // Two surfaces are viewport-locked rather than document-scrolled: Research
+  // Brief, which must be a single screen with no scrolling, and Canvas, which
+  // is a pannable map and would be nonsense inside a scrolling page. Rather
+  // than guess the chrome height in pixels, the shell becomes a fixed-height
+  // flex column and the content area simply cannot overflow.
+  const lockViewport = (onResearch && view === "brief") || surface === "canvas";
 
   return (
-    <div className={cn("flex flex-col", briefLock ? "h-dvh overflow-hidden" : "min-h-dvh")}>
+    <div className={cn("flex flex-col", lockViewport ? "h-dvh overflow-hidden" : "min-h-dvh")}>
       <header className="shrink-0 border-b border-border bg-card">
         <div className="flex items-center gap-3 px-3 py-1.5 sm:px-4 sm:py-2">
           <Link
@@ -132,7 +134,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
 
       <PanelProvider>
-        <main className={cn("flex flex-col", briefLock ? "flex-1 min-h-0 overflow-hidden" : "flex-1")}>
+        <main
+          className={cn(
+            "flex flex-col",
+            lockViewport ? "flex-1 min-h-0 overflow-hidden" : "flex-1",
+          )}
+        >
           {children}
         </main>
       </PanelProvider>

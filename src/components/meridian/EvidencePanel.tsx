@@ -27,6 +27,7 @@ import {
   COMPLETENESS_MEANING,
   HEALTH_LABEL,
   HEALTH_MEANING,
+  entityById,
   nodeById,
   pathTo,
 } from "@/lib/canvas";
@@ -43,6 +44,7 @@ export type PanelTarget =
   | { kind: "claim"; id: string }
   | { kind: "source"; id: string }
   | { kind: "node"; id: string }
+  | { kind: "entity"; id: string }
   | null;
 
 interface PanelContextValue {
@@ -130,6 +132,7 @@ function EvidencePanel() {
             {target.kind === "claim" && "Claim detail"}
             {target.kind === "source" && "Source"}
             {target.kind === "node" && "Process detail"}
+            {target.kind === "entity" && "Entity detail"}
           </span>
           <button
             type="button"
@@ -146,6 +149,7 @@ function EvidencePanel() {
           {target.kind === "claim" && <ClaimDetail id={target.id} />}
           {target.kind === "source" && <SourceDetail id={target.id} />}
           {target.kind === "node" && <NodeDetail id={target.id} />}
+          {target.kind === "entity" && <EntityDetail id={target.id} />}
         </div>
       </div>
     </>
@@ -474,6 +478,98 @@ function NodeDetail({ id }: { id: string }) {
           </ul>
         ) : (
           <p className="text-small text-muted-foreground">Nothing attached to this process.</p>
+        )}
+      </Block>
+    </div>
+  );
+}
+
+function EntityDetail({ id }: { id: string }) {
+  const entity = entityById(id);
+  const value = entity.gapIds.reduce((s, gid) => s + (gapById(gid).amountCr ?? 0), 0);
+
+  return (
+    <div>
+      <span className="text-micro uppercase tracking-[0.08em] text-muted-foreground">
+        Entity · a record that moves through the operation
+      </span>
+      <h2 className="mt-1.5 text-h3 font-medium tracking-tight">{entity.name}</h2>
+      <p className="mt-1.5 text-small text-muted-foreground measure">{entity.plainLine}</p>
+
+      <dl className="mt-3 grid grid-cols-2 gap-3 border-y border-border py-3">
+        <div>
+          <dt className="text-micro uppercase tracking-[0.08em] text-muted-foreground">
+            How this is running
+          </dt>
+          <dd className="mt-1 flex items-center gap-1.5 text-small font-medium">
+            <HealthMark
+              health={entity.health}
+              className={
+                entity.health === "critical"
+                  ? "text-health-critical"
+                  : entity.health === "watch"
+                    ? "text-health-watch"
+                    : "text-health-healthy"
+              }
+            />
+            {HEALTH_LABEL[entity.health]}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-micro uppercase tracking-[0.08em] text-muted-foreground">
+            Evidence we have
+          </dt>
+          <dd className="mt-1 flex items-center gap-1.5 text-small font-medium">
+            <EvidenceMark completeness={entity.completeness} />
+            {COMPLETENESS_LABEL[entity.completeness]}
+          </dd>
+        </div>
+      </dl>
+
+      <Block title="Where it lives">
+        <p className="text-small">{entity.system}</p>
+      </Block>
+
+      <Block title="How much of it">
+        <p className="tabular text-small">{entity.volume}</p>
+      </Block>
+
+      <Block title={`Gaps involving it · ${entity.gapIds.length}`}>
+        {entity.gapIds.length > 0 ? (
+          <>
+            <p className="mb-2 tabular text-small font-medium">{money(value)} a year</p>
+            <ul className="space-y-1.5">
+              {entity.gapIds.map((gid) => {
+                const g = gapById(gid);
+                return (
+                  <li key={gid} className="flex items-baseline justify-between gap-3 text-small">
+                    <span className="measure">{g.title}</span>
+                    <span className="tabular shrink-0 font-medium">{money(g.amountCr)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        ) : (
+          <p className="text-small text-muted-foreground">Nothing found against this record.</p>
+        )}
+      </Block>
+
+      <Block title={`Sources · ${entity.sourceIds.length}`}>
+        {entity.sourceIds.length > 0 ? (
+          <ul className="space-y-1.5">
+            {entity.sourceIds.map((sid) => {
+              const s = sourceById(sid);
+              return (
+                <li key={sid} className="text-small">
+                  {s.name}
+                  <span className="text-muted-foreground"> · {s.detail}</span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="text-small text-muted-foreground">Nothing attached.</p>
         )}
       </Block>
     </div>

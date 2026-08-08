@@ -550,3 +550,284 @@ export const counts = {
   empty: nodes.filter((n) => n.completeness === "none").length,
   critical: nodes.filter((n) => n.health === "critical").length,
 };
+
+/* -------------------------------------------------------------------------- */
+/* Graph layout                                                                */
+/*                                                                             */
+/* Canvas is a spatial map, not a list. Positions are world coordinates within  */
+/* whichever level is on screen; each level lays out independently, and Level 2 */
+/* lays out within its own parent. Edges are labelled with the thing that       */
+/* actually moves between two processes — a purchase order, a goods receipt —   */
+/* because that is what makes a flow diagram legible to someone who has never   */
+/* worked in supply chain.                                                      */
+/* -------------------------------------------------------------------------- */
+
+export const NODE_W = 264;
+export const NODE_H = 112;
+
+export interface GraphEdge {
+  from: string;
+  to: string;
+  /** What travels along this edge. Shown as a small pill on the curve. */
+  label: string;
+  /** Where the pill sits along the curve, 0-1. Default 0.5; nudged where two
+   *  labels would otherwise land on top of each other. */
+  t?: number;
+}
+
+export const positions: Record<string, { x: number; y: number }> = {
+  /* Level 0 — the value chain, left to right */
+  "l0-plan": { x: 0, y: 240 },
+  "l0-source": { x: 360, y: 240 },
+  "l0-make": { x: 720, y: 240 },
+  "l0-deliver": { x: 1080, y: 240 },
+  "l0-return": { x: 1440, y: 240 },
+
+  /* Level 1 — every process, grouped in columns under its parent */
+  "l1-demand": { x: 0, y: 130 },
+  "l1-inventory": { x: 0, y: 320 },
+  "l1-sourcing": { x: 460, y: 20 },
+  "l1-purchasing": { x: 460, y: 215 },
+  "l1-quality-in": { x: 460, y: 410 },
+  "l1-ap": { x: 460, y: 605 },
+  "l1-production": { x: 940, y: 130 },
+  "l1-maintenance": { x: 940, y: 340 },
+  "l1-warehouse": { x: 1420, y: 60 },
+  "l1-transport": { x: 1420, y: 265 },
+  "l1-claims": { x: 1420, y: 470 },
+  "l1-cust-returns": { x: 1900, y: 155 },
+  "l1-supp-returns": { x: 1900, y: 355 },
+
+  /* Level 2 — laid out inside the parent that was opened */
+  "l2-forecast": { x: 0, y: 160 },
+  "l2-sop": { x: 380, y: 160 },
+  "l2-stock-policy": { x: 0, y: 160 },
+  "l2-category": { x: 0, y: 60 },
+  "l2-rfq": { x: 380, y: 60 },
+  "l2-onboarding": { x: 0, y: 270 },
+  "l2-vendor-master": { x: 380, y: 270 },
+  "l2-requisition": { x: 0, y: 160 },
+  "l2-po": { x: 380, y: 160 },
+  "l2-gr-inspection": { x: 0, y: 160 },
+  "l2-invoice-capture": { x: 0, y: 60 },
+  "l2-three-way": { x: 380, y: 60 },
+  "l2-payment": { x: 760, y: 60 },
+  "l2-supplier-queries": { x: 380, y: 270 },
+  "l2-putaway": { x: 0, y: 160 },
+  "l2-stock-count": { x: 380, y: 160 },
+  "l2-freight-buy": { x: 0, y: 160 },
+  "l2-despatch": { x: 380, y: 160 },
+  "l2-rebates": { x: 0, y: 160 },
+};
+
+export const processEdges: GraphEdge[] = [
+  /* Level 0 */
+  { from: "l0-plan", to: "l0-source", label: "demand plan" },
+  { from: "l0-source", to: "l0-make", label: "materials" },
+  { from: "l0-make", to: "l0-deliver", label: "finished goods" },
+  { from: "l0-deliver", to: "l0-return", label: "shipments" },
+  { from: "l0-return", to: "l0-plan", label: "returns data" },
+
+  /* Level 1 */
+  { from: "l1-demand", to: "l1-sourcing", label: "demand plan" },
+  { from: "l1-demand", to: "l1-inventory", label: "stock targets" },
+  { from: "l1-inventory", to: "l1-purchasing", label: "reorder points" },
+  { from: "l1-sourcing", to: "l1-purchasing", label: "approved vendors" },
+  { from: "l1-purchasing", to: "l1-quality-in", label: "purchase orders" },
+  { from: "l1-quality-in", to: "l1-ap", label: "goods receipts" },
+  { from: "l1-purchasing", to: "l1-ap", label: "invoice matching", t: 0.62 },
+  { from: "l1-ap", to: "l1-sourcing", label: "spend data", t: 0.3 },
+  { from: "l1-quality-in", to: "l1-production", label: "accepted materials" },
+  { from: "l1-maintenance", to: "l1-production", label: "line availability" },
+  { from: "l1-production", to: "l1-warehouse", label: "finished goods" },
+  { from: "l1-warehouse", to: "l1-transport", label: "picked loads" },
+  { from: "l1-transport", to: "l1-claims", label: "proof of delivery", t: 0.62 },
+  { from: "l1-claims", to: "l1-ap", label: "rebate claims" },
+  { from: "l1-transport", to: "l1-cust-returns", label: "deliveries", t: 0.62 },
+  { from: "l1-cust-returns", to: "l1-warehouse", label: "returned stock", t: 0.7 },
+  { from: "l1-quality-in", to: "l1-supp-returns", label: "rejections", t: 0.32 },
+  { from: "l1-warehouse", to: "l1-demand", label: "stock position", t: 0.35 },
+
+  /* Level 2 */
+  { from: "l2-forecast", to: "l2-sop", label: "forecast" },
+  { from: "l2-category", to: "l2-rfq", label: "category plan" },
+  { from: "l2-rfq", to: "l2-onboarding", label: "awarded supplier" },
+  { from: "l2-onboarding", to: "l2-vendor-master", label: "new vendor" },
+  { from: "l2-requisition", to: "l2-po", label: "approved request" },
+  { from: "l2-invoice-capture", to: "l2-three-way", label: "keyed invoice" },
+  { from: "l2-three-way", to: "l2-payment", label: "matched" },
+  { from: "l2-three-way", to: "l2-supplier-queries", label: "exceptions" },
+  { from: "l2-putaway", to: "l2-stock-count", label: "stock moves" },
+  { from: "l2-freight-buy", to: "l2-despatch", label: "booked lane" },
+];
+
+/* -------------------------------------------------------------------------- */
+/* Entities — the same operation seen as the things that move through it       */
+/* -------------------------------------------------------------------------- */
+
+export interface EntityNode {
+  id: string;
+  name: string;
+  plainLine: string;
+  health: Health;
+  completeness: Completeness;
+  /** Where this record actually lives. */
+  system: string;
+  volume: string;
+  gapIds: string[];
+  sourceIds: string[];
+}
+
+export const entities: EntityNode[] = [
+  {
+    id: "e-forecast",
+    name: "Forecast",
+    plainLine: "The monthly view of what they expect to sell.",
+    health: "watch",
+    completeness: "partial",
+    system: "Excel",
+    volume: "~1,400 lines a month",
+    gapIds: ["g8"],
+    sourceIds: ["src-ar25"],
+  },
+  {
+    id: "e-requisition",
+    name: "Purchase requisition",
+    plainLine: "Someone inside the business asking to buy something.",
+    health: "critical",
+    completeness: "full",
+    system: "SAP MM · email · WhatsApp",
+    volume: "~2,100 a month",
+    gapIds: ["g5"],
+    sourceIds: ["src-call1", "src-email"],
+  },
+  {
+    id: "e-vendor",
+    name: "Vendor master record",
+    plainLine: "The entry in SAP that says a supplier exists and how to pay them.",
+    health: "watch",
+    completeness: "partial",
+    system: "SAP MM",
+    volume: "~2,400 active",
+    gapIds: ["g9", "g6"],
+    sourceIds: ["src-call2"],
+  },
+  {
+    id: "e-po",
+    name: "Purchase order",
+    plainLine: "The formal commitment sent to a supplier.",
+    health: "watch",
+    completeness: "full",
+    system: "SAP MM",
+    volume: "~1,900 a month",
+    gapIds: ["g3"],
+    sourceIds: ["src-call1", "src-call2"],
+  },
+  {
+    id: "e-gr",
+    name: "Goods receipt",
+    plainLine: "The record that says a delivery turned up and was accepted.",
+    health: "critical",
+    completeness: "partial",
+    system: "Paper, then SAP MM",
+    volume: "~2,600 a month",
+    gapIds: ["g11", "g12"],
+    sourceIds: ["src-call2"],
+  },
+  {
+    id: "e-invoice",
+    name: "Supplier invoice",
+    plainLine: "The bill the supplier sends.",
+    health: "critical",
+    completeness: "full",
+    system: "PDF and paper, keyed into SAP FI",
+    volume: "~8,000 a month",
+    gapIds: ["g1"],
+    sourceIds: ["src-call2", "src-email"],
+  },
+  {
+    id: "e-match",
+    name: "Match result",
+    plainLine: "Whether the order, the delivery and the bill agree.",
+    health: "critical",
+    completeness: "full",
+    system: "SAP FI",
+    volume: "58% pass first time",
+    gapIds: ["g2"],
+    sourceIds: ["src-call2"],
+  },
+  {
+    id: "e-payment",
+    name: "Payment",
+    plainLine: "Money actually leaving the bank.",
+    health: "critical",
+    completeness: "partial",
+    system: "SAP FI",
+    volume: "~7,600 a month",
+    gapIds: ["g4"],
+    sourceIds: ["src-email"],
+  },
+  {
+    id: "e-stock",
+    name: "Stock record",
+    plainLine: "What the system believes is on the shelf.",
+    health: "watch",
+    completeness: "partial",
+    system: "SAP MM, no warehouse module",
+    volume: "38 days of cover",
+    gapIds: ["g8", "g11"],
+    sourceIds: ["src-ar25", "src-call2"],
+  },
+  {
+    id: "e-freight",
+    name: "Freight booking",
+    plainLine: "A lorry arranged for a load that needs to move.",
+    health: "watch",
+    completeness: "partial",
+    system: "Phone and email",
+    volume: "not measured",
+    gapIds: ["g7"],
+    sourceIds: ["src-ar25"],
+  },
+  {
+    id: "e-claim",
+    name: "Rebate claim",
+    plainLine: "What a distributor says they are owed back.",
+    health: "watch",
+    completeness: "partial",
+    system: "Excel",
+    volume: "quarterly, 4 regions",
+    gapIds: ["g10"],
+    sourceIds: ["src-ar25"],
+  },
+];
+
+export const entityPositions: Record<string, { x: number; y: number }> = {
+  "e-forecast": { x: 0, y: 60 },
+  "e-requisition": { x: 380, y: 60 },
+  "e-vendor": { x: 380, y: 300 },
+  "e-po": { x: 760, y: 180 },
+  "e-gr": { x: 1140, y: 60 },
+  "e-invoice": { x: 1140, y: 300 },
+  "e-match": { x: 1520, y: 180 },
+  "e-payment": { x: 1900, y: 180 },
+  "e-stock": { x: 1520, y: 440 },
+  "e-freight": { x: 1900, y: 440 },
+  "e-claim": { x: 2280, y: 440 },
+};
+
+export const entityEdges: GraphEdge[] = [
+  { from: "e-forecast", to: "e-requisition", label: "planned demand" },
+  { from: "e-requisition", to: "e-po", label: "approved" },
+  { from: "e-vendor", to: "e-po", label: "supplier record" },
+  { from: "e-po", to: "e-gr", label: "expected delivery" },
+  { from: "e-po", to: "e-invoice", label: "matched against" },
+  { from: "e-gr", to: "e-match", label: "receipt line" },
+  { from: "e-invoice", to: "e-match", label: "invoice line", t: 0.64 },
+  { from: "e-match", to: "e-payment", label: "cleared" },
+  { from: "e-gr", to: "e-stock", label: "putaway", t: 0.33 },
+  { from: "e-stock", to: "e-freight", label: "despatch" },
+  { from: "e-freight", to: "e-claim", label: "proof of delivery" },
+];
+
+export const entityById = (id: string) => entities.find((e) => e.id === id)!;

@@ -17,12 +17,25 @@ Inside the app, the tab bar moves between surfaces and never disappears.
 
 | Tab | What it does |
 |---|---|
-| **Canvas** | The supply chain at three levels. Level 0 is the value chain and is deliberately quiet — it is the same for every manufacturer alive. Weight increases as you descend; Level 2 is where a gap gets a price. |
+| **Canvas** | A real spatial map: scroll to zoom, drag to pan, minimap, curved edges labelled with what actually moves along them. Two graphs of the same business — **Processes** (what happens) and **Entities** (what moves) — plus a **List** view for keyboard and phone. |
 | **Research** | The company dossier, in **four different organising principles** — see below. Brief and Full for each. |
 | **Gaps** | Twelve findings, eleven priced. Sortable by value, effort or confidence, filterable by area, with tick-box plan selection and a live running total. |
 | **Questions** | The same component family as Gaps in the opposite register: sequenced, future tense, no prices anywhere. Arrange by ask order or by who you are asking. |
 | **Compare** | Lanes stacked and aligned on six shared process stages. Ticking a company adds a lane below rather than navigating away. The delta row carries the most weight because the delta is the argument. |
 | **Sources** | The four ingested sources, what each one produced, and the claims that have nothing behind them. Connectors are designed as real and labelled as not built. |
+
+### Canvas — how it works
+
+Three levels of process graph. Level 0 is the value chain, Level 1 is the whole
+operation with its cross-links and return flows, Level 2 opens one process. Double-click
+a node to go deeper, or use the crumbs. Edges route three ways — forward, bowed down a
+column, or looped underneath for return flows — and stagger themselves so no two labels
+land on top of each other.
+
+The Entities graph is the same business seen as the records that move through it: a
+requisition becomes an order, meets a goods receipt and an invoice, and either matches or
+does not. Each record carries its own health and evidence state, and its own system of
+record.
 
 ### Canvas — the two-axis encoding
 

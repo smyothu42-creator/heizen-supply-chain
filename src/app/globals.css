@@ -43,6 +43,12 @@
   --metric-best-in-class: #57534e;
   --metric-delta: #b3261e;
   --metric-delta-good: #15703c;
+
+  /* canvas — a warm working surface, distinct from the document background */
+  --canvas-bg: #efeae0;
+  --canvas-dot: #dcd5c6;
+  --canvas-node: #f8f4ea;
+  --canvas-edge: #a9a191;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -77,6 +83,11 @@
     --metric-best-in-class: #a8a29e;
     --metric-delta: #f4867c;
     --metric-delta-good: #6cc78d;
+
+    --canvas-bg: #131210;
+    --canvas-dot: #2c2822;
+    --canvas-node: #201d19;
+    --canvas-edge: #5b544b;
   }
 }
 
@@ -111,6 +122,11 @@
   --metric-best-in-class: #a8a29e;
   --metric-delta: #f4867c;
   --metric-delta-good: #6cc78d;
+
+  --canvas-bg: #131210;
+  --canvas-dot: #2c2822;
+  --canvas-node: #201d19;
+  --canvas-edge: #5b544b;
 }
 
 @theme inline {
@@ -144,6 +160,10 @@
   --color-metric-best-in-class: var(--metric-best-in-class);
   --color-metric-delta: var(--metric-delta);
   --color-metric-delta-good: var(--metric-delta-good);
+
+  --color-canvas: var(--canvas-bg);
+  --color-canvas-node: var(--canvas-node);
+  --color-canvas-edge: var(--canvas-edge);
 
   /* Type scale — fixed and small. Four body sizes, three headings, one display.
      A dense product with eleven type sizes reads as noise. */

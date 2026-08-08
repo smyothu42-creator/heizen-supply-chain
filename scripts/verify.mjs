@@ -189,8 +189,11 @@ for (const vp of VIEWPORTS) {
 
     let panel = null;
     if (PANEL_PAGES.includes(path)) {
+      // Canvas has no "Open detail" affordance — its nodes are the trigger.
       const btn = page
-        .locator('button:has-text("Open detail"), button:has-text("See everything"), button:has-text("Detail")')
+        .locator(
+          'button:has-text("Open detail"), button:has-text("See everything"), [data-node] button',
+        )
         .first();
       if (await btn.count()) {
         const label = (await btn.textContent())?.trim();
