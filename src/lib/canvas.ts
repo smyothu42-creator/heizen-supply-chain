@@ -11,12 +11,18 @@
  *   completeness — what evidence we have      → fill and stroke, never colour
  *
  * A healthy node we know nothing about and a critical node with full evidence
- * are opposite situations. Health here is our reading of the process; where
- * completeness is "none" that reading is a sector default, and the node detail
- * says so rather than implying we checked.
+ * are opposite situations.
+ *
+ * And a node we have not looked at has NO health. It used to be painted green,
+ * which put "running well" on a client screen for nine processes nobody had
+ * asked a question about — including Make, at a company with three plants.
+ * `unknown` is a fourth state, neutral by design, and the rule is enforced in
+ * check:data: completeness "none" ⇒ health "unknown", unless we looked and
+ * genuinely found nothing (emptyKind "confirmed-none"), which is a real result.
+ * See AUDIT.md B5.
  */
 
-export type Health = "critical" | "watch" | "healthy";
+export type Health = "critical" | "watch" | "healthy" | "unknown";
 export type Completeness = "none" | "partial" | "full";
 
 export interface CanvasNode {
@@ -30,6 +36,22 @@ export interface CanvasNode {
   completeness: Completeness;
   /** Only meaningful when completeness is "none" — the three states differ. */
   emptyKind?: "not-researched" | "no-sources" | "confirmed-none";
+  /**
+   * Somebody has read this and thinks the pipeline got it wrong. The string is
+   * what is wrong, in words, and it is required rather than a boolean for the
+   * same reason `DealRisk.counter` is: a flag with no reason is a red mark a
+   * consultant cannot act on, and the failure is silent — the node renders
+   * perfectly tidily while saying nothing about what to fix.
+   *
+   * **It is a third axis and not a fourth health state.** Health is a reading
+   * about the client's process; this is a reading about *our* reading of it, so
+   * a critical process and a wrong description of a healthy one are different
+   * things and must not share a colour. `check:data` enforces the length.
+   *
+   * §5: users never hand-edit AI output. The flag opens the correction prompt;
+   * it does not let anyone retype the finding.
+   */
+  needsCorrection?: string;
   gapIds: string[];
   metricIds: string[];
   sourceIds: string[];
@@ -39,12 +61,14 @@ export const HEALTH_LABEL: Record<Health, string> = {
   critical: "Critical",
   watch: "Watch",
   healthy: "Running well",
+  unknown: "Not looked at",
 };
 
 export const HEALTH_MEANING: Record<Health, string> = {
   critical: "Costing real money now, and they know something is wrong.",
   watch: "Working, but behind where it should be.",
-  healthy: "No reason to think this is a problem.",
+  healthy: "We looked and found nothing worth raising.",
+  unknown: "No reading either way. Nobody has asked a question about this yet.",
 };
 
 export const COMPLETENESS_LABEL: Record<Completeness, string> = {
@@ -78,10 +102,13 @@ export const nodes: CanvasNode[] = [
     level: 0,
     parentId: null,
     name: "Source",
-    plainLine: "Finding suppliers, agreeing prices, and paying them.",
+    plainLine: "Finding suppliers, receiving what they send, and paying them.",
     health: "critical",
     completeness: "full",
-    gapIds: ["g1", "g2", "g3", "g4", "g5", "g6", "g9", "g12"],
+    // g11 lives here, not under Deliver. Booking in raw material at the plant
+    // gate is SCOR sS1.2-1.4, and it is the first link in the chain that ends
+    // with a missed early-payment discount. See AUDIT.md B2.
+    gapIds: ["g1", "g2", "g3", "g4", "g5", "g6", "g9", "g11", "g12"],
     metricIds: ["m-ftmr", "m-onboarding", "m-contracted"],
     sourceIds: ["src-call1", "src-call2", "src-email"],
   },
@@ -91,7 +118,8 @@ export const nodes: CanvasNode[] = [
     parentId: null,
     name: "Make",
     plainLine: "Turning raw material into product at the three plants.",
-    health: "healthy",
+    // Three plants, zero questions asked. This used to be green.
+    health: "unknown",
     completeness: "none",
     emptyKind: "not-researched",
     gapIds: [],
@@ -106,17 +134,17 @@ export const nodes: CanvasNode[] = [
     plainLine: "Storing finished product and getting it to customers.",
     health: "watch",
     completeness: "partial",
-    gapIds: ["g7", "g10", "g11"],
+    gapIds: ["g7", "g10"],
     metricIds: ["m-freight"],
-    sourceIds: ["src-ar25", "src-call2"],
+    sourceIds: ["src-ar25"],
   },
   {
     id: "l0-return",
     level: 0,
     parentId: null,
     name: "Return",
-    plainLine: "Handling what comes back — from customers, and to suppliers.",
-    health: "healthy",
+    plainLine: "Handling what comes back, from customers and to suppliers.",
+    health: "unknown",
     completeness: "none",
     emptyKind: "not-researched",
     gapIds: [],
@@ -143,7 +171,7 @@ export const nodes: CanvasNode[] = [
     parentId: "l0-plan",
     name: "Inventory planning",
     plainLine: "Deciding how much stock to hold and where.",
-    health: "watch",
+    health: "unknown",
     completeness: "none",
     emptyKind: "no-sources",
     gapIds: [],
@@ -180,11 +208,25 @@ export const nodes: CanvasNode[] = [
     parentId: "l0-source",
     name: "Incoming quality",
     plainLine: "Checking deliveries before they are accepted.",
-    health: "watch",
+    health: "unknown",
     completeness: "none",
     emptyKind: "no-sources",
     gapIds: ["g12"],
     metricIds: [],
+    sourceIds: ["src-call2"],
+  },
+  {
+    // Inbound receiving, moved out of Deliver. This is where the 42% match
+    // failure downstream actually starts.
+    id: "l1-receiving",
+    level: 1,
+    parentId: "l0-source",
+    name: "Receiving",
+    plainLine: "Booking in raw material at the plant gate and putting it away.",
+    health: "critical",
+    completeness: "partial",
+    gapIds: ["g11"],
+    metricIds: ["m-ftmr"],
     sourceIds: ["src-call2"],
   },
   {
@@ -205,7 +247,7 @@ export const nodes: CanvasNode[] = [
     parentId: "l0-make",
     name: "Production scheduling",
     plainLine: "Deciding what each plant runs, and in what order.",
-    health: "healthy",
+    health: "unknown",
     completeness: "none",
     emptyKind: "not-researched",
     gapIds: [],
@@ -218,7 +260,7 @@ export const nodes: CanvasNode[] = [
     parentId: "l0-make",
     name: "Plant maintenance",
     plainLine: "Keeping the machines running.",
-    health: "healthy",
+    health: "unknown",
     completeness: "none",
     emptyKind: "not-researched",
     gapIds: [],
@@ -229,13 +271,16 @@ export const nodes: CanvasNode[] = [
     id: "l1-warehouse",
     level: 1,
     parentId: "l0-deliver",
-    name: "Warehousing",
-    plainLine: "Putting stock away and picking it for despatch.",
-    health: "critical",
-    completeness: "partial",
-    gapIds: ["g11"],
-    metricIds: ["m-ftmr"],
-    sourceIds: ["src-call2"],
+    name: "Finished goods warehousing",
+    plainLine: "Holding finished product and picking it for despatch.",
+    // Outbound only now. The paper process we know about is inbound, and it
+    // moved to Receiving under Source. Nobody has described despatch at all.
+    health: "unknown",
+    completeness: "none",
+    emptyKind: "not-researched",
+    gapIds: [],
+    metricIds: [],
+    sourceIds: [],
   },
   {
     id: "l1-transport",
@@ -245,6 +290,8 @@ export const nodes: CanvasNode[] = [
     plainLine: "Booking lorries and moving goods between sites and customers.",
     health: "watch",
     completeness: "partial",
+    needsCorrection:
+      "Rohan said on the second call that the main lanes are tendered every year. This still reads as never tendered.",
     gapIds: ["g7"],
     metricIds: ["m-freight"],
     sourceIds: ["src-ar25"],
@@ -267,7 +314,7 @@ export const nodes: CanvasNode[] = [
     parentId: "l0-return",
     name: "Customer returns",
     plainLine: "Product coming back from distributors and retailers.",
-    health: "healthy",
+    health: "unknown",
     completeness: "none",
     emptyKind: "not-researched",
     gapIds: [],
@@ -295,7 +342,7 @@ export const nodes: CanvasNode[] = [
     parentId: "l1-demand",
     name: "Forecasting",
     plainLine: "Predicting what customers will order.",
-    health: "watch",
+    health: "unknown",
     completeness: "none",
     emptyKind: "no-sources",
     gapIds: [],
@@ -320,7 +367,7 @@ export const nodes: CanvasNode[] = [
     parentId: "l1-inventory",
     name: "Stock policy",
     plainLine: "The rules for how much buffer to hold on each product.",
-    health: "watch",
+    health: "unknown",
     completeness: "none",
     emptyKind: "no-sources",
     gapIds: [],
@@ -371,6 +418,8 @@ export const nodes: CanvasNode[] = [
     plainLine: "The list of suppliers in SAP, and how clean it is.",
     health: "watch",
     completeness: "partial",
+    needsCorrection:
+      "The duplicate count came off a sample of one category. It is written here as if it were the whole vendor master.",
     gapIds: ["g9"],
     metricIds: ["m-dupes"],
     sourceIds: ["src-call2"],
@@ -406,12 +455,39 @@ export const nodes: CanvasNode[] = [
     parentId: "l1-quality-in",
     name: "Goods receipt inspection",
     plainLine: "Checking a delivery at the gate before accepting it.",
-    health: "watch",
+    health: "unknown",
     completeness: "none",
     emptyKind: "no-sources",
     gapIds: ["g12"],
     metricIds: [],
     sourceIds: ["src-call2"],
+  },
+  {
+    id: "l2-gr-posting",
+    level: 2,
+    parentId: "l1-receiving",
+    name: "Goods receipt posting",
+    plainLine: "Telling the system a delivery arrived, so the invoice can be matched against it.",
+    health: "critical",
+    completeness: "partial",
+    needsCorrection:
+      "The posting delay is averaged across three plants. Only Sangli was measured, and the other two may be nothing like it.",
+    gapIds: ["g11"],
+    metricIds: ["m-ftmr"],
+    sourceIds: ["src-call2"],
+  },
+  {
+    id: "l2-putaway-in",
+    level: 2,
+    parentId: "l1-receiving",
+    name: "Inbound putaway",
+    plainLine: "Moving accepted raw material from the gate to where it is stored.",
+    health: "unknown",
+    completeness: "none",
+    emptyKind: "no-sources",
+    gapIds: [],
+    metricIds: [],
+    sourceIds: [],
   },
   {
     id: "l2-invoice-capture",
@@ -455,7 +531,7 @@ export const nodes: CanvasNode[] = [
     parentId: "l1-ap",
     name: "Supplier queries",
     plainLine: "Answering suppliers who ring up asking where their money is.",
-    health: "watch",
+    health: "unknown",
     completeness: "none",
     emptyKind: "not-researched",
     gapIds: [],
@@ -463,16 +539,17 @@ export const nodes: CanvasNode[] = [
     sourceIds: [],
   },
   {
-    id: "l2-putaway",
+    id: "l2-picking",
     level: 2,
     parentId: "l1-warehouse",
-    name: "Putaway and picking",
-    plainLine: "Moving stock to a shelf, then finding it again to despatch.",
-    health: "critical",
-    completeness: "partial",
-    gapIds: ["g11"],
-    metricIds: ["m-ftmr"],
-    sourceIds: ["src-call2"],
+    name: "Picking and despatch prep",
+    plainLine: "Finding finished product on the shelf and getting it onto a lorry.",
+    health: "unknown",
+    completeness: "none",
+    emptyKind: "not-researched",
+    gapIds: [],
+    metricIds: [],
+    sourceIds: [],
   },
   {
     id: "l2-stock-count",
@@ -480,7 +557,7 @@ export const nodes: CanvasNode[] = [
     parentId: "l1-warehouse",
     name: "Stock counts",
     plainLine: "Checking that what the system says is on the shelf actually is.",
-    health: "watch",
+    health: "unknown",
     completeness: "none",
     emptyKind: "not-researched",
     gapIds: [],
@@ -505,7 +582,7 @@ export const nodes: CanvasNode[] = [
     parentId: "l1-transport",
     name: "Despatch and tracking",
     plainLine: "Loading the lorry and knowing where it is.",
-    health: "healthy",
+    health: "unknown",
     completeness: "none",
     emptyKind: "not-researched",
     gapIds: [],
@@ -544,12 +621,40 @@ export function pathTo(id: string): CanvasNode[] {
 /** Every node with data somewhere beneath it can be drilled into. */
 export const canDrill = (id: string) => childrenOf(id).length > 0;
 
+/** Everything at any depth under a node, not just its immediate children. */
+export function descendantsOf(id: string): CanvasNode[] {
+  const kids = childrenOf(id);
+  return kids.flatMap((k) => [k, ...descendantsOf(k.id)]);
+}
+
+/**
+ * How many flagged readings sit under this node.
+ *
+ * This is what makes a Level 0 box worth looking at rather than merely worth
+ * passing through: a stage is a place you go *down* from, so the useful thing
+ * it can say is what is waiting below. Counting descendants and not children,
+ * because a flag two levels down is still a reason to open this one.
+ */
+export const correctionsUnder = (id: string) =>
+  descendantsOf(id).filter((n) => n.needsCorrection).length;
+
 export const counts = {
   total: nodes.length,
   withData: nodes.filter((n) => n.completeness !== "none").length,
   empty: nodes.filter((n) => n.completeness === "none").length,
   critical: nodes.filter((n) => n.health === "critical").length,
+  /** Processes carrying no health reading at all. Worth saying out loud. */
+  unknown: nodes.filter((n) => n.health === "unknown").length,
+  /** Readings somebody has marked as wrong. */
+  flagged: nodes.filter((n) => n.needsCorrection).length,
 };
+
+/** The Level 0 stage a node sits under. Gaps carry the same value; check:data
+ *  fails the build if the two disagree. */
+export function stageOf(id: string): string {
+  const trail = pathTo(id);
+  return trail[0]?.name ?? "";
+}
 
 /* -------------------------------------------------------------------------- */
 /* Graph layout                                                                */
@@ -562,8 +667,43 @@ export const counts = {
 /* worked in supply chain.                                                      */
 /* -------------------------------------------------------------------------- */
 
-export const NODE_W = 264;
-export const NODE_H = 112;
+/**
+ * Node size per level, because §4 says visual weight increases as you descend
+ * and until now it did not: every box in the graph was 264×112 whatever it
+ * contained, so Level 0 — the SCOR chain, identical at every manufacturer on
+ * earth and therefore pure context — drew itself exactly as heavily as the
+ * sub-process where a gap becomes priceable.
+ *
+ * The three sizes are bounded by the hand-authored layout in `positions` and
+ * are not free. Measured against the tightest spacing at each level:
+ *
+ *   L0  360 apart, one row              → 264 wide leaves 96
+ *   L1  460 apart, rows 190 apart       → 264 wide leaves 196, 124 tall leaves 66
+ *   L2  380 apart, rows 210 apart       → 300 wide leaves 80, 140 tall leaves 70
+ *
+ * Change a position and re-check the pair. `scripts/` has a node-overlap check
+ * for exactly this, because two boxes touching is not something `check:ui` can
+ * see — it is not a clip, not a contrast failure and not an unreachable control.
+ */
+export const NODE_SIZE: Record<0 | 1 | 2, { w: number; h: number }> = {
+  // Level 0 is one row, so its height is bounded by nothing. It was 104 for one
+  // revision and that was too short by about the height of the line it was
+  // meant to show: the box is a column with `mt-auto` on the footer, so the
+  // squeeze landed on the subtitle and three of the five stages rendered with a
+  // blank band where their plain-language line should have been. Nothing said
+  // so — a clamped line that clamps to zero is not a clip.
+  // Grown to fit the plain-language line at `text-small` on three lines. At
+  // 11px on two lines every Level 0 subtitle was cut mid-sentence, which is the
+  // worst kind of text: paid for, and not readable.
+  0: { w: 280, h: 164 },
+  1: { w: 280, h: 156 },
+  2: { w: 312, h: 168 },
+};
+
+/** The Level 1 size, kept as the default for anything that has not said which
+ *  level it is drawing. */
+export const NODE_W = NODE_SIZE[1].w;
+export const NODE_H = NODE_SIZE[1].h;
 
 export interface GraphEdge {
   from: string;
@@ -589,7 +729,8 @@ export const positions: Record<string, { x: number; y: number }> = {
   "l1-sourcing": { x: 460, y: 20 },
   "l1-purchasing": { x: 460, y: 215 },
   "l1-quality-in": { x: 460, y: 410 },
-  "l1-ap": { x: 460, y: 605 },
+  "l1-receiving": { x: 460, y: 605 },
+  "l1-ap": { x: 460, y: 800 },
   "l1-production": { x: 940, y: 130 },
   "l1-maintenance": { x: 940, y: 340 },
   "l1-warehouse": { x: 1420, y: 60 },
@@ -609,11 +750,13 @@ export const positions: Record<string, { x: number; y: number }> = {
   "l2-requisition": { x: 0, y: 160 },
   "l2-po": { x: 380, y: 160 },
   "l2-gr-inspection": { x: 0, y: 160 },
+  "l2-gr-posting": { x: 0, y: 160 },
+  "l2-putaway-in": { x: 380, y: 160 },
   "l2-invoice-capture": { x: 0, y: 60 },
   "l2-three-way": { x: 380, y: 60 },
   "l2-payment": { x: 760, y: 60 },
   "l2-supplier-queries": { x: 380, y: 270 },
-  "l2-putaway": { x: 0, y: 160 },
+  "l2-picking": { x: 0, y: 160 },
   "l2-stock-count": { x: 380, y: 160 },
   "l2-freight-buy": { x: 0, y: 160 },
   "l2-despatch": { x: 380, y: 160 },
@@ -634,10 +777,13 @@ export const processEdges: GraphEdge[] = [
   { from: "l1-inventory", to: "l1-purchasing", label: "reorder points" },
   { from: "l1-sourcing", to: "l1-purchasing", label: "approved vendors" },
   { from: "l1-purchasing", to: "l1-quality-in", label: "purchase orders" },
-  { from: "l1-quality-in", to: "l1-ap", label: "goods receipts" },
+  { from: "l1-quality-in", to: "l1-receiving", label: "accepted deliveries" },
+  // The chain the old model could not draw: paper receiving is what makes the
+  // invoice arrive before the system believes the goods did.
+  { from: "l1-receiving", to: "l1-ap", label: "goods receipts, posted late" },
   { from: "l1-purchasing", to: "l1-ap", label: "invoice matching", t: 0.62 },
   { from: "l1-ap", to: "l1-sourcing", label: "spend data", t: 0.3 },
-  { from: "l1-quality-in", to: "l1-production", label: "accepted materials" },
+  { from: "l1-receiving", to: "l1-production", label: "materials to line" },
   { from: "l1-maintenance", to: "l1-production", label: "line availability" },
   { from: "l1-production", to: "l1-warehouse", label: "finished goods" },
   { from: "l1-warehouse", to: "l1-transport", label: "picked loads" },
@@ -645,7 +791,13 @@ export const processEdges: GraphEdge[] = [
   { from: "l1-claims", to: "l1-ap", label: "rebate claims" },
   { from: "l1-transport", to: "l1-cust-returns", label: "deliveries", t: 0.62 },
   { from: "l1-cust-returns", to: "l1-warehouse", label: "returned stock", t: 0.7 },
-  { from: "l1-quality-in", to: "l1-supp-returns", label: "rejections", t: 0.32 },
+  /* `t` moves the label along the curve, and this one is why it is only ever a
+     starting point. At 0.32 it sat on top of Plant maintenance: the edge runs
+     from the second column to the fifth, so a third of the way along is over
+     the middle of the graph rather than in a gap between two boxes. 0.56 puts
+     it in the corridor after that column, and `GraphCanvas` lifts it clear of
+     *proof of delivery*, which bows into the same corridor. */
+  { from: "l1-quality-in", to: "l1-supp-returns", label: "rejections", t: 0.56 },
   { from: "l1-warehouse", to: "l1-demand", label: "stock position", t: 0.35 },
 
   /* Level 2 */
@@ -657,7 +809,8 @@ export const processEdges: GraphEdge[] = [
   { from: "l2-invoice-capture", to: "l2-three-way", label: "keyed invoice" },
   { from: "l2-three-way", to: "l2-payment", label: "matched" },
   { from: "l2-three-way", to: "l2-supplier-queries", label: "exceptions" },
-  { from: "l2-putaway", to: "l2-stock-count", label: "stock moves" },
+  { from: "l2-gr-posting", to: "l2-putaway-in", label: "accepted stock" },
+  { from: "l2-picking", to: "l2-stock-count", label: "stock moves" },
   { from: "l2-freight-buy", to: "l2-despatch", label: "booked lane" },
 ];
 
@@ -669,6 +822,11 @@ export interface EntityNode {
   id: string;
   name: string;
   plainLine: string;
+  /** The area of the business this record belongs to, and the same four the
+   *  Gaps surface filters by. Entities are grouped by it rather than drawn as a
+   *  graph. `check:data` fails the build if it disagrees with the bucket of the
+   *  gaps this entity carries. */
+  bucketId: string;
   health: Health;
   completeness: Completeness;
   /** Where this record actually lives. */
@@ -683,6 +841,7 @@ export const entities: EntityNode[] = [
     id: "e-forecast",
     name: "Forecast",
     plainLine: "The monthly view of what they expect to sell.",
+    bucketId: "b-move",
     health: "watch",
     completeness: "partial",
     system: "Excel",
@@ -694,6 +853,7 @@ export const entities: EntityNode[] = [
     id: "e-requisition",
     name: "Purchase requisition",
     plainLine: "Someone inside the business asking to buy something.",
+    bucketId: "b-pay",
     health: "critical",
     completeness: "full",
     system: "SAP MM · email · WhatsApp",
@@ -705,6 +865,7 @@ export const entities: EntityNode[] = [
     id: "e-vendor",
     name: "Vendor master record",
     plainLine: "The entry in SAP that says a supplier exists and how to pay them.",
+    bucketId: "b-buy",
     health: "watch",
     completeness: "partial",
     system: "SAP MM",
@@ -716,6 +877,7 @@ export const entities: EntityNode[] = [
     id: "e-po",
     name: "Purchase order",
     plainLine: "The formal commitment sent to a supplier.",
+    bucketId: "b-buy",
     health: "watch",
     completeness: "full",
     system: "SAP MM",
@@ -727,6 +889,7 @@ export const entities: EntityNode[] = [
     id: "e-gr",
     name: "Goods receipt",
     plainLine: "The record that says a delivery turned up and was accepted.",
+    bucketId: "b-move",
     health: "critical",
     completeness: "partial",
     system: "Paper, then SAP MM",
@@ -738,6 +901,7 @@ export const entities: EntityNode[] = [
     id: "e-invoice",
     name: "Supplier invoice",
     plainLine: "The bill the supplier sends.",
+    bucketId: "b-pay",
     health: "critical",
     completeness: "full",
     system: "PDF and paper, keyed into SAP FI",
@@ -749,6 +913,7 @@ export const entities: EntityNode[] = [
     id: "e-match",
     name: "Match result",
     plainLine: "Whether the order, the delivery and the bill agree.",
+    bucketId: "b-pay",
     health: "critical",
     completeness: "full",
     system: "SAP FI",
@@ -760,6 +925,7 @@ export const entities: EntityNode[] = [
     id: "e-payment",
     name: "Payment",
     plainLine: "Money actually leaving the bank.",
+    bucketId: "b-pay",
     health: "critical",
     completeness: "partial",
     system: "SAP FI",
@@ -771,6 +937,7 @@ export const entities: EntityNode[] = [
     id: "e-stock",
     name: "Stock record",
     plainLine: "What the system believes is on the shelf.",
+    bucketId: "b-move",
     health: "watch",
     completeness: "partial",
     system: "SAP MM, no warehouse module",
@@ -782,6 +949,7 @@ export const entities: EntityNode[] = [
     id: "e-freight",
     name: "Freight booking",
     plainLine: "A lorry arranged for a load that needs to move.",
+    bucketId: "b-move",
     health: "watch",
     completeness: "partial",
     system: "Phone and email",
@@ -793,6 +961,7 @@ export const entities: EntityNode[] = [
     id: "e-claim",
     name: "Rebate claim",
     plainLine: "What a distributor says they are owed back.",
+    bucketId: "b-recover",
     health: "watch",
     completeness: "partial",
     system: "Excel",
@@ -801,20 +970,6 @@ export const entities: EntityNode[] = [
     sourceIds: ["src-ar25"],
   },
 ];
-
-export const entityPositions: Record<string, { x: number; y: number }> = {
-  "e-forecast": { x: 0, y: 60 },
-  "e-requisition": { x: 380, y: 60 },
-  "e-vendor": { x: 380, y: 300 },
-  "e-po": { x: 760, y: 180 },
-  "e-gr": { x: 1140, y: 60 },
-  "e-invoice": { x: 1140, y: 300 },
-  "e-match": { x: 1520, y: 180 },
-  "e-payment": { x: 1900, y: 180 },
-  "e-stock": { x: 1520, y: 440 },
-  "e-freight": { x: 1900, y: 440 },
-  "e-claim": { x: 2280, y: 440 },
-};
 
 export const entityEdges: GraphEdge[] = [
   { from: "e-forecast", to: "e-requisition", label: "planned demand" },

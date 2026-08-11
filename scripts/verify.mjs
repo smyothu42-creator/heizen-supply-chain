@@ -14,7 +14,11 @@ import { chromium } from "playwright";
 const BASE = "http://localhost:4311";
 const RM = { reducedMotion: "reduce" };
 
-const DIRECTIONS = ["money", "call", "certainty", "stakeholder"];
+/* Six now. Timing and Risk answer the two questions the other four cannot —
+   why now, and what could kill this. Adding a direction means adding it here:
+   a new Brief that clips is exactly the failure this script exists to catch,
+   and it is invisible if the route is not in the list. */
+const DIRECTIONS = ["all", "about", "leaks", "build", "tech", "solved", "money", "risk", "stakeholder"];
 
 /** Research Brief is the only surface that must fit one screen with no scroll. */
 const BRIEFS = DIRECTIONS.map((d) => `/research/${d}/brief`);
@@ -22,7 +26,13 @@ const BRIEFS = DIRECTIONS.map((d) => `/research/${d}/brief`);
 /** Everything that renders, for contrast and keyboard. */
 const PAGES = [
   "/",
-  "/canvas",
+  // The workspace: the level above a project. Checked here for the same reason
+  // every surface is — these three carry new pairings (a danger panel, a
+  // read-only field, a filled destructive button) that nothing else uses.
+  "/projects",
+  "/team",
+  "/settings",
+  "/operations",
   "/gaps",
   "/questions",
   "/compare",
@@ -36,7 +46,7 @@ const PAGES = [
  * first — which is the real user path anyway.
  */
 const PANEL_TRIGGERS = {
-  "/canvas": { click: "[data-node] button" },
+  "/operations": { click: "[data-node] button" },
   "/sources": { click: "ul button" },
   "/gaps": { expand: "li > div > button", click: 'button:has-text("Open in panel")' },
   "/research/certainty/full": { click: "ul li button" },
@@ -48,9 +58,16 @@ const PANEL_TRIGGERS = {
   },
 };
 
+/* The two phones are the constraint Brief was designed against. The last two
+   are the `roomy` variant — from 1024×780 Brief takes Full's frame, padding
+   and tile size, and that is a second layout with its own way of not fitting.
+   1024×780 is the boundary itself: one pixel shorter falls back to the tight
+   rhythm, so this row is what catches the roomy layout being made taller. */
 const VIEWPORTS = [
   { name: "375x667", width: 375, height: 667 },
   { name: "390x844", width: 390, height: 844 },
+  { name: "1024x780 roomy", width: 1024, height: 780 },
+  { name: "1440x900 roomy", width: 1440, height: 900 },
 ];
 
 /* ---- WCAG contrast --------------------------------------------------- */
@@ -110,6 +127,12 @@ for (const vp of VIEWPORTS) {
     for (const path of PAGES) {
       await page.goto(BASE + path, { waitUntil: "networkidle" });
       await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
+      // Open the project menu so its rows are sampled too. It is a popover
+      // inside the masthead, so it inherits chrome colours onto a page-coloured
+      // card — the exact mistake that made every project name white on white,
+      // and one this pass was blind to while the menu stayed shut.
+      const projectTrigger = page.locator('button[aria-haspopup="menu"]').first();
+      if (await projectTrigger.count()) await projectTrigger.click();
       await page.waitForTimeout(250);
       const samples = await page.evaluate(() => {
         const out = [];
@@ -255,3 +278,53 @@ for (const vp of VIEWPORTS) {
 
 await browser.close();
 console.log(JSON.stringify(results, null, 2));
+
+/* ---- Verdict -----------------------------------------------------------
+   This used to print its findings and exit 0 regardless, which meant a
+   contrast regression scrolled past in the output and the build stayed green.
+   A check that cannot fail is documentation, not a check. */
+
+const failures = [];
+
+for (const s of results.scroll) {
+  if (s.scrolls) failures.push(`${s.path} scrolls at ${s.viewport}`);
+  for (const c of s.clipped) {
+    // `.cls` and `.overflowPx`, not `.text` — the first version of this line
+    // printed "[object Object]", which told you a Brief clipped and nothing
+    // about where or by how much.
+    failures.push(
+      `${s.path} clips by ${c.overflowPx}px at ${s.viewport} — .${c.cls}`,
+    );
+  }
+}
+
+for (const c of results.contrast) {
+  failures.push(
+    `${c.theme} ${c.path}: "${c.text}" is ${c.ratio}:1 at ${c.size}px, needs ${c.need}`,
+  );
+}
+
+for (const k of results.keyboard) {
+  if (k.tabReached < k.interactive) {
+    failures.push(`${k.path}: Tab reaches ${k.tabReached} of ${k.interactive} controls`);
+  }
+  if (k.panel) {
+    for (const [step, ok] of Object.entries(k.panel)) {
+      if (!ok) failures.push(`${k.path}: detail panel failed to ${step}`);
+    }
+  }
+}
+
+for (const f of results.focus) {
+  if (parseFloat(f.outlineWidth) < 2) {
+    failures.push(`focus ring is ${f.outlineWidth}, needs 2px`);
+  }
+}
+
+if (failures.length > 0) {
+  console.error(`\n${failures.length} failure${failures.length === 1 ? "" : "s"}:`);
+  for (const f of failures) console.error(`  ✗ ${f}`);
+  process.exit(1);
+}
+
+console.error("\nAll UI checks passed.");

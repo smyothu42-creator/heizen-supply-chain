@@ -1,0 +1,281 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useId, useRef, useState } from "react";
+import { cn } from "@/lib/cn";
+import { initialsOf } from "@/lib/projects";
+import { ROLE_LABEL } from "@/lib/workspace";
+import { useWorkspace } from "./WorkspaceProvider";
+import { ChevronIcon, SearchIcon } from "@/components/meridian/Icons";
+
+/**
+ * A monogram, or a photograph when there is one.
+ *
+ * `tone` is not decoration. The trigger sits on the indigo band and the rows
+ * sit on a white popover, and the masthead tokens do not invert with the theme
+ * while the page tokens do — the same trap `ThemeToggle` carries a `tone` for.
+ * One set of colours cannot serve both places.
+ */
+function Avatar({
+  name,
+  photoUrl,
+  tone = "band",
+  className,
+}: {
+  name: string;
+  photoUrl?: string;
+  tone?: "band" | "page";
+  className?: string;
+}) {
+  const shell = cn(
+    "grid shrink-0 place-items-center overflow-hidden rounded-full border text-micro font-medium uppercase",
+    tone === "band"
+      ? "border-masthead-border bg-masthead-border text-masthead-foreground"
+      : "border-border bg-muted text-foreground",
+    className,
+  );
+  return photoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={photoUrl} alt="" className={cn(shell, "object-cover")} />
+  ) : (
+    <span aria-hidden className={shell}>
+      {initialsOf(name)}
+    </span>
+  );
+}
+
+/**
+ * The project switcher, in the masthead.
+ *
+ * A menu button rather than a `<select>`: a native select cannot hold a filter
+ * field, and it cannot mark a row as having nothing behind it yet.
+ *
+ * **It is a filtered list of names now**, on request. The rows used to carry a
+ * monogram, the sector, a contract value and a status line each, which is four
+ * facts about a project you are not in, on a menu whose entire job is to get
+ * you into one. The name is what you are looking for. The one thing that
+ * survives beside it is the reason a row cannot be pressed.
+ *
+ * **The filter is forward-looking and says so.** Three projects do not need
+ * searching; thirty do, and a consultancy accumulates them. It is the same
+ * reasoning as the connectors and the disabled rows below it — build the shape
+ * the real thing has. If the list ever stays short, the cheap fix is to render
+ * the field only past a threshold rather than to delete it.
+ *
+ * Keyboard contract, because this is the one bit of chrome on every screen:
+ * Escape closes and returns focus to the button, Tab out closes, and a click
+ * anywhere else closes. The filter takes focus on open, which is what makes it
+ * worth having — typing works before the pointer arrives. Arrow-key roving is
+ * deliberately not implemented; the rows are ordinary buttons and Tab reaches
+ * all of them, which is what `check:ui` asserts.
+ */
+export function ProjectMenu() {
+  /* The list, the open project and the signed-in person all come from the
+     workspace store rather than from the static module, because a project can
+     now be *created*. A switcher reading a frozen import is a switcher that
+     does not list the project you made a moment ago on the Projects page. */
+  const { projects, currentProjectId, setCurrentProject, me } = useWorkspace();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const id = useId();
+  const wrap = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+
+  const selected = currentProjectId;
+  const project = projects.find((p) => p.id === selected) ?? projects[0];
+  /* Matched on the name alone, and not on the sector underneath it. A row that
+     appears for a word the reader cannot see in it reads as a bug. */
+  const shown = projects.filter((p) =>
+    p.name.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        trigger.current?.focus();
+      }
+    };
+    const onFocus = () => {
+      if (!wrap.current?.contains(document.activeElement)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("focusin", onFocus);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("focusin", onFocus);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrap} className="relative min-w-0">
+      <button
+        ref={trigger}
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        aria-haspopup="menu"
+        onClick={() => {
+          setOpen((v) => !v);
+          setQuery("");
+        }}
+        // `max-w-full`, because a <button> sizes to its content rather than to
+        // its parent — `min-w-0` on the flex children is not enough on its own,
+        // and without this the trigger ran 23px past the 7.5rem cap the
+        // masthead puts on it, straight over the first surface tab at 375.
+        className="flex min-w-0 max-w-full items-center gap-2 rounded-md py-1 pl-1 pr-1 text-small text-masthead-muted transition-colors hover:text-masthead-foreground"
+      >
+        <Avatar
+          name={project.name}
+          photoUrl={project.photoUrl}
+          className="h-6 w-6"
+        />
+        {/* The name goes below `sm`: on the right of the band it is competing
+            with the theme control for the last 120px of a 375px line, and the
+            monogram already says which project you are in.
+
+            `min-w-0` as well as `truncate`. A flex child's min-width is `auto`,
+            so the span refused to shrink below its text and the button ran 23px
+            past the cap the masthead puts on it. The cap only bites once the
+            child can. */}
+        <span className="hidden min-w-0 truncate sm:block">{project.name}</span>
+        <ChevronIcon
+          className={cn(
+            "shrink-0 rotate-90 transition-transform",
+            open && "-rotate-90",
+          )}
+        />
+      </button>
+
+      {open && (
+        <div
+          id={id}
+          role="menu"
+          aria-label="Switch project"
+          /* `text-foreground` is load-bearing, not tidiness. This popover is a
+             child of the masthead, which sets `text-masthead-foreground` —
+             white. Rendered on a white card, every row's name inherited white
+             on white and simply was not there, while the sector and status
+             lines showed because they name their own colour. A popover that
+             escapes a coloured band has to reset the colour it landed in. */
+          className="absolute right-0 top-full z-50 mt-1 w-[19rem] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-raised"
+        >
+          {/* The field is the first thing in the menu and takes focus with it,
+              so the menu opens ready to be typed into. `autoFocus` is safe
+              here in a way it is not on a page: this element did not exist a
+              moment ago and the user opened it deliberately. */}
+          <div className="relative border-b border-border">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <SearchIcon />
+            </span>
+            <input
+              autoFocus
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search projects"
+              aria-label="Search projects"
+              className="w-full bg-transparent py-2.5 pl-9 pr-3 text-small text-foreground placeholder:text-muted-foreground focus-visible:outline-none"
+            />
+          </div>
+
+          <ul className="max-h-[60vh] overflow-y-auto py-1">
+            {shown.map((p) => {
+              const isCurrent = p.id === selected;
+              return (
+                <li key={p.id}>
+                  {/* Name, and whether there is research behind it. Nothing
+                      else. The sector, the contract value and the status line
+                      were four facts about a project you are not in, on a
+                      control whose whole job is to get you into one.
+
+                      **Every row is pressable**, on request, and the note beside
+                      it is what carries the honesty the disabled state used to.
+                      The same change went into the project cards. */}
+                  <button
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={isCurrent}
+                    onClick={() => {
+                      setCurrentProject(p.id);
+                      setOpen(false);
+                      trigger.current?.focus();
+                    }}
+                    className="flex w-full items-baseline justify-between gap-2 px-3 py-2 text-left text-small transition-colors hover:bg-muted"
+                  >
+                    <span className={cn("truncate", isCurrent && "font-medium")}>{p.name}</span>
+                    {isCurrent ? (
+                      <span className="shrink-0 text-micro text-evidence">Open</span>
+                    ) : (
+                      !p.researched && (
+                        <span className="shrink-0 text-micro text-muted-foreground">
+                          No research yet
+                        </span>
+                      )
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+            {shown.length === 0 && (
+              <li className="px-3 py-2 text-small text-muted-foreground">
+                No project matches “{query.trim()}”.
+              </li>
+            )}
+          </ul>
+
+          {/* Project-first creation, which is a decision rather than an
+              omission: the project exists before any source does, so it
+              survives a failed upload and can be opened with nothing in it. */}
+          {/* **A link to the Projects page, not a form in a popover.** Creating
+              a project asks six questions and one of them is a paragraph; a
+              menu 19rem wide hanging off the masthead is the wrong room for it.
+              This is the shortest route to the page that owns the form. */}
+          <div className="border-t border-border p-1">
+            <Link
+              href="/projects"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="block w-full rounded-md px-2 py-1.5 text-left text-small text-evidence transition-colors hover:bg-muted"
+            >
+              New project
+              <span className="mt-0.5 block text-micro text-muted-foreground">
+                Name the company and sector first. Sources come after.
+              </span>
+            </Link>
+          </div>
+
+          <p className="border-t border-border px-3 py-2 text-micro text-muted-foreground">
+            This prototype carries one research set. The other two are real
+            Heizen projects and are listed as they are.
+          </p>
+
+          {/* Who is signed in. The email is the identity — no display name is
+              invented from it, because an address is not a name. */}
+          <div className="flex items-center gap-2.5 border-t border-border px-3 py-2.5">
+            <Avatar
+              name={me.name ?? me.email}
+              photoUrl={me.photoUrl}
+              tone="page"
+              className="h-7 w-7 text-small"
+            />
+            <span className="min-w-0">
+              <span className="block truncate text-small font-medium">
+                {me.name ?? me.email}
+              </span>
+              <span className="block text-micro text-muted-foreground">
+                {ROLE_LABEL[me.role]} · {me.title}
+              </span>
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

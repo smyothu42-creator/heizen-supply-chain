@@ -1,8 +1,13 @@
 import { notFound } from "next/navigation";
 import { directions, isDirectionSlug, isViewMode } from "@/lib/directions";
+import { AllBrief, AllFull } from "@/components/directions/All";
+import { AboutBrief, AboutFull } from "@/components/directions/About";
+import { LeaksBrief, LeaksFull } from "@/components/directions/Leaks";
+import { BuildBrief, BuildFull } from "@/components/directions/Build";
+import { SolvedBrief, SolvedFull } from "@/components/directions/Account";
 import { MoneyBrief, MoneyFull } from "@/components/directions/Money";
-import { CallBrief, CallFull } from "@/components/directions/Call";
-import { CertaintyBrief, CertaintyFull } from "@/components/directions/Certainty";
+import { TechBrief, TechFull } from "@/components/directions/Tech";
+import { RiskBrief, RiskFull } from "@/components/directions/Risk";
 import { StakeholderBrief, StakeholderFull } from "@/components/directions/Stakeholder";
 
 export function generateStaticParams() {
@@ -12,10 +17,15 @@ export function generateStaticParams() {
 }
 
 const VIEWS = {
+  all: { brief: AllBrief, full: AllFull },
   money: { brief: MoneyBrief, full: MoneyFull },
-  call: { brief: CallBrief, full: CallFull },
-  certainty: { brief: CertaintyBrief, full: CertaintyFull },
+  tech: { brief: TechBrief, full: TechFull },
+  risk: { brief: RiskBrief, full: RiskFull },
   stakeholder: { brief: StakeholderBrief, full: StakeholderFull },
+  about: { brief: AboutBrief, full: AboutFull },
+  leaks: { brief: LeaksBrief, full: LeaksFull },
+  build: { brief: BuildBrief, full: BuildFull },
+  solved: { brief: SolvedBrief, full: SolvedFull },
 } as const;
 
 export default async function ResearchPage({

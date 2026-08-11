@@ -4,16 +4,9 @@ import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { money } from "@/lib/format";
 import { company, gapById } from "@/lib/suvarna";
-import {
-  childrenOf,
-  counts,
-  level0,
-  nodeById,
-  nodes,
-  type CanvasNode,
-} from "@/lib/canvas";
+import { childrenOf, counts, level0, nodeById, nodes, type CanvasNode } from "@/lib/canvas";
 import { CanvasLegend, NodeCard } from "@/components/meridian/NodeCard";
-import { Eyebrow } from "@/components/meridian/Primitives";
+
 import { usePanel } from "@/components/meridian/EvidencePanel";
 import { SummaryStrip } from "@/components/directions/Frames";
 import { ChevronIcon } from "@/components/meridian/Icons";
@@ -47,15 +40,9 @@ export function CanvasList() {
     node.gapIds.reduce((s, id) => s + (gapById(id).amountCr ?? 0), 0);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 py-5 sm:px-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <Eyebrow>{company.name} · supply chain map</Eyebrow>
-          <h1 className="mt-1.5 font-display text-h1 leading-tight">How this company runs</h1>
-          <p className="mt-1.5 text-small text-muted-foreground measure">
-            Three levels. The money is at the bottom one.
-          </p>
-        </div>
+    <div className="surface-frame py-5">
+      {/* No title here — the hero band above carries it. */}
+      <div className="flex flex-wrap items-start justify-end gap-4">
         <button
           type="button"
           onClick={() => setShowLegend((v) => !v)}
@@ -66,21 +53,26 @@ export function CanvasList() {
         </button>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-3">
         <SummaryStrip
           items={[
             { label: "Processes mapped", value: String(counts.total) },
-            { label: "With evidence", value: `${counts.withData} of ${counts.total}` },
+            {
+              label: "With evidence",
+              value: `${counts.withData} of ${counts.total}`,
+            },
             { label: "Nothing known", value: String(counts.empty) },
             { label: "Critical", value: String(counts.critical) },
-            { label: "Total found", value: money(company.leakageCr) },
+            { label: "No reading at all", value: String(counts.unknown) },
+            { label: "Claimable", value: money(company.netLeakageCr) },
           ]}
         />
       </div>
 
       <p className="mt-3 text-small text-muted-foreground measure">
-        {counts.empty} of {counts.total} boxes have nothing behind them. That is normal — clients
-        never hand over everything.
+        {counts.empty} of {counts.total} boxes have nothing behind them, and {counts.unknown}
+        carry no health reading at all. That is normal — clients never hand over everything, and a
+        grey box is honest where a green one would have been a guess.
       </p>
 
       {showLegend && (
@@ -92,7 +84,7 @@ export function CanvasList() {
       {/* ------------------------------------------------------- Level 0 */}
       <section className="mt-8">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-micro font-medium uppercase tracking-[0.09em] text-muted-foreground">
+          <h2 className="text-micro font-medium text-muted-foreground">
             Level 0 · the value chain
           </h2>
           <span className="text-micro text-muted-foreground">
@@ -109,9 +101,7 @@ export function CanvasList() {
                   onSelect={() => selectL0(node.id)}
                 />
               </div>
-              {i < level0.length - 1 && (
-                <ChevronIcon className="shrink-0 text-border-strong" />
-              )}
+              {i < level0.length - 1 && <ChevronIcon className="shrink-0 text-border-strong" />}
             </li>
           ))}
         </ol>
@@ -120,7 +110,7 @@ export function CanvasList() {
       {/* ------------------------------------------------------- Level 1 */}
       <section className="mt-7">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-micro font-medium uppercase tracking-[0.09em] text-muted-foreground">
+          <h2 className="text-micro font-medium text-muted-foreground">
             Level 1 · inside {nodeById(l0).name}
           </h2>
           <span className="tabular text-micro text-muted-foreground">
@@ -148,13 +138,15 @@ export function CanvasList() {
       </section>
 
       {/* ------------------------------------------------------- Level 2 */}
-      <section className="mt-7 rounded-xl border border-border bg-card p-4 sm:p-5">
+      <section className="mt-7 rounded-xl border border-border bg-card p-4 shadow-card sm:p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <div>
-            <h2 className="text-micro font-medium uppercase tracking-[0.09em] text-muted-foreground">
+            <h2 className="text-micro font-medium text-muted-foreground">
               Level 2 · inside {selectedL1?.name ?? "—"}
             </h2>
-            <p className="mt-0.5 text-base font-medium">Where companies differ, and gaps get a price</p>
+            <p className="mt-0.5 text-base font-medium">
+              Where companies differ, and gaps get a price
+            </p>
           </div>
           <span className="tabular text-base font-medium">
             {money(l2Nodes.reduce((s, n) => s + valueOf(n), 0))}

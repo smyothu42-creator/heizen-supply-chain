@@ -1,27 +1,31 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+/**
+ * One face for the whole platform: Inter.
+ *
+ * The earlier typeset ran a geometric sans against Inria Serif italic for
+ * second-level headings, mirroring heizen.work's two-voice pairing. That was
+ * dropped deliberately — the accent voice is now Inter italic in brand teal,
+ * so the distinction is colour and slant rather than a second family.
+ *
+ * Italic is loaded because `.accent-heading` needs it. Swapping the face is
+ * still a one-import change; nothing outside this file names a family.
+ */
+const sans = Inter({
+  variable: "--font-sans-family",
+  style: ["normal", "italic"],
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-// Display role only: the thesis and the leakage number. See design-system —
-// visual boldness is spent in exactly one place per screen.
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument-serif",
-  weight: "400",
+const mono = Geist_Mono({
+  variable: "--font-mono-family",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Meridian — Research directions",
+  title: "Heizen Discovery Tool — Research directions",
   description:
     "Four organising principles for the Research tab, built against Suvarna Agro Foods.",
 };
@@ -31,7 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} h-full antialiased`}
+      className={`${sans.variable} ${mono.variable} h-full antialiased`}
     >
       <head>
         {/* Applies the stored theme before first paint so the page never flashes

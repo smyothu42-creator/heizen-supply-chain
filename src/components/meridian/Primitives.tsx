@@ -20,12 +20,13 @@ export function Gloss({ term, children }: { term: string; children: ReactNode })
   );
 }
 
-/** Small all-caps section label. One of exactly two label treatments in the app. */
+/** Small section label. Sentence case — there are no all-caps labels in the
+ *  product any more. */
 export function Eyebrow({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
       className={cn(
-        "text-micro font-medium uppercase tracking-[0.09em] text-muted-foreground",
+        "text-micro font-medium text-muted-foreground",
         className,
       )}
     >
@@ -68,7 +69,7 @@ export function Disclosure({
         )}
       >
         <ChevronIcon className={cn("transition-transform", open && "rotate-90")} />
-        <span className="underline-offset-4 group-hover:underline">{label}</span>
+        <span>{label}</span>
         {count != null && <span className="tabular text-muted-foreground">· {count}</span>}
       </button>
       {open && (
@@ -80,7 +81,24 @@ export function Disclosure({
   );
 }
 
-/** A quiet card. The default container for anything that is not the one bold thing. */
+/**
+ * A quiet card, and a block of content on the ivory page.
+ *
+ * Both are one line of styling over shadcn's `Card`, kept as named exports
+ * because they carry an `as` prop the primitive does not: these render as `li`
+ * inside a list and as `section` on a surface, and a `<div>` wrapping a `<li>`
+ * is a list item the browser will not associate with its list.
+ *
+ * The shared shape lives in `ui/card.tsx`, so a shadcn primitive dropped in
+ * next to a `Panel` looks like the same object.
+ *
+ * The collection surfaces — Gaps, Questions, Sources, Compare, Operations — are
+ * made of `Panel`: a list, a table, a group of connectors, each a separate
+ * thing from the one beside it, which is exactly the condition a card is for.
+ * Research Full deliberately is not; see the note in `FullFrame`.
+ */
+const CARD = "rounded-lg border border-border bg-card text-card-foreground shadow-card";
+
 export function Card({
   children,
   className,
@@ -90,9 +108,19 @@ export function Card({
   className?: string;
   as?: "div" | "li" | "article" | "section";
 }) {
-  return (
-    <As className={cn("rounded-lg border border-border bg-card", className)}>{children}</As>
-  );
+  return <As className={cn(CARD, className)}>{children}</As>;
+}
+
+export function Panel({
+  children,
+  className,
+  as: As = "section",
+}: {
+  children: ReactNode;
+  className?: string;
+  as?: "div" | "section" | "aside";
+}) {
+  return <As className={cn(CARD, "px-4 py-4 sm:px-5 sm:py-5", className)}>{children}</As>;
 }
 
 /** Section heading plus an optional dense summary strip for scanners. */
@@ -110,7 +138,7 @@ export function SectionHeading({
   return (
     <div className="flex items-baseline justify-between gap-4 border-b border-border pb-2">
       <div>
-        <h2 id={id} className="text-h3 font-medium tracking-tight scroll-mt-24">
+        <h2 id={id} className="accent-heading text-h3 scroll-mt-24">
           {title}
         </h2>
         {summary && <div className="mt-1 text-small text-muted-foreground measure">{summary}</div>}

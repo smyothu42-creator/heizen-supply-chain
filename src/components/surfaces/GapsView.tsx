@@ -1,220 +1,880 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import {
+  buckets,
+  gapById,
+  gaps,
+  missingPrerequisites,
+  sequenceWaves,
+  type Gap,
+} from "@/lib/suvarna";
+import {
+  NO_EDITS,
+  PLAN_START,
+  UNIT_LABEL,
+  formatDay,
+  formatShort,
+  formatSpan,
+  schedule,
+  waveOf,
+  type Duration,
+  type DurationUnit,
+  type PlanEdits,
+  type ScheduledGap,
+} from "@/lib/plan";
 import { cn } from "@/lib/cn";
-import { money, moneyParts } from "@/lib/format";
-import { buckets, company, gaps, type Gap } from "@/lib/suvarna";
 import { GapRow } from "@/components/meridian/GapRow";
-import { PageHeader } from "@/components/meridian/PageHeader";
+import { SurfaceHero } from "@/components/shell/SurfaceHero";
+import { RunButton } from "@/components/shell/RunButton";
+import { NewGapButton } from "@/components/shell/NewGapButton";
+import { GapPanel } from "@/components/shell/GapPanel";
+import { SaveMenu } from "@/components/shell/SaveMenu";
+import { SelectField } from "@/components/shell/SelectField";
+import { EditIcon } from "@/components/meridian/Icons";
+import { Panel } from "@/components/meridian/Primitives";
+import { Checkbox } from "@/components/shell/Checkbox";
 
 /**
- * Gaps — findings. Past-tense, evidenced, priced.
+ * Gaps — findings and what it takes to fix them.
  *
- * Twelve rows, twelve lines. Sorting, filtering and the plan total are the
- * only things competing with the list, and each is one control.
+ * **There is no money on this surface.** Not on the row, not on the band, not
+ * in the plan. That is a deliberate split rather than a simplification: a rupee
+ * figure is only honest with its base, its rate and its range attached (§7.11),
+ * and there is exactly one place in the product with room for all three, which
+ * is Research › Money. Twelve prices on twelve rows with the working two clicks
+ * away was the number a client challenges first.
+ *
+ * What is left is the question the price was standing in for. Twelve problems,
+ * what each one needs first, what it costs in weeks rather than crores, and a
+ * plan that turns a tick-list into dates.
  */
 
-type Sort = "value" | "effort" | "confidence";
+type Sort = "effort" | "confidence" | "sequence";
 
 const EFFORT_RANK = { Low: 0, Medium: 1, High: 2 } as const;
 const TIER_RANK = { confirmed: 0, inferred: 1, unverified: 2 } as const;
 
-const confirmedValue = gaps
-  .filter((g) => g.tier === "confirmed")
-  .reduce((s, g) => s + (g.amountCr ?? 0), 0);
+/* The suggested order across the whole list, not just the ticked rows: the
+   position a gap would take if you did all twelve. It is a sort key here and
+   the plan's starting shape there, computed from the same function so the two
+   can never disagree. */
+const SEQUENCE_RANK = new Map(
+  sequenceWaves(gaps.map((g) => g.id)).flatMap((wave, i) =>
+    [...wave]
+      .sort((a, b) => EFFORT_RANK[gapById(a).effort] - EFFORT_RANK[gapById(b).effort])
+      .map((id, j) => [id, i * 100 + j] as const),
+  ),
+);
 
 export function GapsView() {
-  const [sort, setSort] = useState<Sort>("value");
+  const [sort, setSort] = useState<Sort>("sequence");
   const [bucketFilter, setBucketFilter] = useState<string | null>(null);
-  const [plan, setPlan] = useState<Set<string>>(new Set(["g1", "g2", "g4"]));
+  const [plan, setPlan] = useState<Set<string>>(new Set(["g3", "g9", "g6"]));
+  const [edits, setEdits] = useState<PlanEdits>(NO_EDITS);
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Gap | null>(null);
+  /* Focus goes back to the button that opened the drawer, or closing it strands
+     the user at the top of the document with no idea what they just shut. Same
+     rule `PanelProvider` follows for the evidence panel.
+
+     The band's button is a ref because there is one of it. The row's is stored
+     on the way in, because there are twelve and a ref per row would be a map
+     kept in step with a list that filters and re-sorts under it. */
+  const addButton = useRef<HTMLButtonElement>(null);
+  const editButton = useRef<HTMLButtonElement | null>(null);
+  const closeAdding = () => {
+    setAdding(false);
+    addButton.current?.focus();
+  };
+  const closeEditing = () => {
+    setEditing(null);
+    editButton.current?.focus();
+  };
 
   const visible = useMemo(() => {
     const list = bucketFilter ? gaps.filter((g) => g.bucketId === bucketFilter) : [...gaps];
     return list.sort((a, b) => {
-      if (sort === "value") return (b.amountCr ?? -1) - (a.amountCr ?? -1);
       if (sort === "effort")
-        return EFFORT_RANK[a.effort] - EFFORT_RANK[b.effort] || (b.amountCr ?? 0) - (a.amountCr ?? 0);
-      return TIER_RANK[a.tier] - TIER_RANK[b.tier] || (b.amountCr ?? 0) - (a.amountCr ?? 0);
+        return EFFORT_RANK[a.effort] - EFFORT_RANK[b.effort] || a.rank - b.rank;
+      if (sort === "confidence") return TIER_RANK[a.tier] - TIER_RANK[b.tier] || a.rank - b.rank;
+      return (SEQUENCE_RANK.get(a.id) ?? 0) - (SEQUENCE_RANK.get(b.id) ?? 0);
     });
   }, [sort, bucketFilter]);
 
-  const selected = gaps.filter((g) => plan.has(g.id));
-  const planValue = selected.reduce((s, g) => s + (g.amountCr ?? 0), 0);
-  const planParts = moneyParts(planValue);
-  const planWeeks = selected.length ? Math.max(...selected.map((g) => g.weeks)) : 0;
-  const planRisk = selected
-    .filter((g) => g.tier !== "confirmed")
-    .reduce((s, g) => s + (g.amountCr ?? 0), 0);
-
-  const toggle = (id: string) =>
+  const toggle = (id: string) => {
     setPlan((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+    /* An override on a gap that has left the plan is a stale instruction: the
+       suggested order is recomputed from whatever is ticked, so a wave index
+       kept from a different selection would land somewhere arbitrary if the
+       gap came back. Weeks are the consultant's own estimate and survive. */
+    setEdits((prev) => {
+      if (!(id in prev.wave)) return prev;
+      const wave = { ...prev.wave };
+      delete wave[id];
+      return { ...prev, wave };
+    });
+  };
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 py-5 sm:px-4">
-      <PageHeader
-        eyebrow={company.name}
-        title="Gaps"
-        line="Problems Heizen can fix, with what each costs them a year."
-        stats={[
-          { label: "found", value: money(company.leakageCr) },
-          { label: "gaps", value: String(gaps.length) },
-          { label: "on confirmed evidence", value: money(confirmedValue) },
-        ]}
-        about={
-          <>
-            <p>
-              Eleven of twelve carry a number. The twelfth has no rejection data behind it, so it is
-              listed unpriced rather than guessed at.
-            </p>
-            <p>
-              Tick rows to build a plan. Where two gaps fix the same root cause, doing both does not
-              double the saving — check before this goes in a proposal.
-            </p>
-          </>
-        }
-      />
+    <>
+      <SurfaceHero title="Gaps" />
+      <div className="surface-frame py-5">
+        {/* The two settings sit on the page above the card, not in its header
+            strip, and they are dropdowns rather than tabs. Both on request, and
+            both are reversals of notes that used to be in CLAUDE.md — the old
+            argument was that filters belong to the list they filter, and that
+            there is one tab control in the product.
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-border py-2">
-        <Segmented
-          label="Order"
-          value={sort}
-          onChange={(v) => setSort(v as Sort)}
-          options={[
-            ["value", "Value"],
-            ["effort", "Effort"],
-            ["confidence", "How sure"],
-          ]}
-        />
-        <Segmented
-          label="Area"
-          value={bucketFilter ?? "all"}
-          onChange={(v) => setBucketFilter(v === "all" ? null : v)}
-          options={[["all", "All"], ...buckets.map((b) => [b.id, b.name] as [string, string])]}
-        />
-      </div>
+            What the move buys is real, whatever the argument was: Area carried
+            four bucket names in full and ran 729px, so inside the card it was a
+            scroller that hid its own last option, and the two tracks wrapped
+            against each other at anything under a wide monitor. A dropdown is
+            the width of its longest label plus a chevron, at every viewport, and
+            it cannot hide an option off the right edge.
 
-      <div className="mt-4 grid gap-8 lg:grid-cols-[minmax(0,1fr)_230px]">
-        <div className="min-w-0">
-          <ul className="divide-y divide-border">
-            {visible.map((gap) => (
-              <SelectableGapRow
-                key={gap.id}
-                gap={gap}
-                checked={plan.has(gap.id)}
-                onToggle={() => toggle(gap.id)}
-              />
-            ))}
-          </ul>
-          {visible.length === 0 && (
-            <p className="py-6 text-small text-muted-foreground">Nothing in this area.</p>
-          )}
+            **Order lost its Value option with the prices.** Sorting by a number
+            that appears nowhere on the surface is a control whose effect cannot
+            be read. Sequence took the default in its place, which is the
+            ordering the plan panel beside it is built on.
+
+            `mb-3` and `gap-x-6`, matching Questions' `Arrange` row above its
+            panels — the two surfaces should not disagree about where a setting
+            lives now that both put theirs on the page.
+
+            **The two buttons share this row**, on request, and it is the same
+            move Research made with its switches: once the surface name and its
+            description came off the header, what was left was a row holding two
+            buttons and a great deal of ivory. The dropdowns are ~380px of a
+            full-width frame, so the buttons drop into space that was already
+            empty and the surface gains the whole header back.
+
+            It costs the distinction the header was protecting — *work you
+            start* apart from *how the list is sorted*. Position on the row
+            carries it instead: settings at the reading edge, buttons at the far
+            end. `self-center` on them, because the row is `items-stretch` for
+            the divider's sake and a stretched button is a 40px slab. */}
+        <div className="mb-3 flex flex-wrap items-stretch gap-x-6 gap-y-2">
+          <SelectField
+            label="Order"
+            value={sort}
+            onChange={(v) => setSort(v as Sort)}
+            options={[
+              ["sequence", "Sequence"],
+              ["effort", "Effort"],
+              ["confidence", "How sure"],
+            ]}
+          />
+          {/* The same rule Research puts between Direction and Detail, and for
+              the same reason: two settings side by side read as one four-item
+              strip, and space alone has to be a lot of space to say otherwise.
+              A `w-px` rule says it outright.
+
+              `self-stretch` rather than a fixed height, so it runs the height of
+              the select boxes and reads as a boundary between two controls
+              rather than a tick floating beside them. That needs the row to be
+              `items-stretch`; on `items-center` a self-stretched child has
+              nothing to stretch to and the rule collapses to nothing.
+
+              It hides when the row wraps, because a vertical rule between two
+              stacked things is pointing the wrong way. */}
+          <span className="hidden w-px shrink-0 self-stretch bg-border sm:block" aria-hidden />
+          <SelectField
+            label="Area"
+            value={bucketFilter ?? "all"}
+            onChange={(v) => setBucketFilter(v === "all" ? null : v)}
+            options={[["all", "All"], ...buckets.map((b) => [b.id, b.name] as [string, string])]}
+          />
+          <div className="ml-auto flex shrink-0 items-center gap-2 self-center">
+            <NewGapButton ref={addButton} onClick={() => setAdding(true)} />
+            <RunButton label="Run Gaps" />
+          </div>
         </div>
 
-        <aside className="lg:sticky lg:top-4 lg:self-start">
-          <div className="rounded-lg border border-border bg-card p-3.5">
-            <p className="text-micro font-medium uppercase tracking-[0.09em] text-muted-foreground">
-              Plan · {selected.length} of {gaps.length}
-            </p>
-            <p className="mt-1.5 flex items-end gap-1">
-              <span className="font-display text-h1 leading-none tabular">{planParts.value}</span>
-              <span className="font-display text-h3 leading-none pb-0.5">{planParts.unit}</span>
-              <span className="pb-1 text-small text-muted-foreground">a year</span>
-            </p>
+        {/* 60 / 40, not a fixed 320px sidebar. The panel is the densest column in
+            the product — a date, a duration, waves with their own dates and a
+            row of controls per gap — so it should grow with the window rather
+            than sit as a fixed strip that gets narrower in proportion the wider
+            the monitor. At 1440 the split is ~925 / ~400.
 
-            <dl className="mt-3 space-y-1 border-t border-border pt-2.5 text-small">
-              <Stat label="of everything found">
-                {Math.round((planValue / company.leakageCr) * 100)}%
-              </Stat>
-              <Stat label="longest item">{planWeeks}w</Stat>
-              {/* Zero here is a real answer, not an absence — say it as a word
-                  rather than as ₹0 L, which reads like a formatting failure. */}
-              <Stat label="rests on inference">{planRisk === 0 ? "none" : money(planRisk)}</Stat>
-            </dl>
+            The `minmax(320px, 3fr)` floor is load-bearing: 30% of the `lg`
+            breakpoint is 285px, and at that width a plan row cannot hold a
+            title, a week count and three buttons on one line. The ratio applies
+            where there is room for it; below that the panel holds its floor and
+            the list gives the pixels up, which is the right way round — the rows
+            have more width than they need at every size. */}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,6fr)_minmax(360px,4fr)]">
+          <Panel className="min-w-0 px-0 py-0 sm:px-0 sm:py-0">
+            <div className="px-4 py-1.5 sm:px-5">
+              <ul className="divide-y divide-border">
+                {visible.map((gap) => (
+                  <SelectableGapRow
+                    key={gap.id}
+                    gap={gap}
+                    checked={plan.has(gap.id)}
+                    onToggle={() => toggle(gap.id)}
+                    onEdit={(trigger) => {
+                      editButton.current = trigger;
+                      setEditing(gap);
+                    }}
+                  />
+                ))}
+              </ul>
+              {visible.length === 0 && (
+                <p className="py-6 text-small text-muted-foreground">Nothing in this area.</p>
+              )}
+            </div>
+          </Panel>
 
-            {selected.length === 0 && (
-              <p className="mt-2.5 border-t border-border pt-2.5 text-micro text-muted-foreground">
-                Tick rows to build a plan.
-              </p>
-            )}
-          </div>
-        </aside>
+          <PlanPanel
+            plan={plan}
+            edits={edits}
+            setEdits={setEdits}
+            onAdd={toggle}
+            onRemove={toggle}
+          />
+        </div>
       </div>
-    </div>
+
+      {/* Mounted and unmounted rather than held open, so a half-typed gap is
+          gone when the drawer comes back. `key` is what makes that true one
+          level finer: pressing edit on a second row while the first is open
+          would otherwise keep the first row's text in the boxes. */}
+      {adding && <GapPanel onClose={closeAdding} />}
+      {editing && <GapPanel key={editing.id} gap={editing} onClose={closeEditing} />}
+    </>
   );
 }
 
-function Stat({ label, children }: { label: string; children: React.ReactNode }) {
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The plan: what gets done, in what order, and by when.
+ *
+ * It was a rupee total with a sequence underneath it. It is now the sequence
+ * with dates on it, and the consultant can move things. See `lib/plan.ts` for
+ * why the prerequisite constraint is the one edit the panel refuses.
+ */
+function PlanPanel({
+  plan,
+  edits,
+  setEdits,
+  onAdd,
+  onRemove,
+}: {
+  plan: Set<string>;
+  edits: PlanEdits;
+  setEdits: (next: PlanEdits) => void;
+  onAdd: (id: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const ids = [...plan];
+  const sched = schedule(ids, edits);
+  const missing = missingPrerequisites(ids);
+
+  /** The gap being dragged, and the wave under the pointer. */
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [over, setOver] = useState<number | null>(null);
+
+  /* A move is expressed as a target wave, whether it arrived from a pointer or
+     from an arrow key. `to` beyond the last wave means "a new wave at the end",
+     which is what dropping past everything should do. */
+  const moveTo = (id: string, to: number) => {
+    const last = sched.waves.length - 1;
+    const raw = to > last ? sched.waves[last].raw + 1 : sched.waves[Math.max(0, to)].raw;
+    setEdits({ ...edits, wave: { ...edits.wave, [id]: raw } });
+  };
+
+  const setDuration = (id: string, next: Duration) =>
+    setEdits({
+      ...edits,
+      duration: {
+        ...edits.duration,
+        [id]: { ...next, value: Math.max(1, Math.min(99, next.value || 1)) },
+      },
+    });
+
+  const drop = (to: number) => {
+    const id = dragging;
+    setDragging(null);
+    setOver(null);
+    if (!id) return;
+    const item = sched.waves.flatMap((w) => w.gaps).find((g) => g.id === id);
+    /* The refusal is here rather than in `schedule`, which would accept the
+       drop and then repair it — the gap would snap back with no explanation. */
+    if (!item || to < item.earliest) return;
+    if (to !== waveOf(id, sched)) moveTo(id, to);
+  };
+
   return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="tabular font-medium">{children}</dd>
-    </div>
+    <aside className="lg:sticky lg:top-14 lg:self-start">
+      <div className="rounded-lg border border-border bg-card p-4 shadow-card">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-micro font-medium text-muted-foreground">
+            Plan · {plan.size} of {gaps.length}
+          </p>
+          {plan.size > 0 && <SaveMenu sched={sched} />}
+        </div>
+
+        {plan.size === 0 ? (
+          <p className="mt-2 text-small text-muted-foreground measure">
+            Tick a row to start building one. The order is worked out from what each gap needs
+            first, and you can change it here.
+          </p>
+        ) : (
+          <>
+            {/* Weeks is the display figure where a rupee total used to be. It
+                is the number a consultant is asked for out loud, and unlike
+                the total it does not need a base to be true. */}
+            {/* **The figure and the dates share a line**, on request: the
+                number at display size, and beside it two lines — what it counts,
+                and the span it runs over. The dates used to sit on their own
+                line underneath, which put a second landmark directly below the
+                display figure with nowhere for the eye to go. Beside it they
+                are the caption on the number rather than a second statement. */}
+            <div className="mt-1.5 flex items-center gap-3">
+              <span className="font-display text-display leading-none tabular">
+                {formatSpan(sched.totalWeeks).split(" ")[0]}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-base text-muted-foreground">
+                  {formatSpan(sched.totalWeeks).split(" ")[1]}, end to end
+                </span>
+                <span className="block text-small text-muted-foreground">
+                  <DateField
+                    value={edits.start}
+                    onChange={(v) => setEdits({ ...edits, start: v || PLAN_START })}
+                    label="Plan start date"
+                  />{" "}
+                  to <span className="tabular text-foreground">{formatDay(sched.endISO)}</span>
+                </span>
+              </span>
+            </div>
+
+            {/* **The parallelism gloss is gone from the panel**, on request.
+                It read: "Everything in a wave starts together, so a wave takes
+                as long as its longest job."
+
+                Worth knowing what it was for, because the reading it prevented
+                is still available: Wave 1 holds a 12-week job and an 8-week job
+                and says 12 weeks, which looks like an error until you know the
+                work runs at the same time. The rule lives in `plan.ts` and the
+                screen shows only its result. **The sentence survives in the
+                downloaded file**, where it earns its place more than it did
+                here: a spreadsheet has no panel around it to explain the
+                arithmetic, and nobody reading one can ask.
+
+                **A wave is the drop target, not a position in a list.** Order
+                inside a wave means nothing — the work runs in parallel and the
+                wave costs its longest job — so dragging a row above another row
+                in the same wave would be a gesture with no result. Dragging it
+                onto a different wave is the only move that changes the plan,
+                and it is the move the handle offers. */}
+            {/* The rule came back onto the list when the gloss above it went:
+                it was the gloss that carried the border, and without it the
+                waves ran straight into the date line. */}
+            <ol className="mt-3.5 space-y-3.5 border-t border-border pt-3.5">
+              {sched.waves.map((wave, i) => (
+                <li
+                  key={wave.raw}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setOver(i);
+                  }}
+                  onDragLeave={() => setOver((v) => (v === i ? null : v))}
+                  onDrop={() => drop(i)}
+                  /* The drop highlight is a ring and not a fill. It was a fill
+                     until the gaps inside the wave took a ground of their own,
+                     and it is still a ring now that they are cards: a tint
+                     behind three bordered white blocks shows only in the 8px
+                     between them. */
+                  className={cn(
+                    "-mx-1 rounded-md px-1 py-0.5 transition-colors",
+                    over === i && "ring-1 ring-evidence",
+                  )}
+                >
+                  {/* **Sprint, and its dates in brackets after it**, on
+                      request. It carried the wave's own length as well —
+                      "Wave 1 · 12 weeks" on the left and the span on the right
+                      — which is the same fact twice: a sprint that runs 17 Aug
+                      to 9 Nov is twelve weeks long. One line, one statement.
+
+                      **It is typeset as a title now**, on request, and it had
+                      to be: once the gaps under it became bordered white cards,
+                      an 11px grey line above them read as a caption on the
+                      first card rather than as the heading of all three. Ink at
+                      600 at `text-small` is the voice `Field`'s boxed labels
+                      already use one panel across, so the heading over a stack
+                      of cards and the heading on a card are the same voice.
+
+                      **The dates stay grey and stay small.** The sprint number
+                      is what you scan the column for; the span is what you read
+                      once you have found it. Promoting both would have made the
+                      line a second title rather than a title with a note. */}
+                  <p className="text-small font-semibold text-foreground">
+                    Sprint {i + 1}{" "}
+                    <span className="tabular text-micro font-normal text-muted-foreground">
+                      ({formatShort(wave.startISO)} to {formatShort(wave.endISO)})
+                    </span>
+                  </p>
+                  {/* 8px between cards, up from 6. Two bordered blocks need
+                      more air between them than two tinted ones: the borders
+                      are what say where one ends, and at 6px they read as a
+                      double rule. */}
+                  <ul className="mt-1.5 space-y-2">
+                    {wave.gaps.map((g) => (
+                      <PlanItem
+                        key={g.id}
+                        item={g}
+                        wave={i}
+                        lastWave={sched.waves.length - 1}
+                        dragging={dragging === g.id}
+                        onDragStart={() => setDragging(g.id)}
+                        onDragEnd={() => {
+                          setDragging(null);
+                          setOver(null);
+                        }}
+                        onMoveTo={moveTo}
+                        onDuration={setDuration}
+                        onRemove={onRemove}
+                      />
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ol>
+
+            {/* The one thing a wave-shaped drop target cannot express: pulling
+                a gap out into a wave of its own at the end. It only appears
+                while something is being dragged, so it is not a permanent
+                empty box under the plan. */}
+            {dragging && (
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setOver(sched.waves.length);
+                }}
+                onDragLeave={() => setOver((v) => (v === sched.waves.length ? null : v))}
+                onDrop={() => drop(sched.waves.length)}
+                className={cn(
+                  "mt-2 rounded-md border border-dashed border-border-strong px-2 py-2 text-center text-micro text-muted-foreground transition-colors",
+                  over === sched.waves.length && "ring-1 ring-evidence",
+                )}
+              >
+                Drop here for a wave of its own
+              </div>
+            )}
+
+            {/* **The two stats under the waves are gone**, on request. Both
+                were restatements: the wave count is the number of headed blocks
+                directly above it, and how many rest on inference is a reading
+                about the *findings* rather than about the schedule, which is
+                what Gaps' band tile and the confidence chip in each row's
+                detail already carry. A summary of a list that is fully visible
+                two inches up is weight without a second read. */}
+            {missing.length > 0 && (
+              <div className="mt-3 border-t border-border pt-2.5">
+                <p className="text-micro font-medium">This will not deliver as ticked</p>
+                <ul className="mt-1 space-y-1">
+                  {missing.map(({ gapId, needs }) => (
+                    <li key={gapId} className="text-micro text-muted-foreground measure">
+                      {gapById(gapId).title} needs{" "}
+                      {needs.map((n, i) => (
+                        <span key={n}>
+                          {i > 0 && ", "}
+                          <button
+                            type="button"
+                            onClick={() => onAdd(n)}
+                            className="font-medium text-foreground transition-colors hover:text-muted-foreground"
+                          >
+                            {gapById(n).title}
+                          </button>
+                        </span>
+                      ))}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {sched.edited && (
+              <button
+                type="button"
+                onClick={() => setEdits(NO_EDITS)}
+                className="mt-2.5 border-t border-border pt-2.5 text-micro text-evidence transition-colors hover:text-foreground"
+              >
+                Put back the suggested order and dates
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </aside>
   );
 }
 
-function Segmented({
+/**
+ * One gap in the plan: what it is, how long it takes, where it sits.
+ *
+ * **Dragged, not nudged.** The two arrow buttons are gone on request. What
+ * replaced them is a grip that takes a pointer *and* the arrow keys, which is
+ * the part that is not optional: a drag is a pointer-only gesture, and §7.8 has
+ * no exception for controls that feel modern. Focus the grip and ↑ or ↓ moves
+ * the gap a wave, with the same prerequisite floor the drop honours. One
+ * control, two ways in, rather than a gesture plus a fallback that drifts.
+ *
+ * The duration is a number and a unit. A three-day cleanse and a four-month
+ * rollout are both real answers, and rounding either into whole weeks makes the
+ * plan lie in a way a client notices.
+ */
+function PlanItem({
+  item,
+  wave,
+  lastWave,
+  dragging,
+  onDragStart,
+  onDragEnd,
+  onMoveTo,
+  onDuration,
+  onRemove,
+}: {
+  item: ScheduledGap;
+  wave: number;
+  lastWave: number;
+  dragging: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onMoveTo: (id: string, to: number) => void;
+  onDuration: (id: string, next: Duration) => void;
+  onRemove: (id: string) => void;
+}) {
+  const gap = gapById(item.id);
+  const canEarlier = wave > item.earliest;
+  const blocked =
+    item.blockedBy.length > 0
+      ? `Cannot start before “${gapById(item.blockedBy[0]).title}”`
+      : "Already in the first wave";
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowUp" && canEarlier) {
+      e.preventDefault();
+      onMoveTo(item.id, wave - 1);
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      onMoveTo(item.id, wave + 1);
+    }
+  };
+
+  return (
+    <li
+      draggable
+      onDragStart={(e) => {
+        /* Firefox will not start a drag without data on the transfer. */
+        e.dataTransfer.setData("text/plain", item.id);
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart();
+      }}
+      onDragEnd={onDragEnd}
+      /* **Each gap is a card**, on request, and the same card the gap detail is
+         made of: `rounded-lg border border-border bg-card shadow-card` with
+         `px-4 py-3` inside it, which is `Field`'s `boxed` shape written out.
+         The two are the most closely related things on this surface — open a
+         row and you get five of these; tick it and it appears here — so a plan
+         block that was a tinted rectangle while the detail beside it was a
+         bordered card made them look like two different kinds of object.
+
+         It went through a tinted ground first (`bg-muted`, then `bg-background`
+         when a subtler one was asked for), and the border is the better answer
+         for the same reason it is on the detail: a fill says *this is a region
+         of the panel*, a border says *this is a thing*, and a thing is what you
+         pick up and drag.
+
+         **The hover is a border, not a fill.** On `bg-card` there is no tint
+         left to shift to that would not undo the card, so what deepens is the
+         edge — `border-border-strong`, the same step the detail's own cards
+         hover to. Border rather than ring because the border is already there
+         and only changes colour, so nothing inside moves by a pixel.
+
+         What this retires: the `--muted-foreground` on `--muted` rest-state
+         pairing the tinted version introduced. The duration line is back on
+         `--card`, which is checked everywhere. */
+      className={cn(
+        "group rounded-lg border border-border bg-card px-4 py-3 shadow-card transition-colors hover:border-border-strong",
+        dragging && "opacity-40",
+      )}
+    >
+      <div className="flex items-start gap-1.5">
+        <button
+          type="button"
+          onKeyDown={onKeyDown}
+          title={canEarlier ? "Drag to another wave, or use the arrow keys" : blocked}
+          className="mt-0.5 flex h-5 w-4 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+        >
+          <span className="sr-only">
+            Move “{gap.title}”. Sprint {wave + 1} of {lastWave + 1}. Arrow keys move it a sprint
+            {canEarlier ? "" : `. It cannot go earlier: ${blocked}`}
+          </span>
+          <Grip />
+        </button>
+        <span className="min-w-0 flex-1 text-small leading-snug">{gap.title}</span>
+        <IconButton label={`Take “${gap.title}” out of the plan`} onClick={() => onRemove(item.id)}>
+          <Cross />
+        </IconButton>
+      </div>
+
+      {/* **The duration is on its own line, and it says what it is.**
+          It was `12  w` at the end of the title's line, which is three
+          problems in eleven pixels. `w` is not a word. Nothing said whether the
+          number was how long the fix takes or how long the problem has been
+          running. And on this row in particular it sat beside a finding that
+          already contains a duration — "Vendor onboarding takes 21 days" next
+          to "12 w", two numbers in weeks and days meaning opposite things.
+
+          **`to deliver` came off**, on request, and the number is now the two
+          fields alone. It was a three-word tail on every row of a panel whose
+          heading is *Plan* and whose display figure is `28 weeks, end to end` —
+          in a schedule, a duration against a job is the job's length and there
+          is nothing else it could be. The three faults above are all fixed by
+          the unit being spelled: `8 weeks` under a title says what `8 w` beside
+          one did not.
+
+          **It went under the title rather than getting more room beside it**
+          because there is no room beside it: at the panel's 320px floor a
+          spelled unit leaves the title about 140px, and at 1440 the longest
+          title wraps to two lines anyway. So the second line is free most of
+          the time and clear all of it. The indent is the grip's 16px plus the
+          1.5 gap, so the line hangs off the title rather than off the row. */}
+      <p className="mt-1.5 flex items-center gap-1.5 pl-[1.375rem] text-micro text-muted-foreground">
+        {/* **A stroke, on request, and the ghost is gone.** The number and the
+            unit share one box with a border on all four sides, hovering to
+            `border-border-strong` like the card around them.
+
+            It was two borderless fields sharing a hover ground with a dotted
+            underline under them, which was right while the gaps were tinted
+            rectangles and stopped being right when they became cards: on a
+            `bg-card` block the hover ground was `bg-card`, so the one thing
+            that said "you can edit this" fired and painted nothing, and a
+            dotted underline alone is a hint rather than a control. A field on a
+            card is expected to be drawn.
+
+            The old argument against drawing it was that three rows of
+            number-box plus select-box plus close-box is nine outlined controls
+            in a 400px column. It survives as one box rather than two, so the
+            count is three plus three, and the number and the unit read as one
+            quantity rather than two settings that happen to be adjacent.
+
+            `focus-visible` still draws the product's ring on each field. */}
+        <span className="flex items-center rounded-md border border-border bg-card transition-colors group-hover:border-border-strong">
+          <label>
+            <span className="sr-only">How long “{gap.title}” takes to deliver</span>
+            <input
+              type="number"
+              min={1}
+              max={99}
+              value={item.duration.value}
+              onChange={(e) =>
+                onDuration(item.id, {
+                  ...item.duration,
+                  value: Number(e.target.value),
+                })
+              }
+              /* `w-9`, not `w-7`. The spin buttons are hidden with `opacity-0`
+                 rather than `appearance-none`, so they still take their width
+                 and a two-digit value renders as "1:" with the second digit
+                 sliced. Hiding them outright would cost the hover affordance
+                 the row is built around. */
+              className="tabular w-11 rounded-l-md border-0 bg-transparent py-0.5 pl-1.5 pr-0.5 text-right text-micro tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-inner-spin-button]:opacity-0 group-hover:[&::-webkit-inner-spin-button]:opacity-100"
+            />
+          </label>
+          <label>
+            <span className="sr-only">Unit for “{gap.title}”</span>
+            {/* Native, for the reason every other picker here is native: it is
+                keyboard-operable and screen-reader correct for free, and on a
+                phone it opens the platform's own list.
+
+                The options are words now. They were `d`, `w` and `m`, which is
+                the one place in the product a unit was abbreviated, and it is
+                the place with the least context to recover it from. */}
+            <select
+              value={item.duration.unit}
+              onChange={(e) =>
+                onDuration(item.id, {
+                  ...item.duration,
+                  unit: e.target.value as DurationUnit,
+                })
+              }
+              className="cursor-pointer appearance-none rounded-r-md border-0 bg-transparent py-0.5 pl-0.5 pr-1.5 text-micro text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            >
+              {(Object.keys(UNIT_LABEL) as DurationUnit[]).map((u) => (
+                <option key={u} value={u}>
+                  {UNIT_LABEL[u]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </span>
+      </p>
+    </li>
+  );
+}
+
+/**
+ * A 24px square that says what it does only to a screen reader.
+ *
+ * `title` carries the reason a disabled control is disabled, which is the whole
+ * point of disabling it rather than letting the click fail — but a disabled
+ * button does not fire pointer events in every browser, so the tooltip goes on
+ * a wrapper. A control that refuses without saying why is a bug report.
+ */
+function IconButton({
   label,
-  value,
-  onChange,
-  options,
+  hint,
+  disabled,
+  onClick,
+  children,
 }: {
   label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: [string, string][];
+  hint?: string;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-micro uppercase tracking-[0.08em] text-muted-foreground">{label}</span>
-      <div className="flex flex-wrap gap-0.5" role="group" aria-label={label}>
-        {options.map(([key, text]) => (
-          <button
-            key={key}
-            type="button"
-            aria-pressed={value === key}
-            onClick={() => onChange(key)}
-            className={cn(
-              "rounded-md px-2 py-0.5 text-small transition-colors",
-              value === key
-                ? "bg-foreground font-medium text-background"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
-          >
-            {text}
-          </button>
-        ))}
-      </div>
-    </div>
+    <span title={hint ?? label}>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+      >
+        <span className="sr-only">{label}</span>
+        {children}
+      </button>
+    </span>
   );
 }
 
-/** GapRow plus a plan tick-box. The row itself is unchanged and shared. */
+const arrow = "h-3.5 w-3.5";
+
+/**
+ * A date that reads in the product's format and edits with the platform's.
+ *
+ * A bare `<input type="date">` renders in the reader's locale, so `08/17/2026`
+ * sat next to `1 Mar 2027` in the same sentence. Formatting the input is not
+ * possible, so the real input is laid over the formatted text at zero opacity:
+ * you read `17 Aug 2026`, and clicking or tabbing to it gets the platform's own
+ * picker, its keyboard handling and its screen-reader semantics.
+ *
+ * **The input is the element, not a decoration over a button.** It keeps its
+ * label and its place in the tab order; the visible text takes the focus ring
+ * off it through `peer-focus-visible`, which is the only part that had to be
+ * wired by hand.
+ */
+function DateField({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  label: string;
+}) {
+  return (
+    <span className="relative inline-flex">
+      <input
+        type="date"
+        value={value}
+        aria-label={label}
+        onChange={(e) => onChange(e.target.value)}
+        className="peer absolute inset-0 cursor-pointer opacity-0"
+      />
+      <span className="tabular rounded-md px-1 -mx-1 text-foreground underline decoration-border-strong decoration-dotted underline-offset-4 transition-colors peer-hover:decoration-foreground peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring">
+        {formatDay(value)}
+      </span>
+    </span>
+  );
+}
+
+/** Six dots. The one shape a pointer reads as "pick this up" without a label. */
+function Grip() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden>
+      {[5, 8, 11].map((y) =>
+        [6, 10].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.15" fill="currentColor" />),
+      )}
+    </svg>
+  );
+}
+
+function Cross() {
+  return (
+    <svg viewBox="0 0 16 16" className={arrow} fill="none" aria-hidden>
+      <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/**
+ * GapRow plus a plan tick-box and an edit control. The row itself is unchanged
+ * and shared: **the edit button is a sibling of `GapRow`, not a part of it.**
+ *
+ * Two reasons, and both are load-bearing. `GapRow`'s whole collapsed row is a
+ * `<button>`, and a button inside a button is invalid markup that browsers
+ * repair by moving the inner one out of the row. And editing belongs to Gaps
+ * rather than to the component: Research renders the same rows and nothing on
+ * Research is a working list you correct.
+ *
+ * **It is always visible, not revealed on hover.** A hover-reveal would be the
+ * quieter list, and it would put the control out of reach of every touch
+ * device — which is the phone this surface is read on in the minutes before a
+ * call. The cost is real and is the one to watch: twelve more focusable things
+ * in a list whose whole problem is density (§7.1), which is why it is a 24px
+ * ghost in `--muted-foreground` rather than a labelled button.
+ */
 function SelectableGapRow({
   gap,
   checked,
   onToggle,
+  onEdit,
 }: {
   gap: Gap;
   checked: boolean;
   onToggle: () => void;
+  onEdit: (trigger: HTMLButtonElement) => void;
 }) {
   return (
     <li className="flex items-start gap-3">
-      <label className="mt-3 shrink-0 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={onToggle}
-          className="h-4 w-4 accent-foreground"
-        />
-        <span className="sr-only">Add “{gap.title}” to the plan</span>
-      </label>
-      <GapRow gap={gap} as="div" className="flex-1" />
+      <Checkbox
+        checked={checked}
+        onChange={onToggle}
+        label={`Add “${gap.title}” to the plan`}
+        className="mt-4.5"
+      />
+      {/* No rank number on this surface. `gap.rank` is the value ranking, and
+          with money off the page it is a column of digits ordered by something
+          invisible — under the Sequence ordering it reads 8, 9, 11, 12, 3,
+          which looks like a fault. Research keeps it, where the value it ranks
+          by is on the row. Putting it back is one prop if the list turns out to
+          need a handle. */}
+      <GapRow gap={gap} as="div" mode="delivery" showRank={false} className="min-w-0 flex-1" />
+      {/* `mt-3.5` puts the 24px square on the row's first baseline, beside the
+          finding rather than beside the whole expanded detail. The tick-box
+          next to it sits at `mt-4.5` because it is smaller. Both follow the
+          row's own vertical padding, so they move if `py-4` does. */}
+      <button
+        type="button"
+        onClick={(e) => onEdit(e.currentTarget)}
+        className="mt-3.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="sr-only">Edit “{gap.title}”</span>
+        <EditIcon />
+      </button>
     </li>
   );
 }

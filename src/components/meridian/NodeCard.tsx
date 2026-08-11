@@ -27,31 +27,38 @@ import {
  * survives greyscale, a colour vision deficiency, and an unknown projector.
  */
 
-const HEALTH_TEXT: Record<Health, string> = {
+/* `unknown` is deliberately the only state with no hue. A process nobody has
+   looked at must not borrow the visual language of one we cleared. */
+export const HEALTH_TEXT: Record<Health, string> = {
   critical: "text-health-critical",
   watch: "text-health-watch",
   healthy: "text-health-healthy",
+  unknown: "text-muted-foreground",
 };
 
 const HEALTH_BORDER: Record<Health, string> = {
   critical: "border-health-critical",
   watch: "border-health-watch",
   healthy: "border-health-healthy",
+  unknown: "border-border-strong",
 };
 
 const HEALTH_FILL: Record<Health, string> = {
   critical: "bg-health-critical-surface",
   watch: "bg-health-watch-surface",
   healthy: "bg-health-healthy-surface",
+  unknown: "bg-muted",
 };
 
-/** Shape, not colour: triangle warns, square waits, circle is fine. */
+/** Shape, not colour: triangle warns, square waits, circle is fine, dash is
+ *  "we have not looked". Four shapes, all legible in greyscale. */
 export function HealthMark({ health, className }: { health: Health; className?: string }) {
   return (
     <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden className={cn("shrink-0", className)}>
       {health === "critical" && <path d="M6 1L11.2 10.5H0.8z" fill="currentColor" />}
       {health === "watch" && <rect x="1.4" y="1.4" width="9.2" height="9.2" rx="1" fill="currentColor" />}
       {health === "healthy" && <circle cx="6" cy="6" r="4.6" fill="currentColor" />}
+      {health === "unknown" && <rect x="1" y="5" width="10" height="2" rx="1" fill="currentColor" />}
     </svg>
   );
 }
@@ -173,7 +180,7 @@ export function NodeCard({
             <span className="tabular ml-auto text-muted-foreground">not priced</span>
           )}
           {value === 0 && node.gapIds.length === 0 && node.level === 0 && (
-            <span className="tabular ml-auto text-muted-foreground">—</span>
+            <span className="tabular ml-auto text-muted-foreground">None</span>
           )}
         </span>
 
@@ -186,7 +193,7 @@ export function NodeCard({
                 Open to go deeper
               </>
             ) : (
-              "Lowest level — this is where it gets priced"
+              "Lowest level. This is where it gets priced"
             )}
           </span>
         )}
@@ -196,7 +203,7 @@ export function NodeCard({
         <button
           type="button"
           onClick={onOpen}
-          className="relative -mt-1 mb-2 ml-4 text-micro text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          className="relative -mt-1 mb-2 ml-4 text-micro text-muted-foreground transition-colors hover:text-foreground"
         >
           Detail
         </button>
@@ -213,20 +220,20 @@ export function NodeCard({
  * prototype does wrong.
  */
 export function CanvasLegend() {
-  const healths: Health[] = ["critical", "watch", "healthy"];
+  const healths: Health[] = ["critical", "watch", "healthy", "unknown"];
   const completes: Completeness[] = ["none", "partial", "full"];
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-lg border border-border bg-card p-4 shadow-card">
       <h2 className="text-base font-medium">How to read a box</h2>
       <p className="mt-1 text-small text-muted-foreground measure">
-        Colour says how it runs. Fill says how much we know. A green box we know nothing about is
-        the opposite of a red box with full evidence.
+        Colour says how it runs. Fill says how much we know. Grey is not a verdict. It means
+        nobody has looked, which is different from looking and finding nothing.
       </p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
-          <div className="text-micro font-medium uppercase tracking-[0.08em] text-muted-foreground">
+          <div className="text-micro font-medium text-muted-foreground">
             Colour and shape
           </div>
           <ul className="mt-2 space-y-1.5">
@@ -241,7 +248,7 @@ export function CanvasLegend() {
         </div>
 
         <div>
-          <div className="text-micro font-medium uppercase tracking-[0.08em] text-muted-foreground">
+          <div className="text-micro font-medium text-muted-foreground">
             Fill and bars
           </div>
           <ul className="mt-2 space-y-1.5">
@@ -257,10 +264,10 @@ export function CanvasLegend() {
       </div>
 
       <div className="mt-5">
-        <div className="text-micro font-medium uppercase tracking-[0.08em] text-muted-foreground">
-          All nine combinations
+        <div className="text-micro font-medium text-muted-foreground">
+          Every combination
         </div>
-        <div className="mt-2 overflow-x-auto">
+        <div className="scroll-slim mt-2 overflow-x-auto">
           <table className="min-w-[420px] border-separate border-spacing-1">
             <thead>
               <tr>

@@ -48,7 +48,7 @@ export function EmptyState({
       )}
     >
       {scope && (
-        <div className="text-micro uppercase tracking-[0.09em] text-muted-foreground">{scope}</div>
+        <div className="text-micro text-muted-foreground">{scope}</div>
       )}
       <p className={cn("font-medium", compact ? "text-small mt-0.5" : "text-base mt-1")}>
         {copy.title}

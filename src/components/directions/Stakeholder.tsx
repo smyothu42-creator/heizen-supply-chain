@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { cn } from "@/lib/cn";
 import { money } from "@/lib/format";
 import {
   company,
@@ -13,7 +11,9 @@ import {
   stakeholders,
   valueForStakeholder,
 } from "@/lib/suvarna";
-import { BriefFrame, FullFrame, Section, SummaryStrip, type SectionRef } from "./Frames";
+import { BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
+import { SurfaceHero } from "@/components/shell/SurfaceHero";
+import { RunButton } from "@/components/shell/RunButton";
 import { ConfidenceBadge } from "@/components/meridian/Confidence";
 import { Eyebrow } from "@/components/meridian/Primitives";
 import { GapRow } from "@/components/meridian/GapRow";
@@ -27,70 +27,42 @@ import { usePanel } from "@/components/meridian/EvidencePanel";
 /* throughout; only their order and their wording change.                       */
 /* -------------------------------------------------------------------------- */
 
-type Selection = string | "unknown";
-
 export function StakeholderBrief() {
-  const [selected, setSelected] = useState<Selection>("sh-rohan");
   const { open } = usePanel();
 
   return (
-    <BriefFrame>
-      {/* Who's in the room. "I don't know yet" is a first-class option, because
-          it is what Aryan often has. */}
-      <div className="shrink-0">
-        <Eyebrow>Who are you meeting?</Eyebrow>
-        <div
-          className="mt-1.5 flex flex-wrap gap-1.5"
-          role="group"
-          aria-label="Select who you are meeting"
-        >
-          {stakeholders.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              aria-pressed={selected === s.id}
-              onClick={() => setSelected(s.id)}
-              className={cn(
-                "rounded-full border px-2.5 py-1 text-small transition-colors",
-                selected === s.id
-                  ? "border-foreground bg-foreground text-background font-medium"
-                  : "border-border text-muted-foreground hover:border-border-strong hover:text-foreground",
-              )}
-            >
-              {s.name.split(" ")[0]}
-              {/* The met/not-met marker costs a whole row of chips at 375px,
-                  and the same fact is stated under the name once selected. */}
-              {!s.met && <span className="hidden opacity-70 sm:inline"> · not met</span>}
-            </button>
-          ))}
-          <button
-            type="button"
-            aria-pressed={selected === "unknown"}
-            onClick={() => setSelected("unknown")}
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-small transition-colors",
-              selected === "unknown"
-                ? "border-foreground bg-foreground text-background font-medium"
-                : "border-dashed border-border-strong text-muted-foreground hover:text-foreground",
-            )}
-          >
-            Don&apos;t know yet
-          </button>
-        </div>
-      </div>
+    <BriefFrame
+      actions={<RunButton label="Run research" tight />}
+      /* **The person picker is gone**, on request, and this header now draws
+         nothing but its `sr-only` heading like every other surface.
 
-      {selected === "unknown" ? (
-        <UnknownBrief />
-      ) : (
-        <KnownBrief id={selected} onOpen={(id) => open({ kind: "gap", id })} />
-      )}
+         It was five chips above the direction switch, and the row it sat in was
+         the last thing in the product putting a control between the masthead
+         and the tabs that change what the page says. What it cost is worth
+         recording rather than rediscovering: Brief opens on the Head of
+         Procurement, which is who a first discovery call is with, and the other
+         three people plus the "don't know who I'm meeting" fallback are one
+         click away on Full. `verify-stakeholder.mjs` had five selections to
+         check and now has one.
 
-      <div className="shrink-0 border-t border-border pt-2.5">
+         Restoring it is putting `titleNode` back on this hero. */
+      hero={<SurfaceHero tight title="Research" />}
+      lead={
+        <DocumentLead
+          bordered={false}
+          title="Who is in the room"
+          standfirst="The same twelve gaps under every name. Order, wording and what to avoid change with the person."
+        />
+      }
+    >
+      <KnownBrief id="sh-rohan" onOpen={(id) => open({ kind: "gap", id })} />
+
+      <div className="shrink-0 pt-1">
         <div className="flex items-end justify-between gap-4">
           <ConfidenceBadge level={company.confidence} showReason={false} />
           <Link
             href="/research/stakeholder/full"
-            className="inline-flex shrink-0 items-center gap-1.5 text-small underline-offset-4 hover:underline"
+            className="inline-flex shrink-0 items-center gap-1.5 text-small transition-colors hover:text-muted-foreground"
           >
             All four people
             <ArrowIcon />
@@ -111,7 +83,10 @@ function KnownBrief({ id, onOpen }: { id: string; onOpen: (gapId: string) => voi
   return (
     <>
       <div className="shrink-0">
-        <p className="font-display text-lead leading-snug measure sm:text-h3">
+        {/* Leading is 1.2, not snug. Inter's x-height makes 1.375 read loose on
+            a statement this size, and Meera's opening line is the longest of
+            the four — at snug it pushed her gaps 15px past the screen. */}
+        <p className="font-display text-lead leading-[1.2] measure sm:text-h3">
           {person.openingLine}
         </p>
         <p className="mt-1 text-small text-muted-foreground">
@@ -122,21 +97,23 @@ function KnownBrief({ id, onOpen }: { id: string; onOpen: (gapId: string) => voi
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <Eyebrow>
-          Hits their number — {money(valueForStakeholder(id))} of the ₹14.7 Cr
+          Hits their number: {money(valueForStakeholder(id))} of {money(company.grossLeakageCr)}
         </Eyebrow>
         <ul className="mt-1.5 space-y-1.5">
-          {theirGaps.map((gap, i) => (
-            // Rohan owns the three longest plain-language lines of anyone here,
-            // and at 375px the third one does not fit under his opening line.
-            // Two gaps that fit beat three that get cut off.
-            <li key={gap.id} className={cn(i === 2 && "hidden sm:block")}>
+          {theirGaps.map((gap) => (
+            // The third line used to be `hidden sm:block`: Rohan owns the three
+            // longest plain-language lines of anyone here and at 375 the third
+            // did not fit under his opening line. The picker's row is what it
+            // was competing with, and re-measured without it all three clear
+            // 375×667 with room to spare.
+            <li key={gap.id}>
               <button
                 type="button"
                 onClick={() => onOpen(gap.id)}
                 className="group flex w-full items-baseline justify-between gap-3 text-left"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block text-base leading-snug group-hover:underline underline-offset-4">
+                  <span className="block text-base leading-snug transition-colors group-hover:text-muted-foreground">
                     {gap.plainLine}
                   </span>
                 </span>
@@ -149,8 +126,8 @@ function KnownBrief({ id, onOpen }: { id: string; onOpen: (gapId: string) => voi
         </ul>
       </div>
 
-      <div className="shrink-0 rounded-md border border-dashed border-border-strong px-3 py-1.5">
-        <div className="text-micro font-medium uppercase tracking-[0.08em] text-health-watch">
+      <div className="shrink-0 rounded-md border border-dashed border-border-strong px-3.5 py-1 sm:py-1.5">
+        <div className="text-micro font-medium text-health-watch">
           Do not
         </div>
         <p className="mt-0.5 text-small measure">{person.avoid}</p>
@@ -159,47 +136,10 @@ function KnownBrief({ id, onOpen }: { id: string; onOpen: (gapId: string) => voi
   );
 }
 
-/** The degraded state. It is a weaker screen than the other three, and it is
- *  designed rather than left to fall out of the code. */
-function UnknownBrief() {
-  const top = ["g1", "g2", "g6"].map(gapById);
-
-  return (
-    <>
-      <div className="shrink-0">
-        <p className="font-display text-lead leading-snug measure sm:text-h3">
-          Then lead with the two that belong to whoever turns up.
-        </p>
-        <p className="mt-1.5 text-small text-muted-foreground measure">
-          Invoice processing and supplier onboarding cross every function here. They are safe
-          openers for procurement, finance or operations.
-        </p>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <Eyebrow>Works for anyone in the room</Eyebrow>
-        <ul className="mt-1.5 space-y-2">
-          {top.map((gap) => (
-            <li key={gap.id} className="flex items-baseline justify-between gap-3">
-              <span className="text-base leading-snug">{gap.plainLine}</span>
-              <span className="tabular shrink-0 text-base font-medium">{money(gap.amountCr)}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="shrink-0 rounded-md border border-dashed border-border-strong px-3 py-2">
-        <div className="text-micro font-medium uppercase tracking-[0.08em] text-muted-foreground">
-          First question on the call
-        </div>
-        <p className="mt-0.5 text-small measure">
-          &ldquo;Before I start — whose numbers do these land on, yours or Finance&apos;s?&rdquo;
-          The answer picks the version above.
-        </p>
-      </div>
-    </>
-  );
-}
+/* `UnknownBrief` lived here: the degraded screen for "I don't know who I'm
+   meeting", reachable only from the dashed chip on the picker. It went with the
+   picker rather than being left unrendered. Full still carries the same
+   fallback as its last section. */
 
 /* -------------------------------------------------------------------------- */
 
@@ -208,58 +148,54 @@ const SECTIONS: SectionRef[] = [
   ...stakeholders.map((s) => ({
     id: s.id,
     label: s.name,
-    meta: money(valueForStakeholder(s.id)),
+    meta: `${gapsForStakeholder(s.id).length} gaps`,
   })),
-  { id: "unknown", label: "If you don't know", meta: "fallback" },
+  { id: "unknown", label: "If you don't know", defaultCollapsed: true },
 ];
 
 export function StakeholderFull() {
   return (
-    <FullFrame sections={SECTIONS}>
-      <header>
-        <Eyebrow>{company.name} · by who you are meeting</Eyebrow>
-        <h1 id="room" className="mt-1.5 scroll-mt-6 font-display text-h1 leading-tight">
-          Who is in the room
-        </h1>
-        <p className="mt-1.5 text-small text-muted-foreground measure">
-          The same twelve gaps under every name. Order, wording and what to avoid change.
-        </p>
+    <FullFrame
+      sections={SECTIONS}
+      actions={<RunButton label="Run research" />}
+      hero={<SurfaceHero title="Research" />}
+    >
+      <DocumentLead
+        title="Who is in the room"
+        standfirst={`The same twelve gaps under every name. Order, wording and what to avoid change. Subtotals add to ${money(company.grossLeakageCr)}; ${money(company.overlapCr)} of that is one saving counted twice across two people.`}
+      />
 
-        <div className="mt-4">
-          <SummaryStrip
-            items={[
-              { label: "people", value: "4" },
-              { label: "met", value: "2 of 4" },
-              { label: "gaps", value: "12" },
-              { label: "total", value: "₹14.7 Cr" },
-            ]}
-          />
-        </div>
 
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[520px] text-small">
+      <header id="room" className="scroll-mt-6">
+        <div className="scroll-slim overflow-x-auto">
+          <table className="w-full min-w-[380px] text-small">
             <thead>
               <tr className="border-b border-border text-left">
-                <th scope="col" className="py-1.5 pr-3 font-medium">Person</th>
-                <th scope="col" className="py-1.5 pr-3 font-medium">Owns</th>
-                <th scope="col" className="py-1.5 pr-3 text-right font-medium">Gaps</th>
-                <th scope="col" className="py-1.5 text-right font-medium">Worth</th>
+                <th scope="col" className="py-1.5 pr-3 font-medium">
+                  Person
+                </th>
+                <th scope="col" className="py-1.5 pr-3 text-right font-medium">
+                  Gaps
+                </th>
+                <th scope="col" className="py-1.5 text-right font-medium">
+                  Worth
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {stakeholders.map((p) => (
                 <tr key={p.id}>
                   <td className="py-1.5 pr-3 align-top">
-                    <a href={`#${p.id}`} className="font-medium underline-offset-4 hover:underline">
+                    <a
+                      href={`#${p.id}`}
+                      className="font-medium transition-colors hover:text-muted-foreground"
+                    >
                       {p.name}
                     </a>
                     <span className="block text-micro text-muted-foreground">
                       {p.role}
                       {!p.met && " · not met"}
                     </span>
-                  </td>
-                  <td className="py-1.5 pr-3 align-top text-muted-foreground">
-                    {p.owns.slice(0, 2).join(", ")}
                   </td>
                   <td className="tabular py-1.5 pr-3 text-right align-top">
                     {gapsForStakeholder(p.id).length}
@@ -291,17 +227,17 @@ export function StakeholderFull() {
               </span>
             }
           >
-            <div className="rounded-lg border border-border bg-card px-3.5 py-2.5">
-              <div className="text-micro font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-card">
+              <div className="text-micro font-medium text-muted-foreground">
                 Open with
               </div>
-              <p className="mt-1 text-lead leading-snug measure">{person.openingLine}</p>
+              <p className="mt-1.5 text-lead leading-snug measure-lead">{person.openingLine}</p>
             </div>
 
-            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <div className="mt-4 grid gap-5 sm:grid-cols-2">
               <div>
                 <Eyebrow>Measured on</Eyebrow>
-                <ul className="mt-1 space-y-0.5 text-small measure">
+                <ul className="reading mt-1.5 space-y-1 text-small measure">
                   {person.measuredOn.map((m) => (
                     <li key={m}>{m}</li>
                   ))}
@@ -309,16 +245,16 @@ export function StakeholderFull() {
               </div>
               <div>
                 <Eyebrow>Owns</Eyebrow>
-                <p className="mt-1 text-small measure">{person.owns.join(", ")}</p>
+                <p className="reading mt-1.5 text-small measure">{person.owns.join(", ")}</p>
               </div>
             </div>
 
-            <p className="mt-3 text-small measure">
+            <p className="reading mt-4 text-small measure">
               <span className="font-medium text-health-watch">Do not: </span>
               <span className="text-muted-foreground">{person.avoid}</span>
             </p>
 
-            <ul className="mt-3 divide-y divide-border border-t border-border">
+            <ul className="mt-4 divide-y divide-border border-t border-border">
               {theirGaps.map((gap) => (
                 <GapRow key={gap.id} gap={gap} />
               ))}
@@ -327,7 +263,12 @@ export function StakeholderFull() {
             {theirQuestions.length > 0 && (
               <ol className="mt-4 border-t border-border pt-3">
                 {theirQuestions.map((q, i) => (
-                  <QuestionRow key={q.id} question={q} last={i === theirQuestions.length - 1} />
+                  <QuestionRow
+                    key={q.id}
+                    question={q}
+                    last={i === theirQuestions.length - 1}
+                    showTarget={false}
+                  />
                 ))}
               </ol>
             )}
@@ -340,16 +281,16 @@ export function StakeholderFull() {
         title="If you don't know who you're meeting"
         summary="The common case, and this direction's weak point. It falls back to the gaps that cross every function."
       >
-        <div className="rounded-lg border border-border bg-card px-3.5 py-2.5">
-          <div className="text-micro font-medium uppercase tracking-[0.08em] text-muted-foreground">
+        <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-card">
+          <div className="text-micro font-medium text-muted-foreground">
             First question on the call
           </div>
-          <p className="mt-1 text-lead leading-snug measure">
-            &ldquo;Before I start — whose numbers do these land on, yours or Finance&apos;s?&rdquo;
+          <p className="mt-1.5 text-lead leading-snug measure-lead">
+            &ldquo;Before I start, whose numbers do these land on, yours or Finance&apos;s?&rdquo;
           </p>
         </div>
-        <ul className="mt-3 divide-y divide-border border-t border-border">
-          {["g1", "g2", "g6"].map((id) => (
+        <ul className="mt-4 divide-y divide-border border-t border-border">
+          {["g3", "g6", "g2"].map((id) => (
             <GapRow key={id} gap={gapById(id)} />
           ))}
         </ul>

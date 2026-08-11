@@ -80,6 +80,17 @@ export function MetricDelta({
       {/* A proportional bar makes the gap legible before the numbers are read.
           Purely supplementary — the text above already says everything. */}
       <MetricBar metric={metric} />
+
+      {/* Present only where the naive reading of the delta is wrong — a weak
+          comparator, a gap that is not the prize, or no gap at all. Freight at
+          1.4 points of revenue looks like ₹16 Cr and is not; AP at 0.94 against
+          0.9 looks like a gap and is not. Both had to be read off this screen
+          correctly or the gap beside them gets sold wrong. */}
+      {metric.readAs && (
+        <p className="mt-1.5 border-l-2 border-border-strong pl-2 text-micro measure">
+          <span className="text-muted-foreground">{metric.readAs}</span>
+        </p>
+      )}
     </div>
   );
 }
@@ -114,7 +125,7 @@ export function MetricLine({ metric }: { metric: Metric }) {
       <span className="text-small truncate">{metric.label}</span>
       <span className="shrink-0 tabular text-small">
         <span className="font-medium text-metric-actual">
-          {metric.actual == null ? "—" : fmt(metric.actual, metric.unit)}
+          {metric.actual == null ? "Not measured" : fmt(metric.actual, metric.unit)}
         </span>
         <span className="text-metric-best-in-class"> vs {fmt(metric.bestInClass, metric.unit)}</span>
         {d && (

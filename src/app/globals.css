@@ -1,132 +1,211 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
+   `roomy:` — the variant Research Brief grows into
+
+   Brief is a fixed screen: it may not scroll, so every pixel of padding it
+   spends has to come out of the content. That is a real constraint at 375×667
+   and no constraint at all at 1440×900. From `roomy` Brief takes Full's frame —
+   gutter, padding, two columns — because at that size a squeezed rhythm beside
+   a generous one is just an inconsistency between two views of one dossier.
+
+   Width alone, not height. 780px of viewport is a 900px screen with nothing but
+   a title bar on it, so a 1440×900 laptop with a bookmarks bar fell through a
+   height gate and showed the phone rhythm on a full-size window.
+   --------------------------------------------------------------------------- */
+@custom-variant roomy (@media (min-width: 1024px));
+
+/* ---------------------------------------------------------------------------
    Meridian design tokens
+
    Semantic only. Never a raw hex or a bare Tailwind palette class in a
    component — when the palette changes, this file changes and nothing else.
    See .claude/skills/design-system.
+
+   **Light is the default and the only automatic theme.** There is no
+   `prefers-color-scheme` block: dark is opt-in through `[data-theme="dark"]`,
+   which the toggle sets and the inline script in `layout.tsx` restores. A tool
+   demoed to investors on an unknown machine should not decide its own palette
+   from that machine's OS setting.
+
+   **Two surfaces.** Chrome — brand, surface tabs, utilities — is a 44px slate
+   strip and is navigation. Everything below is document: ivory page, white
+   cards, ink. The strip is the only dark thing on the screen; the hero band
+   that used to sit under it, with a photograph in it, is gone. See
+   `SurfaceHero`.
+
+   **`--primary` is `#22415b`, a deep slate blue**, and it is one value in two
+   roles: the chrome strip and every filled button. White on it is 10.6:1. It
+   replaced the reference dashboard's indigo `#252150` on request. The ink
+   neutrals moved with it — `--foreground` went from the violet-black `#1a1a2e`
+   to the slate-black `#16222e`, and the canvas ground from a pale indigo to a
+   pale slate — because a near-black carries its hue further than it looks, and
+   violet ink under blue chrome reads as two palettes rather than one.
+
+   **Contrast is set for a reader who is not twenty-five.** Every ink token is
+   measured against the two grounds it actually lands on — the ivory page and
+   the white card — and the floor is 7:1 rather than AA's 4.5:1 for anything
+   that carries prose. Measured:
+
+     muted ink   #4d5064   7.22 page / 7.93 card
+     border      #dcd8d0   the hairline, not a text colour
+     evidence    #0a656f   5.94 page / 6.52 card
+     healthy     #0e6f3d   5.55 page / 6.09 card
+     critical    #b32826   5.86 page / 6.43 card
+     watch       #7f4c10   6.12 page / 6.72 card
+
+   The hue is the reference dashboard's; the lightness is this product's.
+   `pnpm check:ui` is what holds it.
    --------------------------------------------------------------------------- */
 
 :root {
-  /* surface */
-  --background: #faf9f7;
-  --foreground: #1c1917;
+  /* surface — ivory page, white card, slate ink */
+  --background: #f6f4f1;
+  --foreground: #16222e;
   --card: #ffffff;
-  --card-foreground: #1c1917;
-  --muted: #f2f1ee;
-  --muted-foreground: #57534e;
-  --border: #e3e1dd;
-  --border-strong: #c9c6c0;
-  --ring: #1d4ed8;
-  --primary: #1c1917;
-  --primary-foreground: #faf9f7;
+  --card-foreground: #16222e;
+  --muted: #efece7;
+  --muted-foreground: #4d5064;
+  --border: #dcd8d0;
+  --border-strong: #b8b3a8;
+  --ring: #0a656f;
+  --primary: #22415b;
+  --primary-foreground: #ffffff;
 
-  /* process health — the only axis that uses hue */
-  --health-critical: #b3261e;
-  --health-watch: #a55a07;
-  --health-healthy: #15703c;
-  --health-critical-surface: #fdf0ef;
-  --health-watch-surface: #fdf5e9;
-  --health-healthy-surface: #edf7f0;
+  /* chrome — the masthead strip and what sits on it. A separate family because
+     it is a different kind of place, not a darker version of the same one, and
+     because these values do not invert with the theme. Anything placed on the
+     strip must be coloured from here; the page greys are ~2:1 on the strip.
 
-  /* evidence and provenance */
-  --evidence: #1d4ed8;
-  --evidence-muted: #eef3fe;
+     Retuned with `--primary`: these were violet-leaning greys matched to the
+     old indigo and read purple against slate. Muted is 5.90:1 on the strip. */
+  --masthead: #22415b;
+  --masthead-foreground: #ffffff;
+  --masthead-muted: #b3c3d2;
+  --masthead-border: #3a5c78;
+  --masthead-accent: #63d2e3;
+
+  /* brand accent — the deepened cyan for anything read, its brighter twin for
+     anything merely seen (rules, dots, bars, fills) */
+  --accent: #0a656f;
+  --accent-soft: #00a6b8;
+
+  /* process health — the only axis in the product that uses hue */
+  --health-critical: #b32826;
+  --health-watch: #7f4c10;
+  --health-healthy: #0e6f3d;
+  --health-critical-surface: #fceceb;
+  --health-watch-surface: #faf1e0;
+  --health-healthy-surface: #e7f3ec;
+
+  /* Effort. Low is green because low effort is good news: a gap that costs
+     little to fix is the one you open with. Its own family and not a reuse of
+     health — what a fix costs to deliver is not a statement about how healthy
+     anything is, and splitting them later must not mean finding every call
+     site. Shared hex values in light mode are a coincidence, not a link. */
+  --effort-low: #0e6f3d;
+  --effort-low-surface: #e7f3ec;
+  --effort-medium: #7f4c10;
+  --effort-medium-surface: #faf1e0;
+  --effort-high: #b32826;
+  --effort-high-surface: #fceceb;
+
+  /* evidence and provenance — the accent cyan at the weight text needs */
+  --evidence: #0a656f;
+  --evidence-muted: #ddeff2;
 
   /* confidence — a neutral ramp, never a hue, so it never reads as health */
-  --confidence-low: #78716c;
-  --confidence-medium: #44403c;
-  --confidence-high: #1c1917;
+  --confidence-low: #6b6e80;
+  --confidence-medium: #4d5064;
+  --confidence-high: #16222e;
 
   /* benchmark comparison */
-  --metric-actual: #1c1917;
-  --metric-best-in-class: #57534e;
-  --metric-delta: #b3261e;
-  --metric-delta-good: #15703c;
+  --metric-actual: #16222e;
+  --metric-best-in-class: #4d5064;
+  --metric-delta: #b32826;
+  --metric-delta-good: #0e6f3d;
 
-  /* canvas — a warm working surface, distinct from the document background */
-  --canvas-bg: #efeae0;
-  --canvas-dot: #dcd5c6;
-  --canvas-node: #f8f4ea;
-  --canvas-edge: #a9a191;
+  /* canvas — a pale slate pulled from the masthead, so the map reads as a
+     different kind of place rather than as another page */
+  --canvas-bg: #e9eef3;
+  --canvas-dot: #cfdae4;
+  --canvas-node: #ffffff;
+  /* The edge is a meaningful graphic, not decoration: it is the only thing on
+     the map saying what feeds what, so it takes WCAG's 3:1 non-text floor
+     rather than the dot grid's licence to be faint. #869fb4 was 2.42:1 on the
+     canvas and vanished at the zoom Level 1 fits at. 3.38:1, and still well
+     clear of the ink so it does not compete with the nodes. */
+  --canvas-edge: #6b8398;
+
+  /* Cards are separated by a hairline and a light elevation. A shadow alone
+     loses the top edge, where it is smallest; a hairline alone reads flat. */
+  --elevation-card: 0 1px 2px rgb(22 34 46 / 0.04), 0 1px 3px rgb(22 34 46 / 0.04);
+  --elevation-raised: 0 1px 2px rgb(22 34 46 / 0.06), 0 4px 16px rgb(22 34 46 / 0.08);
+
+  /* shadcn/ui's radius scale. One number, four derived steps. */
+  --radius: 0.5rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --background: #0c0a09;
-    --foreground: #f5f4f1;
-    --card: #1a1817;
-    --card-foreground: #f5f4f1;
-    --muted: #232120;
-    --muted-foreground: #a8a29e;
-    --border: #332f2d;
-    --border-strong: #4d4844;
-    --ring: #7ba7fb;
-    --primary: #f5f4f1;
-    --primary-foreground: #0c0a09;
-
-    --health-critical: #f4867c;
-    --health-watch: #e3a54a;
-    --health-healthy: #6cc78d;
-    --health-critical-surface: #2a1614;
-    --health-watch-surface: #2a1e0f;
-    --health-healthy-surface: #12241a;
-
-    --evidence: #8ab4fc;
-    --evidence-muted: #16203a;
-
-    --confidence-low: #8a827c;
-    --confidence-medium: #c4bdb7;
-    --confidence-high: #f5f4f1;
-
-    --metric-actual: #f5f4f1;
-    --metric-best-in-class: #a8a29e;
-    --metric-delta: #f4867c;
-    --metric-delta-good: #6cc78d;
-
-    --canvas-bg: #131210;
-    --canvas-dot: #2c2822;
-    --canvas-node: #201d19;
-    --canvas-edge: #5b544b;
-  }
-}
-
+/* Dark is opt-in, never automatic. It exists because the health colours have
+   separate dark values and a designer has to be able to check both. */
 [data-theme="dark"] {
-  --background: #0c0a09;
-  --foreground: #f5f4f1;
-  --card: #1a1817;
-  --card-foreground: #f5f4f1;
-  --muted: #232120;
-  --muted-foreground: #a8a29e;
-  --border: #332f2d;
-  --border-strong: #4d4844;
-  --ring: #7ba7fb;
-  --primary: #f5f4f1;
-  --primary-foreground: #0c0a09;
+  --background: #0f1922;
+  --foreground: #eef3f7;
+  --card: #182531;
+  --card-foreground: #eef3f7;
+  --muted: #223140;
+  --muted-foreground: #a9bccb;
+  --border: #2b3d4d;
+  --border-strong: #445a6d;
+  --ring: #5fd6e4;
+  --primary: #eef3f7;
+  --primary-foreground: #0f1922;
 
-  --health-critical: #f4867c;
-  --health-watch: #e3a54a;
-  --health-healthy: #6cc78d;
-  --health-critical-surface: #2a1614;
-  --health-watch-surface: #2a1e0f;
-  --health-healthy-surface: #12241a;
+  --masthead: #152736;
+  --masthead-foreground: #eef3f7;
+  --masthead-muted: #a9bccb;
+  --masthead-border: #2f4557;
+  --masthead-accent: #5fd6e4;
 
-  --evidence: #8ab4fc;
-  --evidence-muted: #16203a;
+  --accent: #5fd6e4;
+  --accent-soft: #4cc5d5;
 
-  --confidence-low: #8a827c;
-  --confidence-medium: #c4bdb7;
-  --confidence-high: #f5f4f1;
+  --health-critical: #f79993;
+  --health-watch: #e8bd6d;
+  --health-healthy: #6fdb97;
+  --health-critical-surface: #2e1620;
+  --health-watch-surface: #2b2114;
+  --health-healthy-surface: #12251f;
 
-  --metric-actual: #f5f4f1;
-  --metric-best-in-class: #a8a29e;
-  --metric-delta: #f4867c;
-  --metric-delta-good: #6cc78d;
+  --effort-low: #6fdb97;
+  --effort-low-surface: #12251f;
+  --effort-medium: #e8bd6d;
+  --effort-medium-surface: #2b2114;
+  --effort-high: #f79993;
+  --effort-high-surface: #2e1620;
 
-  --canvas-bg: #131210;
-  --canvas-dot: #2c2822;
-  --canvas-node: #201d19;
-  --canvas-edge: #5b544b;
+  --evidence: #5fd6e4;
+  --evidence-muted: #142e35;
+
+  --confidence-low: #87a0b3;
+  --confidence-medium: #c2d1dd;
+  --confidence-high: #eef3f7;
+
+  --metric-actual: #eef3f7;
+  --metric-best-in-class: #a9bccb;
+  --metric-delta: #f79993;
+  --metric-delta-good: #6fdb97;
+
+  --canvas-bg: #111d27;
+  --canvas-dot: #24384a;
+  --canvas-node: #1a2833;
+  --canvas-edge: #6f8da6;
+
+  /* A shadow does nothing on a dark ground — elevation there is carried by the
+     card being lighter than the page. The values stay defined so no component
+     has to branch on theme. */
+  --elevation-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px rgb(0 0 0 / 0.25);
+  --elevation-raised: 0 1px 2px rgb(0 0 0 / 0.35), 0 4px 16px rgb(0 0 0 / 0.35);
 }
 
 @theme inline {
@@ -142,12 +221,36 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
 
+  /* shadcn/ui's own names, aliased onto the palette above rather than given
+     values of their own. A primitive generated by `shadcn add` then drops in
+     and inherits this product's colours with no edit.
+
+     One deliberate exception, recorded in `ui/button.tsx`: shadcn's `--accent`
+     is a hover *surface*, and Meridian's `--accent` is the cyan *ink* that
+     means "somewhere to go". The primitives here hover to `--muted` instead, so
+     the token keeps one meaning. There is no `--color-accent-foreground`, which
+     is what makes a stock `hover:bg-accent hover:text-accent-foreground` fail
+     loudly at build time rather than quietly painting a button cyan. */
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--card-foreground);
+  --color-secondary: var(--muted);
+  --color-secondary-foreground: var(--foreground);
+  --color-destructive: var(--health-critical);
+  --color-input: var(--border);
+
   --color-health-critical: var(--health-critical);
   --color-health-watch: var(--health-watch);
   --color-health-healthy: var(--health-healthy);
   --color-health-critical-surface: var(--health-critical-surface);
   --color-health-watch-surface: var(--health-watch-surface);
   --color-health-healthy-surface: var(--health-healthy-surface);
+
+  --color-effort-low: var(--effort-low);
+  --color-effort-low-surface: var(--effort-low-surface);
+  --color-effort-medium: var(--effort-medium);
+  --color-effort-medium-surface: var(--effort-medium-surface);
+  --color-effort-high: var(--effort-high);
+  --color-effort-high-surface: var(--effort-high-surface);
 
   --color-evidence: var(--evidence);
   --color-evidence-muted: var(--evidence-muted);
@@ -161,32 +264,73 @@
   --color-metric-delta: var(--metric-delta);
   --color-metric-delta-good: var(--metric-delta-good);
 
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-masthead: var(--masthead);
+  --color-masthead-foreground: var(--masthead-foreground);
+  --color-masthead-muted: var(--masthead-muted);
+  --color-masthead-border: var(--masthead-border);
+  --color-masthead-accent: var(--masthead-accent);
+
   --color-canvas: var(--canvas-bg);
   --color-canvas-node: var(--canvas-node);
   --color-canvas-edge: var(--canvas-edge);
 
-  /* Type scale — fixed and small. Four body sizes, three headings, one display.
-     A dense product with eleven type sizes reads as noise. */
-  --text-micro: 0.6875rem;
-  --text-micro--line-height: 1rem;
-  --text-small: 0.8125rem;
-  --text-small--line-height: 1.125rem;
-  --text-base: 0.9375rem;
-  --text-base--line-height: 1.4rem;
-  --text-lead: 1.0625rem;
-  --text-lead--line-height: 1.55rem;
-  --text-h3: 1.25rem;
-  --text-h3--line-height: 1.6rem;
-  --text-h2: 1.625rem;
-  --text-h2--line-height: 2rem;
-  --text-h1: 2.25rem;
-  --text-h1--line-height: 2.4rem;
-  --text-display: 3.5rem;
-  --text-display--line-height: 1;
+  /* Elevation, so `shadow-card` is a token rather than a stack of arbitrary
+     values repeated at every call site. The names must differ from the root
+     variables: a theme key defined as `var()` of itself resolves to itself. */
+  --shadow-card: var(--elevation-card);
+  --shadow-raised: var(--elevation-raised);
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --font-display: var(--font-instrument-serif), Georgia, serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* ---------------------------------------------------------------------------
+     Type scale — fixed, small, and one step larger than it was.
+
+     Body went 15px → 16px, secondary 13px → 14px, labels 11px → 12px. That is
+     about 7% on every line of prose in the product, which is the difference
+     between comfortable and squinting for a reader over fifty, and it is the
+     one change here that no amount of layout can substitute for.
+
+     The headings went the other way. `--text-h1` was 36px because it was set on
+     a 213px indigo band that needed filling. On a compact header a 36px surface
+     name is shouting at the reader before they have read anything, so it is
+     28px — still unmistakably the page title, and the display size that carried
+     Money's ₹9.1 Cr came down with it for the same reason.
+
+     Eight sizes total. A dense product with eleven type sizes reads as noise.
+
+     **Adding a size here means adding it to `extendTailwindMerge` in
+     `lib/utils.ts` in the same change**, or `cn` will read it as a colour and
+     silently drop it beside `text-muted-foreground`.
+     --------------------------------------------------------------------------- */
+  --text-micro: 0.75rem;
+  --text-micro--line-height: 1.125rem;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.35rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lead: 1.125rem;
+  --text-lead--line-height: 1.7rem;
+  --text-h3: 1.25rem;
+  --text-h3--line-height: 1.65rem;
+  --text-h2: 1.5rem;
+  --text-h2--line-height: 1.9rem;
+  --text-h1: 1.75rem;
+  --text-h1--line-height: 2.15rem;
+  --text-display: 2.75rem;
+  --text-display--line-height: 1.05;
+
+  /* One face for everything: Inter. The three roles stay separate tokens so a
+     future split is a change here and not a sweep through call sites. */
+  --font-sans: var(--font-sans-family), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-family), ui-monospace, monospace;
+  --font-display: var(--font-sans-family), ui-sans-serif, system-ui, sans-serif;
+  --font-accent: var(--font-sans-family), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -195,7 +339,14 @@
     color: var(--foreground);
     font-family: var(--font-sans);
     font-size: var(--text-base);
+    /* Inter's optical tracking. It was -0.014em, tuned to stop a 15px Brief
+       clipping at 375×667 — a layout fix wearing a typography setting. At 16px
+       the letterfit no longer needs the help, and tight tracking is the first
+       thing to cost a reader with less than perfect vision. -0.008em is the
+       optical correction alone. `pnpm check:ui` is what holds the fit. */
+    letter-spacing: -0.008em;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   /* Focus is never invisible. Accessibility is not a later pass. */
@@ -203,6 +354,23 @@
     outline: 2px solid var(--ring);
     outline-offset: 2px;
     border-radius: 2px;
+  }
+
+  /* The headline voice: sans at 700, tracked in. Applied here rather than at
+     every call site so the whole product moves together if the face is swapped. */
+  .font-display {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  /* The second heading voice. Ink at 600, tracked between body and display so
+     the two read as siblings. Section headings only — used more widely it stops
+     being a signal and becomes decoration on a working tool. */
+  .accent-heading {
+    font-family: var(--font-accent);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--foreground);
   }
 
   /* Digits line up in every column they appear in. */
@@ -227,8 +395,340 @@
   }
 }
 
-/* Prose in the dossier caps at ~75 characters. Full-width paragraphs on a wide
-   monitor are unreadable, and the dossier is genuinely read as text. */
+/* ---------------------------------------------------------------------------
+   The surface frame
+
+   Every surface and the header above it run the window's width on one class,
+   with a gutter that opens as the window does. One class rather than the same
+   four utilities in a dozen files: if the header and the surface disagree on
+   the gutter, every left edge on the page is off by the difference.
+   --------------------------------------------------------------------------- */
+.surface-frame {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+@media (min-width: 640px) {
+  .surface-frame {
+    padding-inline: 1.75rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .surface-frame {
+    padding-inline: 2.5rem;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   .scroll-slim — a scrollbar you can find and mostly do not see
+
+   Everything here that scrolls sideways does so because the alternative is
+   worse: a wrapped tab track is a different object from a tab track. So the
+   scroll is a real behaviour a user has to discover, and the bar is how they
+   discover it. It cannot be hidden, only quieted.
+
+   **Standards properties only, no `::-webkit-scrollbar`.** Defining that opts
+   the element out of macOS overlay scrollbars, so the bar becomes
+   always-visible and *reserves layout space* — six pixels off the height of a
+   scroller inside `BriefFrame`, which may not scroll, is a layout change
+   dressed as a paint change.
+   --------------------------------------------------------------------------- */
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.scroll-slim:hover {
+  scrollbar-color: var(--muted-foreground) transparent;
+}
+
+/* Prose in the dossier caps its line length. `ch` is the width of a digit, and
+   Inter's is 0.6em against an average lowercase of about 0.5em, so 64ch renders
+   ~77 characters. If the face changes, this number is wrong again. */
 .measure {
-  max-width: 68ch;
+  max-width: 64ch;
+}
+
+/* The same character count is too long a line at lead size — the eye has
+   further to travel back on an 18px line than a 14px one, and the paragraphs
+   that use lead are the ones read start to finish rather than scanned. */
+.measure-lead {
+  max-width: 52ch;
+}
+
+/* Research runs its prose to the full width of its column. A scope rather than
+   a sweep through call sites, because the caps also live inside shared
+   components — `ValuationBridge`, `MetricDelta`, `Evidence` — which Gaps and
+   Questions render too, and those keep the cap.
+
+   The cost is real: a released paragraph in Full's column sets at roughly 110
+   characters against the 77 the cap allowed. `.reading` on every paragraph is
+   half the mitigation and shorter sentences are the other half, which is why
+   the readability pass and the width change are one job and not two. */
+.prose-full :is(.measure, .measure-lead) {
+  max-width: none;
+}
+
+/* Secondary prose — the reasoning under a gap, a section summary, a basis line.
+   Deliberately a class and not a change to `--text-small`: Brief is a fixed
+   screen that never runs a paragraph past two lines and keeps the tighter
+   token; Full is a reference document with a scrollbar and can afford leading. */
+.reading {
+  line-height: 1.6;
+}
+
+/* More air, on Full only. Scoped to `FullFrame` rather than folded into
+   `.reading` because Brief cannot pay for it — on the straight change
+   Stakeholder Brief clipped by 3px at 1024×780 and `check:ui` failed. The view
+   with a scrollbar gets the air; the view without it does not. */
+.reading-airy .reading {
+  line-height: 1.75;
+}
+
+/* ---------------------------------------------------------------------------
+   `AiButton` — a filled pill with a light running round it
+
+   It is the one control on the masthead that *opens* something rather than
+   going somewhere, and it is a small pill among six tab labels, a project
+   switcher and a theme toggle. As an outline among outlines it was losing that
+   fight; a breathing shadow helped and did not settle it. It is filled now, on
+   request, and the light travels.
+
+   **Three layers, and each one does a different job.**
+
+   1. **The fill.** A gradient in the accent, dark slate label on it. This is
+      the only filled control in the chrome and the only saturated block
+      anywhere in the product, which is the point: §7's restraint rule says
+      spend boldness in one place, and the masthead's one place is the thing
+      that does something rather than navigating somewhere.
+   2. **The runner** — `::before`, a conic gradient rotated by `--ask-angle`
+      and masked to a 2px ring, so the highlight travels the edge instead of
+      the whole pill pulsing. 2.6s linear, because a travelling light with an
+      eased curve reads as hesitating rather than running.
+   3. **The halo** — a breathing `box-shadow` on the button itself. A shadow
+      paints outside the border box and can never wash out the label, which is
+      why the halo is not a second blurred pseudo-element sitting over the
+      middle of it.
+
+   **It glows, it travels, and it does not resize.** No scale, no bounce, no
+   translation. A control in the chrome that changes size is one the eye keeps
+   returning to, and the masthead is on every screen of the product, so that is
+   a tax paid all day. Light moving along a fixed edge is not vestibular in the
+   way a moving box is.
+
+   **`background-color` is set as well as `background-image`, and that is
+   load-bearing rather than belt and braces.** `check:ui` walks to the nearest
+   opaque ancestor and reads its `backgroundColor`; a gradient alone leaves that
+   `transparent`, so the checker would have compared the dark label against the
+   dark masthead behind it and failed a pairing that is actually 6:1. The solid
+   colour is the gradient's darker end, so what the checker measures is the
+   worst case that is really on screen — the same discipline the hero tiles had
+   and the opposite of the mistake the photographic backdrop made.
+
+   **Under `prefers-reduced-motion` the rotation and the breathing stop and the
+   ring stays**, lit at a fixed angle. A reduced-motion user should get a
+   quieter version of the signal rather than none of it. Same when the panel is
+   open: the invitation has been accepted, and a control still asking to be
+   pressed beside the thing it opened is noise.
+
+   `@property` is what lets an angle interpolate. Where it is unsupported the
+   conic simply does not rotate and the pill keeps a static rim, which is the
+   reduced-motion state — the degradation is a state the design already has.
+   --------------------------------------------------------------------------- */
+
+/* The blade spins; the gradient rides on it.
+ *
+ * **This was a registered `@property` angle interpolated inside the
+ * `conic-gradient` itself, and that is the version to not go back to.** It is
+ * the tidier CSS and it depends on two things that are not universal: the
+ * browser having `@property` at all, and it repainting a gradient whose only
+ * change is a custom property. Where either is missing the gradient does not
+ * fail loudly — it renders perfectly and simply never moves, which is
+ * indistinguishable from a static rim and was reported as one twice.
+ *
+ * `transform: rotate()` on an element has neither problem. It is the oldest
+ * animation primitive on the web, it is composited rather than repainted, and
+ * when it is unsupported nothing is. */
+@keyframes ask-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes ask-halo {
+  0%,
+  100% {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.22),
+      0 0 8px 0 color-mix(in srgb, var(--masthead-accent) 26%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.22),
+      0 0 18px 2px color-mix(in srgb, var(--masthead-accent) 60%, transparent);
+  }
+}
+
+.ask-pill {
+  position: relative;
+  color: var(--masthead);
+  /* The solid is the gradient's darker end — see the note above on why it is
+     here at all. */
+  background-color: var(--masthead-accent);
+  background-image: linear-gradient(
+    135deg,
+    var(--masthead-accent) 0%,
+    color-mix(in srgb, var(--masthead-accent) 62%, white) 100%
+  );
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.22),
+    0 0 8px 0 color-mix(in srgb, var(--masthead-accent) 26%, transparent);
+
+  /* The rim when nothing is moving: a plain top-lit bevel, symmetric about the
+     vertical, so it reads as a lit edge rather than as a chase caught
+     mid-lap. Named once because two rules need the same value — the resting
+     state and the reduced-motion state are the same picture. */
+  --ask-rim: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--masthead-accent) 30%, white) 0%,
+    color-mix(in srgb, var(--masthead-accent) 80%, transparent) 55%,
+    color-mix(in srgb, var(--masthead-accent) 45%, transparent) 100%
+  );
+}
+
+/* The ring: a real element, not a pseudo-element, because it has to contain the
+   spinning blade and a `::before` cannot have a child.
+
+   `inset: -2px` puts it just outside the fill, `padding: 2px` sets its
+   thickness, and the two masks composite to leave only that padding band
+   visible — the standard gradient-border cutout. Without the cutout the
+   gradient covers the pill and the label goes with it, and a negative
+   `z-index` does not save you: a negative-z child paints *above* its parent's
+   own background, not below it.
+
+   `overflow: hidden` is the second clip. The mask decides which band is
+   painted; this stops the blade escaping the rounded box. */
+.ask-ring {
+  position: absolute;
+  inset: -2px;
+  padding: 2px;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--ask-rim);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+/* **One bright core travelling a ring that is always drawn.** Two things had to
+   be got right here and both took driving it rather than reading it:
+
+   - **The base tint matters as much as the core.** The first version lit one arc
+     and left the rest of the ring transparent, so for a good part of each lap
+     nothing was lit on any edge you were looking at and the eye read a fixed
+     corner highlight. `--ask-rim` sits under the blade for exactly that, so the
+     core is unambiguously the part that is moving.
+   - **One core, not two.** Two cores 180° apart is the obvious way to keep
+     something always visible, and on a pill it is wrong. A conic angle maps to
+     perimeter position very unevenly on a 4:1 box: the top and bottom edges
+     span most of the angular range and the two ends whip past. So cores 180°
+     apart sit on the top and bottom edges *together*, and then on the two ends
+     together — the whole ring brightens and dims on a 1s beat instead of a spot
+     going round. Measured across four frames before it was believed.
+
+   **The blade is square and oversized on purpose.** It rotates about its own
+   centre, so anything short of the ring's diagonal sweeps its own corners
+   through the band and leaves gaps in the light. `aspect-ratio: 1` at twice the
+   ring's width covers both the full pill and the icon-only one below `sm`.
+
+   2s, linear, because a travelling light on an eased curve reads as hesitating
+   rather than running. */
+.ask-ring-blade {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 200%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  /* **The trough is fully transparent, so the base rim shows through it.** The
+     blade used to carry its own semi-transparent trough as well as its core;
+     laid over `--ask-rim` that lifted the dark part of the lap almost to the
+     brightness of the light part, and the whole thing went quiet. Transparent
+     here means "the rim, unmodified", which is the darkest the ring gets, and
+     the white core is the brightest — the full range is spent on the one thing
+     that is meant to be read as moving. */
+  background: conic-gradient(
+    transparent 0deg,
+    color-mix(in srgb, var(--masthead-accent) 25%, white) 52deg,
+    white 90deg,
+    color-mix(in srgb, var(--masthead-accent) 25%, white) 128deg,
+    transparent 180deg,
+    transparent 360deg
+  );
+}
+
+/* Only while the panel is shut. */
+.ask-pill-live {
+  animation: ask-halo 3.4s ease-in-out infinite;
+}
+
+.ask-pill-live .ask-ring-blade {
+  display: block;
+  animation: ask-spin 2s linear infinite;
+}
+
+/* **Under reduce the travel stops and the glow does not**, and that is a split
+   rather than a compromise. Travel is what `prefers-reduced-motion` is about:
+   something crossing the screen, which a vestibular system reads as the world
+   moving. A `box-shadow` breathing in place changes no geometry and moves
+   nothing — the same reasoning that makes every hover in this product a colour
+   shift rather than a transform. So a reduced-motion user still gets a signal
+   on this control; they get the quiet half of it.
+
+   The blade is removed rather than paused, and the ring falls back to
+   `--ask-rim`: an animation stopped at its initial value is not a resting
+   state, it is a paused one, and a bright core parked on one end reads as a
+   rendering fault. The static picture has to be a picture somebody chose. */
+@media (prefers-reduced-motion: reduce) {
+  .ask-pill-live .ask-ring-blade {
+    display: none;
+    animation: none;
+  }
+}
+
+/* The assistant's orb: the opening of an empty chat.
+   Three soft radial stops blurred into one another — cyan, the deepened cyan,
+   and the slate the masthead and every filled button use. **The colours are the
+   product's**, which is the whole reason it is drawn rather than shipped as an
+   asset: a stock gradient blob would be the one thing on screen belonging to
+   another palette, and it would not follow the theme.
+   `--card` at the edge is what feathers it into whatever it sits on.
+
+   It does not move. The ask pill is the one animated control in the product and
+   this is the surface that pill opens; two things breathing at once is a tool
+   that fidgets while somebody is reading it. */
+.ai-orb {
+  width: 112px;
+  height: 112px;
+  border-radius: 9999px;
+  background:
+    /* a lit edge, so the blob has a direction rather than being a flat disc */
+    radial-gradient(circle at 30% 24%, var(--card) 0%, transparent 40%),
+    radial-gradient(circle at 40% 34%, var(--accent-soft) 0%, transparent 62%),
+    radial-gradient(circle at 72% 46%, var(--evidence) 0%, transparent 58%),
+    radial-gradient(circle at 50% 78%, var(--primary) 0%, transparent 66%),
+    radial-gradient(circle at 50% 50%, var(--accent-soft) 30%, transparent 76%);
+  filter: blur(13px) saturate(1.2);
+  opacity: 0.9;
 }
