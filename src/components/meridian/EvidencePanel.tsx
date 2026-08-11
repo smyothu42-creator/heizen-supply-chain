@@ -7,6 +7,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { cn } from "@/lib/cn";
@@ -23,7 +24,7 @@ import {
   timingSignals,
   type Tier,
 } from "@/lib/suvarna";
-import { CloseIcon, SparkIcon, TierMark } from "./Icons";
+import { ChevronIcon, CloseIcon, LayersIcon, SparkIcon, TierMark } from "./Icons";
 import { SOURCE_ICON, SOURCE_KIND_LABEL } from "./Evidence";
 import { Field } from "./GapRow";
 import { ConfidenceChip } from "./Confidence";
@@ -34,6 +35,7 @@ import {
   COMPLETENESS_MEANING,
   HEALTH_LABEL,
   HEALTH_MEANING,
+  childrenOf,
   entityById,
   nodeById,
   pathTo,
@@ -81,6 +83,59 @@ const PanelContext = createContext<PanelContextValue>({
 });
 
 export const usePanel = () => useContext(PanelContext);
+
+/* -------------------------------------------------------------------------- */
+/* Going down a level, from inside the panel                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * **The panel cannot reach the canvas, so the canvas hands it a way down.**
+ *
+ * `EvidencePanel` is mounted by `AppShell`, above every surface; `CanvasView`
+ * owns the level, the Level 2 parent and the drill rules. There is no prop path
+ * between them and there should not be — the panel is shared by six surfaces
+ * and none of the other five has a level to change.
+ *
+ * **An external store rather than context state**, which is the third time this
+ * codebase has reached for this shape and for the same reason each time: a
+ * provider registering a handler in an effect is a synchronous `setState`
+ * inside one, and `pnpm lint` rejects it. `useSyncExternalStore` gives the
+ * panel a value that updates when a canvas mounts or unmounts, with no render
+ * cascade. Same as the assistant's width and `Frames`' collapse state.
+ *
+ * **It is registered, not assumed.** The button asks the store rather than
+ * asking `canDrill()` alone, so on a surface with no canvas mounted it does not
+ * render at all. A control that is visible and does nothing is the thing this
+ * product keeps writing down that it will not ship.
+ */
+type Driller = (id: string) => void;
+let driller: Driller | null = null;
+const drillListeners = new Set<() => void>();
+
+/** Call from a canvas surface's effect. Returns the cleanup. */
+export function registerDrill(fn: Driller) {
+  driller = fn;
+  drillListeners.forEach((l) => l());
+  return () => {
+    // Guarded, or a canvas unmounting after a newer one registered would clear
+    // the newer one's handler on its way out.
+    if (driller !== fn) return;
+    driller = null;
+    drillListeners.forEach((l) => l());
+  };
+}
+
+const subscribeDrill = (cb: () => void) => {
+  drillListeners.add(cb);
+  return () => drillListeners.delete(cb);
+};
+
+const useDriller = () =>
+  useSyncExternalStore(
+    subscribeDrill,
+    () => driller,
+    () => null,
+  );
 
 export function PanelProvider({ children }: { children: ReactNode }) {
   /* One stack and a cursor, in ONE piece of state.
@@ -232,7 +287,16 @@ function EvidencePanel() {
             {target.kind === "entity" && "Entity detail"}
           </span>
           </span>
-          <span className="flex items-center gap-1">
+          {/* **`shrink-0`, so the longer label costs the kind word and not
+              itself.** The panel is `w-full` under 420px, and at 375 the header
+              is about 20px short of holding both at full width. Something has
+              to give, and it is the left group: *Related resources* already
+              carries `truncate` and is a restatement of what you just pressed,
+              where the button is the only action in the header. Without this
+              the flex row would take the difference out of the pill and wrap
+              *Ask or Edit with Helix* onto two lines, which grows the header
+              instead of shortening a label. */}
+          <span className="flex shrink-0 items-center gap-1">
             {/* **The assistant is reachable from the panel header, not from a
                 block at the bottom of it.** This panel runs four screens on a
                 well-evidenced node, and an action that only exists past the
@@ -259,8 +323,88 @@ function EvidencePanel() {
           {target.kind === "node" && <NodeDetail id={target.id} />}
           {target.kind === "entity" && <EntityDetail id={target.id} />}
         </div>
+
+        {target.kind === "node" && <DrillFooter id={target.id} onDone={close} />}
       </div>
     </>
+  );
+}
+
+/**
+ * The way down a level, pinned to the foot of the panel.
+ *
+ * **Sticky, because a well-evidenced process runs several screens.** The panel
+ * already learned this about `AskHelix`: an action that only exists past the
+ * fold is one nobody finds while a call is running. The difference is that Ask
+ * is something you do *to* the panel, so it sits in the header with Close;
+ * this is where you go *next*, so it sits at the end, which is where the reader
+ * arrives having decided.
+ *
+ * **It renders only when there is somewhere to go and something to take you
+ * there.** `canDrill` answers the first, the driller store the second: on a
+ * surface with no canvas mounted the button is absent rather than dead.
+ *
+ * **It closes the panel on the way.** The map is now showing this node's
+ * children, so the open detail is a description of the level you have just
+ * left, sitting over the level you asked for.
+ */
+function DrillFooter({ id, onDone }: { id: string; onDone: () => void }) {
+  const drill = useDriller();
+  const node = nodeById(id);
+  const kids = childrenOf(id);
+
+  if (!drill || kids.length === 0) return null;
+
+  return (
+    <div
+      /* `sticky bottom-0` inside the panel's own scroller, so it rides the
+         content on a short panel and pins on a long one without the panel
+         needing to become a three-row grid. The top border is what stops the
+         last card appearing to run underneath a floating button. */
+      className="sticky bottom-0 border-t border-border bg-card px-4 py-3"
+    >
+      <button
+        type="button"
+        onClick={() => {
+          drill(id);
+          onDone();
+        }}
+        /* **Filled in `--primary`**, on request, keeping
+           `RelatedResources`' shape: full width, a mark, a label, a chevron.
+           It is the one thing in this panel you press to go somewhere rather
+           than to read, and the panel's other filled control — the ask pill —
+           is in the header and never adjacent to it.
+
+           `hover:opacity-90` rather than a colour shift, which is what every
+           other filled button in the product does: `--primary` is one value in
+           two roles, the chrome strip and every fill, and there is no lighter
+           step of it to move to. */
+        className="flex w-full items-center justify-between gap-2 rounded-md bg-primary px-3 py-2 text-small font-medium text-primary-foreground shadow-card transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <LayersIcon className="shrink-0" />
+          {/* The count and the noun, because "Go deeper" says neither how far
+              nor into what. Level 0 holds processes and Level 1 holds
+              sub-processes; §4 is the only place that vocabulary is stated, so
+              the button is a chance to state it where it is used. */}
+          <span className="truncate">
+            Open the {kids.length}{" "}
+            {node.level === 0
+              ? kids.length === 1
+                ? "process"
+                : "processes"
+              : kids.length === 1
+                ? "sub-process"
+                : "sub-processes"}{" "}
+            inside
+          </span>
+        </span>
+        {/* No rotation: `ChevronIcon` already points right, which is the
+            direction this goes. It is the same mark the node's own footer strip
+            ends with, so the two ways down wear the same sign. */}
+        <ChevronIcon className="shrink-0" />
+      </button>
+    </div>
   );
 }
 
@@ -285,10 +429,25 @@ function EvidencePanel() {
  * to route on when the typed question matches nothing; `matchNode` in
  * `assistant.ts` exists for exactly that.
  */
+/* **"Ask or Edit with Helix", not "Ask Helix"**, on request, and only here —
+   the masthead pill keeps the short form. See `AiButton` for why the two are
+   allowed to differ.
+
+   The long version earns its width on this button and not on that one. §5 is
+   explicit that users never hand-edit AI output: they describe the correction
+   and the assistant applies it. So this control is the *only* way anything in
+   the product gets changed, and every "This isn't right" and "Describe the
+   correction" button in this file already arrives at it. A consultant looking
+   for how to fix a wrong finding had no word on screen saying it was this. The
+   masthead's opens an empty conversation with nothing attached, where there is
+   no output to correct and the word would be a promise about the wrong screen.
+
+   The cost is about 80px in a 420px header, which is why the header row had to
+   give the label somewhere to wrap to. */
 function AskHelix({
   target,
   onDone,
-  label = "Ask Helix",
+  label = "Ask or Edit with Helix",
   variant = "icon",
 }: {
   target: NonNullable<PanelTarget>;
@@ -320,10 +479,27 @@ function AskHelix({
   }
 
   return (
+    /* **Filled, on request, and it is `.ask-pill` rather than a new
+       treatment.** This is the same act as the button on the masthead, with the
+       same name on it, so it should be the same object; a second highlighted
+       style for one control is how a product ends up with two Ask buttons that
+       look related rather than identical.
+
+       As grey micro text beside a grey close cross it read as a label on the
+       panel rather than as the one thing in the header that opens something.
+       That is the same argument `AiButton` records for being the only filled
+       control in the chrome.
+
+       **No ring and no halo.** `.ask-pill-live` and the `.ask-ring` element are
+       left to the masthead: the two buttons are on screen at once, and two
+       chase lights running the same lap is a fairground. The fill is what
+       carries it here. Colours come from the `--masthead-*` family in both
+       themes, which is deliberate — this pill does not invert, so the pairing
+       is the one already measured on the band. */
     <button
       type="button"
       onClick={go}
-      className="flex items-center gap-1 rounded-md px-1.5 py-1 text-micro font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="ask-pill flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-micro font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <SparkIcon />
       {label}
@@ -369,11 +545,30 @@ function Fact({
   wide?: boolean;
 }) {
   return (
-    <div className={cn(wide && "col-span-2")}>
-      <dt className="text-micro font-medium text-muted-foreground">
+    /* **A card each, in the gap detail's voice**, on request: bordered, white,
+       shadowed, with the label over a rule that bleeds to both edges. It was
+       four pairs sharing one `bg-muted` block, where the only thing separating
+       *Watch* from *Some evidence* was the column gap, and the two are answers
+       to different questions.
+
+       It is the same shape as `Block boxed` two functions up and as `Field
+       boxed` on Gaps, which is the point: one panel, one kind of box.
+
+       **The label stays a micro-cap rather than taking Field's ink-at-600**,
+       and that is a deliberate departure. There the body is a paragraph and the
+       label has to be the landmark; here the body is two words and promoting
+       the label would make *How it runs* louder than *Watch*. The value is what
+       the eye is meant to land on. */
+    <div
+      className={cn(
+        "rounded-lg border border-border bg-card px-3 py-2 shadow-card",
+        wide && "col-span-2",
+      )}
+    >
+      <dt className="-mx-3 border-b border-border px-3 pb-1.5 text-micro font-medium text-muted-foreground">
         {label}
       </dt>
-      <dd className="mt-1 flex items-center gap-1.5 text-small font-medium">{children}</dd>
+      <dd className="mt-2 flex items-center gap-1.5 text-small font-medium">{children}</dd>
     </div>
   );
 }
@@ -406,22 +601,27 @@ function Excerpts({ items }: { items: { excerpt: string; label: string }[] }) {
 /**
  * A titled block in the panel.
  *
- * `boxed` is the gap detail's card, and it is the same prop and the same
- * argument `Field` already makes: a hairline box with its label in ink at 600
- * over a rule that bleeds to both edges. Two versions of that shape drifting
- * apart is what one prop prevents, which is why this is not a second component.
+ * **Boxed everywhere, on request**, which is what `boxed = true` as the default
+ * means: the whole panel is cards now, on every one of its six kinds of target.
+ * It is the gap detail's card and the same argument `Field` already makes — a
+ * hairline box with its label in ink at 600 over a rule that bleeds to both
+ * edges — and one prop rather than a second component is what stops two copies
+ * of that shape drifting apart.
  *
- * *Related resources* and the source detail behind it pass it. Both are lists
- * of separate records rather than halves of one argument, which is the
- * condition a card is for, and they are two clicks apart in the same panel: a
- * carded folder opening onto an uncarded document is the drift worth avoiding.
+ * It used to be off by default, on the argument that the gap, claim, node and
+ * entity details are one thing read top to bottom while *Related resources* is
+ * a list of separate records. That argument is the one Research Full still
+ * wins with, and it does not survive here: this panel is 420px of small type
+ * where *The numbers here*, *Gaps here* and *Sources* are answers to three
+ * separate questions, and grey micro-cap headings on one continuous ground gave
+ * a reader nothing to aim at. The `Fact` strip above them was already carded.
  *
- * The gap, claim, node and entity details still pass nothing. Their blocks are
- * sections of one thing read top to bottom. Each is one prop if that changes.
+ * `boxed={false}` is still available for a block that genuinely is a
+ * continuation of the one above it. Nothing passes it.
  */
 function Block({
   title,
-  boxed = false,
+  boxed = true,
   children,
 }: {
   title: string;
@@ -623,7 +823,7 @@ function NodeDetail({ id }: { id: string }) {
           badge: a healthy process with no data and a critical one with full
           evidence are opposite situations. What they no longer carry is a
           sentence each. */}
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg bg-muted px-3.5 py-3">
+      <dl className="mt-3 grid grid-cols-2 gap-2.5">
         <Fact label="How it runs">
           <HealthMark
             health={node.health}
@@ -812,7 +1012,7 @@ function EntityDetail({ id }: { id: string }) {
           costs about as much vertical space as the fact under it, which is the
           worst ratio on the page. As pairs in the strip they are read in the
           same glance as the health. */}
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg bg-muted px-3.5 py-3">
+      <dl className="mt-3 grid grid-cols-2 gap-2.5">
         <Fact label="How it runs">
           <HealthMark
             health={entity.health}
@@ -977,7 +1177,7 @@ function SourceList() {
       </div>
 
       {carrying.length > 0 && (
-        <Block title={`Behind a finding · ${carrying.length}`} boxed>
+        <Block title={`Behind a finding · ${carrying.length}`}>
           <ul className="-mx-2 divide-y divide-border">
             {carrying.map((s) => (
               <Row key={s.id} id={s.id} />
@@ -987,7 +1187,7 @@ function SourceList() {
       )}
 
       {quiet.length > 0 && (
-        <Block title={`Read, nothing cited yet · ${quiet.length}`} boxed>
+        <Block title={`Read, nothing cited yet · ${quiet.length}`}>
           <p className="mb-1 text-small text-muted-foreground measure">
             Not a hole in the research. Most documents corroborate what is already known
             rather than carrying a finding of their own.
@@ -1046,7 +1246,7 @@ function SourceDetail({ id }: { id: string }) {
       <p className="mt-1 text-small text-muted-foreground">{source.detail}</p>
       <p className="mt-0.5 text-small text-muted-foreground">{source.date}</p>
 
-      <Block title={`What we drew from it · ${drawnFrom.length}`} boxed>
+      <Block title={`What we drew from it · ${drawnFrom.length}`}>
         {drawnFrom.length > 0 ? (
           <Excerpts items={drawnFrom} />
         ) : (
@@ -1054,7 +1254,7 @@ function SourceDetail({ id }: { id: string }) {
         )}
       </Block>
 
-      <Block title={`Claims it supports · ${supports.length}`} boxed>
+      <Block title={`Claims it supports · ${supports.length}`}>
         <ul className="space-y-1.5">
           {supports.map((c) => (
             <li key={c.id} className="text-small measure flex gap-2">

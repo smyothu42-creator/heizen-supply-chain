@@ -14,12 +14,11 @@ import {
   pricedGaps,
   spendBase,
 } from "@/lib/suvarna";
-import { BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
 import { ConfidenceBadge } from "@/components/meridian/Confidence";
 import { GapRow } from "@/components/meridian/GapRow";
 import { MetricDelta } from "@/components/meridian/MetricDelta";
 import { EmptyState } from "@/components/meridian/EmptyState";
-import { ArrowIcon } from "@/components/meridian/Icons";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
 
@@ -136,23 +135,19 @@ export function MoneyBrief() {
         })}
       </ul>
 
-      <div className="shrink-0 pt-1">
-        <div className="flex items-end justify-between gap-4">
+      <BriefFooter
+        href="/research/money/full"
+        confidence={
           <ConfidenceBadge
             level={company.confidence}
             // The full reconciliation is a section on Full. On one phone screen
             // the load-bearing half is that none of it is their arithmetic.
             reason="No price here is measured from their data."
           />
-          <Link
-            href="/research/money/full"
-            className="inline-flex shrink-0 items-center gap-1.5 text-small text-evidence transition-colors hover:text-foreground"
-          >
-            Full breakdown
-            <ArrowIcon />
-          </Link>
-        </div>
-      </div>
+        }
+      >
+        Full breakdown
+      </BriefFooter>
     </BriefFrame>
   );
 }

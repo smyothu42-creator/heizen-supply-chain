@@ -111,7 +111,7 @@ export function QuestionsView() {
             </SwitchTrack>
           </SwitchScroller>
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <RunButton label="Run Questions" />
+            <RunButton label="Refresh Questions" />
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/cn";
 import { ChevronIcon, DownloadIcon } from "@/components/meridian/Icons";
 import { company, gapById } from "@/lib/suvarna";
 import { UNIT_LABEL, formatDay, formatSpan, type Schedule } from "@/lib/plan";
@@ -117,12 +118,29 @@ export function SaveMenu({ sched }: { sched: Schedule }) {
               browsers a download is a line in a tray the consultant is not
               looking at, and a menu that appears to do nothing gets pressed
               three more times. Naming the file is also the only way to say
-              *which* plan came out, now that the name carries the start date. */}
+              *which* plan came out, now that the name carries the start date.
+
+              **It says nothing until there is something to say.** On request.
+              It used to rest on "The plan, its waves and its dates, as one
+              file", which is a description of the thing you are standing in
+              front of: the menu is headed Download, sits inside the plan card,
+              and offers three formats. A caption restating the subject under
+              three named options is a fourth line to read before pressing one
+              of them.
+
+              **The element stays mounted rather than being rendered only when
+              `done`.** A live region has to be in the DOM before its content
+              changes or the announcement is missed, which would cost exactly
+              the users this region exists for. Empty, with the border and
+              padding conditional, it collapses to nothing. */}
           <p
             role="status"
-            className="border-t border-border px-3 py-2 text-micro text-muted-foreground"
+            className={cn(
+              "text-micro text-muted-foreground",
+              done && "border-t border-border px-3 py-2",
+            )}
           >
-            {done ? `Downloaded ${done}` : "The plan, its waves and its dates, as one file."}
+            {done ? `Downloaded ${done}` : ""}
           </p>
         </div>
       )}

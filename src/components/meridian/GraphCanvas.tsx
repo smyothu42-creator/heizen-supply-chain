@@ -72,6 +72,21 @@ const MAX_K = 2;
  * with a different intent.
  */
 const MAX_FIT_K = 1;
+/**
+ * Fit has its own floor, and it is far below the manual one.
+ *
+ * `MIN_K` is a floor on *zooming out by hand* — past it the nodes stop being
+ * readable and you are panning a mosaic. Fit is not that act. Fit's contract is
+ * that the whole graph is on screen afterwards, and a floor that stops short of
+ * the width available breaks exactly that: at Level 1 the graph is ~2500 world
+ * pixels wide, so with the assistant open beside it the canvas is ~850 and the
+ * honest fit is k≈0.28. Clamped up to 0.3 it stayed centred and ran off both
+ * edges, with two nodes cut in half at the left. Same shape as `MAX_FIT_K` —
+ * fit and hand-zoom are different acts and take different limits.
+ *
+ * This value is a guard against a degenerate container, not a design decision.
+ */
+const MIN_FIT_K = 0.08;
 const LOOP_DEPTH = 150;
 
 /**
@@ -364,18 +379,23 @@ export function GraphCanvas({
     return () => ro.disconnect();
   }, []);
 
+  // The padding is a fraction of the smaller side rather than a flat 72, so a
+  // narrow canvas does not spend a fifth of its width on margin and then blame
+  // the shortfall on the zoom.
+  const fitPad = Math.min(72, Math.min(size.w, size.h) * 0.06);
+
   const fitTransform = useCallback(() => {
-    const pad = 72;
+    const pad = fitPad;
     const k = Math.min(
       MAX_FIT_K,
-      Math.max(MIN_K, Math.min((size.w - pad * 2) / bounds.w, (size.h - pad * 2) / bounds.h)),
+      Math.max(MIN_FIT_K, Math.min((size.w - pad * 2) / bounds.w, (size.h - pad * 2) / bounds.h)),
     );
     return {
       k,
       x: (size.w - bounds.w * k) / 2 - bounds.x * k,
       y: (size.h - bounds.h * k) / 2 - bounds.y * k,
     };
-  }, [size, bounds]);
+  }, [size, bounds, fitPad]);
 
   const fit = useCallback(() => {
     if (!size.w || !size.h || !items.length) return;
@@ -394,6 +414,9 @@ export function GraphCanvas({
   }
 
   /* ---- zoom at cursor ---- */
+  /* The hand floor is `MIN_K`, **or wherever you already are if fit put you
+     below it**. A flat `Math.max(MIN_K, …)` on a graph fitted at 0.28 turns a
+     zoom-*out* gesture into a jump *in*, which reads as the map fighting you. */
   useEffect(() => {
     const el = hostRef.current;
     if (!el) return;
@@ -404,7 +427,7 @@ export function GraphCanvas({
       const py = e.clientY - rect.top;
       setT((prev) => {
         const factor = Math.exp(-e.deltaY * 0.0015);
-        const k = Math.min(MAX_K, Math.max(MIN_K, prev.k * factor));
+        const k = Math.min(MAX_K, Math.max(Math.min(MIN_K, prev.k), prev.k * factor));
         const ratio = k / prev.k;
         return { k, x: px - (px - prev.x) * ratio, y: py - (py - prev.y) * ratio };
       });
@@ -415,7 +438,7 @@ export function GraphCanvas({
 
   const zoomBy = (factor: number) =>
     setT((prev) => {
-      const k = Math.min(MAX_K, Math.max(MIN_K, prev.k * factor));
+      const k = Math.min(MAX_K, Math.max(Math.min(MIN_K, prev.k), prev.k * factor));
       const ratio = k / prev.k;
       const cx = size.w / 2;
       const cy = size.h / 2;
@@ -667,7 +690,11 @@ export function GraphCanvas({
         </div>
       )}
 
-      <Minimap items={items} bounds={bounds} t={t} size={size} />
+      {/* `placed`, not `items`: a node that has been nudged has moved on the
+          map, and a minimap showing it at its original coordinates is a map of
+          a graph nobody is looking at. `bounds` was already computed from
+          `placed`, so the two disagreed. */}
+      <Minimap items={placed} edges={visibleEdges} bounds={bounds} t={t} size={size} />
 
       <div
         data-nodrag
@@ -701,7 +728,9 @@ export function GraphCanvas({
             thing, which is why both are here. Fit changes the zoom so the graph
             is all visible; full screen changes how much window there is to be
             visible in. Confusing them is what "fit to screen" invites, so the
-            two icons are deliberately unalike: one frames, one pushes out. */}
+            two icons have to be unalike: a target that centres, and brackets
+            that push out. They were two sets of corner brackets until the
+            target landed — see `FitIcon`. */}
         {onToggleFull && (
           <button
             type="button"
@@ -1050,63 +1079,203 @@ function NodeBox({
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The map of the map, bottom right.
+ *
+ * Four things were wrong with it and all four were the same fault: it was drawn
+ * as a fixed box with the graph poured into it, rather than as a small picture
+ * of the graph.
+ *
+ * - **The box was 176×108 whatever was in it.** The value chain is five boxes
+ *   in one wide row, so it landed as a strip of colour across the middle of a
+ *   card that was two thirds empty. The height now follows the graph's own
+ *   aspect, clamped, so there is no void to explain.
+ * - **Nodes touched the edges and were sliced by them.** The scale used the
+ *   full width, so at Level 0 the first and last node ran under the card's
+ *   border. There is a `PAD` now, and it is inside the scale rather than a
+ *   margin around it.
+ * - **There were no edges**, so five rectangles in a row read as a swatch strip
+ *   rather than as a diagram. They are hairlines at low opacity: enough to say
+ *   *this is a graph and it flows left to right*, not enough to be read.
+ * - **The viewport frame drew itself even when it framed everything.** At fit
+ *   zoom it is exactly the card, so it rendered as a second border a pixel
+ *   inside the first. It appears only once there is something outside it.
+ */
 function Minimap({
   items,
+  edges,
   bounds,
   t,
   size,
 }: {
   items: GraphItem[];
+  edges: GraphEdge[];
   bounds: { x: number; y: number; w: number; h: number };
   t: { x: number; y: number; k: number };
   size: { w: number; h: number };
 }) {
   const W = 176;
-  const H = 108;
+  /* **The box is the canvas's shape, not the graph's**, and that is the whole
+     idea rather than a detail. This is a picture of the *canvas* — what is on
+     screen, and where in the map that is — so a card shaped like the window it
+     reduces is the thing that makes the viewport frame legible: at fit the
+     frame is the same rectangle as the card, and every zoom from there reads as
+     a smaller rectangle of the same proportion.
+
+     It followed the node bounds for one revision and that was wrong. The value
+     chain is five boxes in one wide row, so the card collapsed to a 56px strip:
+     tidier, no empty space, and no longer a map of anything — a strip cannot
+     show you that you are looking at the left third of something, because it
+     has no room left to be the other two thirds in.
+
+     Clamped, because the canvas is a flexible box: on a phone in portrait its
+     own ratio would ask for a minimap taller than the map. */
+  const H = Math.max(88, Math.min(132, Math.round((W * size.h) / (size.w || 1))));
+  const PAD = 8;
+
   if (!items.length || !size.w) return null;
-  const s = Math.min(W / bounds.w, H / bounds.h);
+
+  const s = Math.min((W - PAD * 2) / bounds.w, (H - PAD * 2) / bounds.h);
   const ox = (W - bounds.w * s) / 2;
   const oy = (H - bounds.h * s) / 2;
+  const at = (i: GraphItem) => ({
+    x: (i.x - bounds.x) * s + ox,
+    y: (i.y - bounds.y) * s + oy,
+  });
 
   const vx = (-t.x / t.k - bounds.x) * s + ox;
   const vy = (-t.y / t.k - bounds.y) * s + oy;
   const vw = (size.w / t.k) * s;
   const vh = (size.h / t.k) * s;
+  /* **Nothing is clamped, and the window is always drawn.** Both were wrong and
+     for the same reason: they were trying to stop the frame looking silly when
+     it covered everything, and they cost the one thing the frame is for.
+
+     Clamping the rectangle to the card meant that panning at fit zoom moved
+     nothing — the rect was already pinned to all four edges, so a user dragging
+     the graph off to the left saw a minimap that did not react. Hiding it below
+     a size threshold meant the same thing more bluntly.
+
+     Unclamped, `vx`/`vy` go negative and the rect runs past the card; the card
+     is `overflow-hidden`, so what you see is the part of the window that is over
+     the map, which is exactly the truth being reported. */
+
+  // The canvas's 24px world grid, stepped up to whichever multiple sits nearest
+  // 20 screen pixels. See the note on the ground below.
+  const cell = 24 * s;
+  const dot = cell * Math.max(1, Math.round(20 / cell));
+
+  const byId = new Map(items.map((i) => [i.id, i]));
 
   return (
     <div
-      className="pointer-events-none absolute bottom-3 right-3 overflow-hidden rounded-lg border border-border bg-card shadow-raised"
-      style={{ width: W, height: H }}
+      /* **The ground is the canvas's, with the canvas's dot grid on it**, not a
+         white card. That is what makes the empty space mean something: at Level
+         0 the value chain is one wide row, so a card shaped like the window has
+         air above and below it — which is exactly what the window has too. On
+         white that air reads as an unfinished card; on the dotted canvas tone it
+         reads as the rest of the map, which is what it is.
+
+         **The grid is a multiple of the canvas's, not the canvas's own.** Drawn
+         at `24 * s` it lands about 2px apart at Level 0, which is not a grid, it
+         is noise — measured, and it made the card look like sandpaper. Stepping
+         up to whichever multiple sits nearest 20px keeps every dot on a real
+         world gridline, so the pattern is still the canvas's own grid rather
+         than a texture that resembles one, at a density you can see through. */
+      className="pointer-events-none absolute bottom-3 right-3 overflow-hidden rounded-lg border border-border bg-canvas shadow-raised"
+      style={{
+        width: W,
+        height: H,
+        backgroundImage: "radial-gradient(var(--canvas-dot) 1px, transparent 1px)",
+        backgroundSize: `${dot}px ${dot}px`,
+        backgroundPosition: `${ox - bounds.x * s}px ${oy - bounds.y * s}px`,
+      }}
       aria-hidden
     >
-      {items.map((i) => (
-        <span
-          key={i.id}
-          className={cn(
-            "absolute rounded-[1px]",
-            i.health === "critical"
-              ? "bg-health-critical"
-              : i.health === "watch"
-                ? "bg-health-watch"
-                : "bg-health-healthy",
-            i.completeness === "none" && "opacity-30",
-            i.completeness === "partial" && "opacity-60",
-          )}
-          style={{
-            left: (i.x - bounds.x) * s + ox,
-            top: (i.y - bounds.y) * s + oy,
-            width: Math.max(3, i.w * s),
-            height: Math.max(2, i.h * s),
-          }}
-        />
-      ))}
+      {/* Straight lines centre to centre, not the real bezier routing. At this
+          size a curve and a straight line are the same three pixels, and the
+          loop lane under the graph would spend a third of the height on flows
+          nobody can trace here anyway. */}
+      <svg className="absolute inset-0" width={W} height={H}>
+        {edges.map((e, n) => {
+          const a = byId.get(e.from);
+          const b = byId.get(e.to);
+          if (!a || !b) return null;
+          const p = at(a);
+          const q = at(b);
+          return (
+            <line
+              key={n}
+              x1={p.x + (a.w * s) / 2}
+              y1={p.y + (a.h * s) / 2}
+              x2={q.x + (b.w * s) / 2}
+              y2={q.y + (b.h * s) / 2}
+              stroke="currentColor"
+              strokeWidth={0.5}
+              className="text-muted-foreground/30"
+            />
+          );
+        })}
+      </svg>
+
+      {items.map((i) => {
+        const p = at(i);
+        return (
+          <span
+            key={i.id}
+            className={cn(
+              "absolute rounded-[2px]",
+              i.health === "critical"
+                ? "bg-health-critical"
+                : i.health === "watch"
+                  ? "bg-health-watch"
+                  : i.health === "unknown"
+                    ? "bg-border-strong"
+                    : "bg-health-healthy",
+              /* Evidence is opacity here, as it is on the node itself, where it
+                 is a dashed or hatched fill. `unknown` already reads as absence
+                 through its neutral, so dimming it as well would put two marks
+                 on one reading. */
+              i.health !== "unknown" && i.completeness === "none" && "opacity-30",
+              i.health !== "unknown" && i.completeness === "partial" && "opacity-60",
+            )}
+            style={{
+              left: p.x,
+              top: p.y,
+              width: Math.max(3, i.w * s),
+              height: Math.max(2, i.h * s),
+            }}
+          />
+        );
+      })}
+
+      {/* **The veil is outside the window, not inside it**, and that is what
+          lets the frame be permanent.
+
+          A tinted rectangle *on* the viewport had to be hidden whenever the
+          viewport covered everything, or it drew as a second border a few
+          pixels inside the card's own. Shading what is *not* on screen has no
+          such state: at fit there is nothing outside the window, so nothing
+          paints and the card is simply the map; pan or zoom and the part you
+          have left behind dims. One element does it, with a spread bigger than
+          the card and `overflow-hidden` to trim it.
+
+          **No border on it**, which took driving it to settle. A 1px rule
+          looked like the right way to keep the edge exact, and at fit it drew
+          two pixels inside the card's own border — the double border again,
+          arriving through the last door left open. It is also redundant: a
+          box-shadow spread has a hard boundary, so the veil already ends on an
+          exact line. The rule was crispness on top of something already crisp,
+          bought at the price of a mark that shows when there is nothing to
+          mark. */}
       <span
-        className="absolute rounded-[2px] border border-foreground/60"
+        className="absolute rounded-[3px]"
         style={{
-          left: Math.max(0, vx),
-          top: Math.max(0, vy),
-          width: Math.min(W, vw),
-          height: Math.min(H, vh),
+          left: vx,
+          top: vy,
+          width: vw,
+          height: vh,
+          boxShadow: "0 0 0 9999px color-mix(in oklab, var(--foreground) 16%, transparent)",
         }}
       />
     </div>
@@ -1147,15 +1316,32 @@ const ShrinkIcon = () => (
     />
   </svg>
 );
+/**
+ * A target, on request, and it settles a claim this file was making and not
+ * keeping.
+ *
+ * The comment beside the two buttons says the icons are "deliberately unalike:
+ * one frames, one pushes out". They were not. Fit was four corner brackets
+ * pointing inward and full screen is four pointing outward — at 15px, one
+ * stroke's difference in direction, sitting side by side in the same cluster.
+ * Two controls a user is already primed to confuse, wearing the same glyph.
+ *
+ * A target says *centre this*, which is what fit does: it does not change how
+ * much window there is, it puts the whole graph in the middle of the window
+ * there is. Nothing else in the cluster is a circle, so it is now the one
+ * button in the row findable by shape.
+ */
 const FitIcon = () => (
-  <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden>
+  <svg viewBox="0 0 16 16" width="15" height="15" fill="none" aria-hidden>
+    <circle cx="8" cy="8" r="4.25" stroke="currentColor" strokeWidth="1.4" />
+    {/* The crosshairs stop short of the ring rather than crossing it. Through
+        the middle they would read as a dead centre mark on a map; outside it,
+        they read as the sight being brought onto something. */}
     <path
-      d="M2 5.5V2.5h3M14 5.5V2.5h-3M2 10.5v3h3M14 10.5v3h-3"
-      fill="none"
+      d="M8 1.5v2.2M8 12.3v2.2M1.5 8h2.2M12.3 8h2.2"
       stroke="currentColor"
-      strokeWidth="1.6"
+      strokeWidth="1.5"
       strokeLinecap="round"
-      strokeLinejoin="round"
     />
   </svg>
 );

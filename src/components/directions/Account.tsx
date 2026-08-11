@@ -1,13 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { lanes, stages } from "@/lib/compare";
 import { company, dealRisks, stakeholders, systemsByState } from "@/lib/suvarna";
-import { BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
 import { ConfidenceBadge } from "@/components/meridian/Confidence";
 import { Eyebrow } from "@/components/meridian/Primitives";
-import { ArrowIcon } from "@/components/meridian/Icons";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
 
@@ -91,18 +89,12 @@ export function InsideBrief() {
         </p>
       </div>
 
-      <div className="shrink-0 pt-1">
-        <div className="flex items-end justify-between gap-4">
-          <ConfidenceBadge level={company.confidence} showReason={false} />
-          <Link
-            href="/research/inside/full"
-            className="inline-flex shrink-0 items-center gap-1.5 text-small transition-colors hover:text-muted-foreground"
-          >
-            Everything already here
-            <ArrowIcon />
-          </Link>
-        </div>
-      </div>
+      <BriefFooter
+        href="/research/inside/full"
+        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
+      >
+        Everything already here
+      </BriefFooter>
     </BriefFrame>
   );
 }
@@ -266,18 +258,12 @@ export function SolvedBrief() {
         </p>
       </div>
 
-      <div className="shrink-0 pt-1">
-        <div className="flex items-end justify-between gap-4">
-          <ConfidenceBadge level={company.confidence} showReason={false} />
-          <Link
-            href="/research/solved/full"
-            className="inline-flex shrink-0 items-center gap-1.5 text-small transition-colors hover:text-muted-foreground"
-          >
-            Stage by stage
-            <ArrowIcon />
-          </Link>
-        </div>
-      </div>
+      <BriefFooter
+        href="/research/solved/full"
+        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
+      >
+        Stage by stage
+      </BriefFooter>
     </BriefFrame>
   );
 }

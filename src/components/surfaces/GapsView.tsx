@@ -31,6 +31,7 @@ import { NewGapButton } from "@/components/shell/NewGapButton";
 import { GapPanel } from "@/components/shell/GapPanel";
 import { SaveMenu } from "@/components/shell/SaveMenu";
 import { SelectField } from "@/components/shell/SelectField";
+import { ToggleField } from "@/components/shell/ToggleField";
 import { EditIcon } from "@/components/meridian/Icons";
 import { Panel } from "@/components/meridian/Primitives";
 import { Checkbox } from "@/components/shell/Checkbox";
@@ -70,6 +71,12 @@ const SEQUENCE_RANK = new Map(
 export function GapsView() {
   const [sort, setSort] = useState<Sort>("sequence");
   const [bucketFilter, setBucketFilter] = useState<string | null>(null);
+  /* **Plan mode is off by default**, on request. Gaps opens as what it is:
+     twelve findings and what each needs first. The plan is the conversation
+     you have after that one has gone well, so it is a thing you turn on rather
+     than a column you close. Plain state, not `localStorage` -- the panel is a
+     mode you enter for a task, not an arrangement you set once. */
+  const [planMode, setPlanMode] = useState(false);
   const [plan, setPlan] = useState<Set<string>>(new Set(["g3", "g9", "g6"]));
   const [edits, setEdits] = useState<PlanEdits>(NO_EDITS);
   const [adding, setAdding] = useState(false);
@@ -190,9 +197,16 @@ export function GapsView() {
             onChange={(v) => setBucketFilter(v === "all" ? null : v)}
             options={[["all", "All"], ...buckets.map((b) => [b.id, b.name] as [string, string])]}
           />
+          {/* A third rule, on request, and it is doing more work than the first
+              one: Order and Area are two of a kind, and this separates both of
+              them from a control that is not a filter at all. Order and Area
+              change *which* gaps are listed; Plan changes whether there is a
+              second column on the page. */}
+          <span className="hidden w-px shrink-0 self-stretch bg-border sm:block" aria-hidden />
+          <ToggleField label="Plan" checked={planMode} onChange={setPlanMode} />
           <div className="ml-auto flex shrink-0 items-center gap-2 self-center">
             <NewGapButton ref={addButton} onClick={() => setAdding(true)} />
-            <RunButton label="Run Gaps" />
+            <RunButton label="Run Gap Analysis" />
           </div>
         </div>
 
@@ -208,7 +222,16 @@ export function GapsView() {
             where there is room for it; below that the panel holds its floor and
             the list gives the pixels up, which is the right way round — the rows
             have more width than they need at every size. */}
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,6fr)_minmax(360px,4fr)]">
+        {/* **The split only exists in plan mode.** With the panel off, the list
+            takes the whole frame rather than leaving a 40% column of ivory
+            beside it: a one-column grid is the same element with one child, so
+            nothing here needs a second branch. */}
+        <div
+          className={cn(
+            "grid gap-6",
+            planMode && "lg:grid-cols-[minmax(0,6fr)_minmax(360px,4fr)]",
+          )}
+        >
           <Panel className="min-w-0 px-0 py-0 sm:px-0 sm:py-0">
             <div className="px-4 py-1.5 sm:px-5">
               <ul className="divide-y divide-border">
@@ -217,6 +240,7 @@ export function GapsView() {
                     key={gap.id}
                     gap={gap}
                     checked={plan.has(gap.id)}
+                    selectable={planMode}
                     onToggle={() => toggle(gap.id)}
                     onEdit={(trigger) => {
                       editButton.current = trigger;
@@ -231,13 +255,15 @@ export function GapsView() {
             </div>
           </Panel>
 
-          <PlanPanel
-            plan={plan}
-            edits={edits}
-            setEdits={setEdits}
-            onAdd={toggle}
-            onRemove={toggle}
-          />
+          {planMode && (
+            <PlanPanel
+              plan={plan}
+              edits={edits}
+              setEdits={setEdits}
+              onAdd={toggle}
+              onRemove={toggle}
+            />
+          )}
         </div>
       </div>
 
@@ -842,20 +868,33 @@ function SelectableGapRow({
   checked,
   onToggle,
   onEdit,
+  selectable,
 }: {
   gap: Gap;
   checked: boolean;
   onToggle: () => void;
   onEdit: (trigger: HTMLButtonElement) => void;
+  /** Plan mode. See below — the tick-box has nothing to do without it. */
+  selectable: boolean;
 }) {
   return (
     <li className="flex items-start gap-3">
-      <Checkbox
-        checked={checked}
-        onChange={onToggle}
-        label={`Add “${gap.title}” to the plan`}
-        className="mt-4.5"
-      />
+      {/* **The tick-box goes with the plan panel**, because it is the plan
+          panel's control: its whole job is choosing what appears over there.
+          Left on screen with the panel hidden, twelve of them would be twelve
+          tab stops whose effect cannot be seen — the exact fault this surface
+          already records about sorting by a price that is not on the row.
+
+          What is ticked survives being hidden, so turning the plan back on
+          restores the selection rather than starting from the default three. */}
+      {selectable && (
+        <Checkbox
+          checked={checked}
+          onChange={onToggle}
+          label={`Add “${gap.title}” to the plan`}
+          className="mt-4.5"
+        />
+      )}
       {/* No rank number on this surface. `gap.rank` is the value ranking, and
           with money off the page it is a column of digits ordered by something
           invisible — under the Sequence ordering it reads 8, 9, 11, 12, 3,

@@ -57,7 +57,7 @@ export function TeamView() {
     <div className="surface-frame py-8">
       <PageHead
         title="Team"
-        line="Everyone in the workspace, what they can do, and which projects they can open. Owners and admins see every project regardless."
+        line="Who is here, and what they can open."
       >
         {manage && (
           <Button onClick={() => setInviting(true)}>
@@ -78,13 +78,13 @@ export function TeamView() {
           and a list of people who have not answered does. */}
       {invitations.length > 0 && (
         <section className="mt-6" aria-labelledby="invites-heading">
+          {/* No standfirst. It explained the {INVITE_EXPIRY_DAYS}-day window in
+              two sentences, and the only row it applies to says *past its week*
+              on itself. A rule stated in prose above a list that states it per
+              row is the same read twice. */}
           <h2 id="invites-heading" className="text-base font-semibold">
             Waiting on an answer
           </h2>
-          <p className="measure mt-1 text-small text-muted-foreground">
-            An invitation is worth chasing for about {INVITE_EXPIRY_DAYS} days. After
-            that, send it again rather than waiting.
-          </p>
           <ul className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card shadow-card">
             {invitations.map((invitation) => (
               <li key={invitation.id}>
@@ -100,14 +100,13 @@ export function TeamView() {
       )}
 
       <section className="mt-6" aria-labelledby="members-heading">
+        {/* The three-sentence role gloss came off. Settings has a section that
+            does nothing but set the roles out in full, and repeating it above
+            the list where roles are *changed* made this page carry the
+            explanation twice. */}
         <h2 id="members-heading" className="text-base font-semibold">
           {members.length} people
         </h2>
-        <p className="measure mt-1 text-small text-muted-foreground">
-          Owners handle billing and can delete the workspace. Admins create projects
-          and invite people. Members read the projects they are on. The roles are
-          set out in full on Settings.
-        </p>
         <ul className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card shadow-card">
           {members.map((member) => (
             <li key={member.id}>
@@ -121,9 +120,7 @@ export function TeamView() {
         open={inviting}
         onOpenChange={setInviting}
         onSent={(email) =>
-          setSaid(
-            `Invitation listed for ${email}. No mail was sent: there is no server behind this yet.`,
-          )
+          setSaid(`Invitation listed for ${email}. No mail was sent.`)
         }
       />
     </div>
@@ -182,9 +179,12 @@ function MemberRow({
               </Badge>
             )}
           </p>
+          {/* Address and job, and not the join date. On a list of five people
+              it is a third fact nobody scans for, and it is on the person's own
+              Account page. */}
           <p className="truncate text-micro text-muted-foreground">
             {member.name ? `${member.email} · ` : ""}
-            {member.title} · joined {formatDay(member.joinedOn)}
+            {member.title}
           </p>
         </div>
       </div>
@@ -246,7 +246,7 @@ function MemberRow({
         open={confirmRemove}
         onOpenChange={setConfirmRemove}
         title={`Remove ${member.name ?? member.email}?`}
-        description="They lose every project they are on. Anything they wrote stays, with their name on it."
+        description="They lose every project they are on. Anything they wrote stays."
         confirmLabel="Remove"
         onConfirm={() => {
           removeMember(member.id);
@@ -285,8 +285,8 @@ function MemberProjectsDialog({
           <DialogTitle>What {member.name ?? member.email} can open</DialogTitle>
           <DialogDescription>
             {everything
-              ? `${ROLE_LABEL[member.role]}s see every project in the workspace. ${ROLE_MEANING[member.role]}`
-              : "Tick a project and it appears in their switcher. Untick it and it does not."}
+              ? `${ROLE_LABEL[member.role]}s see every project in the workspace.`
+              : "Tick a project and it appears in their switcher."}
           </DialogDescription>
         </DialogHeader>
 
@@ -450,8 +450,7 @@ function InviteDialog({
         <DialogHeader>
           <DialogTitle>Invite someone</DialogTitle>
           <DialogDescription>
-            They join the workspace with the role you pick. Which projects they can
-            open is a separate question, answered on their row.
+            Which projects they can open is set on their row afterwards.
           </DialogDescription>
         </DialogHeader>
 

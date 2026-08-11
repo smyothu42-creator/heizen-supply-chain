@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { cn } from "@/lib/cn";
 import {
   company,
@@ -11,11 +10,10 @@ import {
   type SignalPush,
   type TimingSignal,
 } from "@/lib/suvarna";
-import { BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
 import { ConfidenceBadge } from "@/components/meridian/Confidence";
 import { Eyebrow } from "@/components/meridian/Primitives";
 import { SourceChip } from "@/components/meridian/Evidence";
-import { ArrowIcon } from "@/components/meridian/Icons";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
 
@@ -117,18 +115,12 @@ export function TimingBrief() {
         </ul>
       </div>
 
-      <div className="shrink-0 pt-1">
-        <div className="flex items-end justify-between gap-4">
-          <ConfidenceBadge level={company.confidence} showReason={false} />
-          <Link
-            href="/research/timing/full"
-            className="inline-flex shrink-0 items-center gap-1.5 text-small transition-colors hover:text-muted-foreground"
-          >
-            The whole case
-            <ArrowIcon />
-          </Link>
-        </div>
-      </div>
+      <BriefFooter
+        href="/research/timing/full"
+        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
+      >
+        The whole case
+      </BriefFooter>
     </BriefFrame>
   );
 }

@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Globe, Plus, Trash2, Users } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { money } from "@/lib/format";
-import { formatDay } from "@/lib/plan";
 import { initialsOf, type Project } from "@/lib/projects";
 import { canManage } from "@/lib/workspace";
 import { useWorkspace, type ProjectDraft } from "@/components/shell/WorkspaceProvider";
@@ -37,21 +36,47 @@ import { ConfirmDialog, Field, PageHead, Said } from "./Form";
  * pipeline reports *against*, stated by the client rather than claimed by us.
  */
 export function ProjectsView() {
-  const { projects, me, currentProjectId, setCurrentProject, deleteProject } = useWorkspace();
+  const {
+    projects,
+    me,
+    currentProjectId,
+    setCurrentProject,
+    deleteProject,
+    newProjectAsked,
+    clearNewProjectAsk,
+  } = useWorkspace();
   const [creating, setCreating] = useState(false);
   const [said, setSaid] = useState("");
   const [pendingDelete, setPendingDelete] = useState<Project | null>(null);
 
   const manage = canManage(me.role);
 
+  /* *New project* in the switcher routes here and wants the form open on
+     arrival.
+
+     **Derived during render, not set in an effect.** Opening it from the flag
+     inside a `useEffect` is a `setState` inside one, which `pnpm lint` rejects
+     and which would also paint the page once with the dialog shut. The flag is
+     cleared when the dialog closes, which is the only moment it has stopped
+     being true. */
+  const showCreate = creating || (newProjectAsked && manage);
+  const setCreate = (v: boolean) => {
+    setCreating(v);
+    if (!v) clearNewProjectAsk();
+  };
+
   return (
     <div className="surface-frame py-8">
       <PageHead
         title="Projects"
-        line="One project per company. Create it first, then put sources in it. Only the researched one has anything behind it in this prototype."
+        /* Three sentences, now one. The prototype caveat went because every
+           card without research already says so in its own footer, and a
+           standfirst that repeats what the list underneath it states six times
+           is the same read twice. */
+        line="One project per company. Create it, then add sources."
       >
         {manage && (
-          <Button onClick={() => setCreating(true)}>
+          <Button onClick={() => setCreate(true)}>
             <Plus className="size-4" />
             New project
           </Button>
@@ -90,20 +115,16 @@ export function ProjectsView() {
       )}
 
       <CreateProjectDialog
-        open={creating}
-        onOpenChange={setCreating}
-        onCreated={(name) =>
-          setSaid(
-            `${name} created. Nothing is saved anywhere: this prototype keeps it in the tab.`,
-          )
-        }
+        open={showCreate}
+        onOpenChange={setCreate}
+        onCreated={(name) => setSaid(`${name} created. It lives in this tab only.`)}
       />
 
       <ConfirmDialog
         open={pendingDelete !== null}
         onOpenChange={(v) => !v && setPendingDelete(null)}
         title={pendingDelete ? `Delete ${pendingDelete.name}?` : "Delete project?"}
-        description="Everything ingested under it goes too: the sources, the map, the dossier, the gaps and the questions. Nobody keeps a copy."
+        description="The sources, the map, the dossier, the gaps and the questions go with it. Nobody keeps a copy."
         confirmLabel="Delete project"
         onConfirm={() => {
           if (!pendingDelete) return;
@@ -168,39 +189,38 @@ function ProjectCard({
         )}
       </div>
 
+      {/* One line, and it is the only thing on the card that differs by more
+          than a name: where this project has got to. The research prompt and
+          the stakeholder line used to sit under it and both came off. They are
+          the *inputs the consultant typed*, echoed back at him on a screen
+          whose whole job is picking which company to open, and between them
+          they were half the height of every card. Restoring either is one line
+          here; the data is untouched. */}
       <p className="reading mt-3 px-4 text-small text-muted-foreground">{project.status}</p>
 
-      {project.prompt && (
-        <p className="mt-2 px-4 text-micro text-muted-foreground">
-          Research prompt: {project.prompt}
-        </p>
-      )}
-
-      {/* The three facts a list of projects has to carry to be read by eye:
-          how big the company is, where it lives, and when we started. */}
-      <dl className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 px-4 text-micro text-muted-foreground">
-        <span className="flex max-w-full min-w-0 items-center gap-1.5">
-          <dt className="sr-only">Annual revenue</dt>
-          <dd className="tabular-nums">
-            {project.revenueCr ? `${money(project.revenueCr)} revenue` : "Revenue not stated"}
-          </dd>
-        </span>
-        <span className="flex max-w-full min-w-0 items-center gap-1.5">
-          <Globe className="size-3.5 shrink-0" aria-hidden />
-          <dt className="sr-only">Website</dt>
-          <dd className="truncate">{project.domain ?? "No site given"}</dd>
-        </span>
-        <span className="flex max-w-full min-w-0 items-center gap-1.5">
-          <Users className="size-3.5 shrink-0" aria-hidden />
-          <dt className="sr-only">Known stakeholders</dt>
-          <dd className="truncate">{project.stakeholders ?? "Nobody named yet"}</dd>
-        </span>
-      </dl>
-
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
-        <span className="text-micro text-muted-foreground">
-          Created {formatDay(project.createdOn)}
-        </span>
+      {/* Two facts, no icons, on the footer's own line rather than a block of
+          their own. A globe beside a domain and a person beside a name are
+          decoration: the string already says which it is, and three icons on
+          six cards is eighteen marks carrying nothing. `Created` went with
+          them, because the status line above already dates the project and two
+          dates on one card is one date too many. */}
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border px-4 py-3">
+        <dl className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-micro text-muted-foreground">
+          <span className="flex max-w-full min-w-0 items-center">
+            <dt className="sr-only">Annual revenue</dt>
+            <dd className="tabular-nums">
+              {project.revenueCr ? `${money(project.revenueCr)} revenue` : "Revenue not stated"}
+            </dd>
+          </span>
+          {/* The same middot the status lines above use, at the same weight. It
+              was `--border-strong` with 12px either side and read as a stray
+              mark between two facts rather than as the join between them. */}
+          <span aria-hidden>·</span>
+          <span className="flex max-w-full min-w-0 items-center">
+            <dt className="sr-only">Website</dt>
+            <dd className="truncate">{project.domain ?? "No site given"}</dd>
+          </span>
+        </dl>
         {/* **Every project opens**, on request, and the label is the same on all
             of them: one verb, so the list has one action rather than a button
             on some rows and a grey excuse on the others.
@@ -282,13 +302,36 @@ function CreateProjectDialog({
         <DialogHeader>
           <DialogTitle>New project</DialogTitle>
           <DialogDescription>
-            The company, the sector, and anything you already know. Sources go in
-            afterwards, on the Sources surface.
+            Sources go in afterwards, on the Sources surface.
           </DialogDescription>
         </DialogHeader>
 
         {/* The form is the scrolling middle, so the two buttons stay reachable
-            on a phone however long the prompt box gets. */}
+            on a phone however long the prompt box gets.
+
+            **Five of the six hints came off, on request, and the reason is not
+            only volume.** A hint under every box is a grey paragraph under
+            every box, and in a two-column grid it is worse than that: the hints
+            were one line, two lines and none, so the two columns stopped
+            lining up and the rows read as ragged. Take them off and the grid is
+            a grid again.
+
+            What they said, and where it went:
+
+            - *"What best in class is measured against"* and *"Read first when
+              there is one"* are the **reason** the field exists, not
+              instructions for filling it in. Nobody hesitates over Sector or
+              Website.
+            - *"Names and roles, as loosely as you have them"* is what the
+              placeholder demonstrates. A worked example beats a description of
+              one.
+            - **The unit moved into the label**: `Annual revenue (₹ crore)`. That
+              is the one piece of hint text a wrong answer depends on, and a
+              unit belongs on the label rather than under the box, where it is
+              read after the number has been typed.
+            - **One hint survives**, on *What to look at*, because it is the
+              only field whose shape is genuinely ambiguous: a box that takes a
+              sentence looks exactly like a box that takes a search. */}
         <form onSubmit={submit} className="contents">
           <DialogBody>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -304,12 +347,7 @@ function CreateProjectDialog({
                 )}
               </Field>
 
-              <Field
-                label="Sector"
-                required
-                error={errors.sector}
-                hint="What best in class is measured against."
-              >
+              <Field label="Sector" required error={errors.sector}>
                 {(id) => (
                   <Input
                     id={id}
@@ -320,7 +358,7 @@ function CreateProjectDialog({
                 )}
               </Field>
 
-              <Field label="Website" hint="Read first when there is one.">
+              <Field label="Website">
                 {(id) => (
                   <Input
                     id={id}
@@ -331,11 +369,7 @@ function CreateProjectDialog({
                 )}
               </Field>
 
-              <Field
-                label="Annual revenue"
-                error={errors.revenue}
-                hint="In ₹ crore. The base every leakage figure is a share of."
-              >
+              <Field label="Annual revenue (₹ crore)" error={errors.revenue}>
                 {(id) => (
                   <Input
                     id={id}
@@ -347,11 +381,7 @@ function CreateProjectDialog({
                 )}
               </Field>
 
-              <Field
-                label="Stakeholders you know"
-                className="sm:col-span-2"
-                hint="Names and roles, as loosely as you have them. A first call is loose."
-              >
+              <Field label="Stakeholders you know" className="sm:col-span-2">
                 {(id) => (
                   <Input
                     id={id}
@@ -365,7 +395,7 @@ function CreateProjectDialog({
               <Field
                 label="What to look at"
                 className="sm:col-span-2"
-                hint="A line that biases the research. Not a search query."
+                hint="Not a search query. A line that biases the research."
               >
                 {(id) => (
                   <Textarea
@@ -378,14 +408,20 @@ function CreateProjectDialog({
                 )}
               </Field>
             </div>
-
-            <p className="mt-4 rounded-md border border-border bg-muted px-3 py-2 text-micro text-muted-foreground">
-              Creating a project does not run the research. This prototype carries
-              one research set and nothing is sent anywhere.
-            </p>
           </DialogBody>
 
           <DialogFooter>
+            {/* The honesty note, on the footer rather than in a tinted box at
+                the end of the form. It is a statement about what the button
+                does, so it belongs beside the button; boxed under the last
+                field it read as a seventh thing to fill in. `mr-auto` puts it
+                at the reading edge from `sm`. Below that the footer is
+                `flex-col-reverse`, so it renders under both buttons — which is
+                where a footnote belongs on a phone, with the primary action
+                under the thumb. */}
+            <p className="text-micro text-muted-foreground sm:mr-auto sm:self-center">
+              Creating a project does not run the research.
+            </p>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

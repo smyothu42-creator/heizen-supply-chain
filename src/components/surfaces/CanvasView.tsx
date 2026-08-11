@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import { gapById } from "@/lib/suvarna";
 import {
@@ -14,12 +14,10 @@ import {
   nodes,
   positions,
   processEdges,
-  type Completeness,
   type Health,
 } from "@/lib/canvas";
-import { EvidenceMark } from "@/components/meridian/NodeCard";
 import { GraphCanvas, type GraphItem } from "@/components/meridian/GraphCanvas";
-import { usePanel } from "@/components/meridian/EvidencePanel";
+import { registerDrill, usePanel } from "@/components/meridian/EvidencePanel";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 
 /**
@@ -84,19 +82,24 @@ export function CanvasView() {
   /** The key, on a phone. See the legend below. Shown from `sm` regardless. */
   const [openOnSmall, setOpenOnSmall] = useState(false);
   const [full, setFull] = useState(false);
-  const { open } = usePanel();
+  const { open, target } = usePanel();
 
   /* Escape leaves full screen. It is the only way out that does not need the
      user to find a 30px button on a map they have just filled the window with,
-     and it is what every full-screen thing on the web has taught them. */
+     and it is what every full-screen thing on the web has taught them.
+
+     **The panel gets Escape first when both are open.** Its own handler closes
+     the panel; this one bails while there is a panel to close, so one press
+     goes one step back rather than dropping the user out of full screen with
+     the detail they were reading still open behind nothing. */
   useEffect(() => {
-    if (!full) return;
+    if (!full || target) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setFull(false);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [full]);
+  }, [full, target]);
 
   /**
    * Levels 0 and 1 show the whole graph at that depth — that is what makes the
@@ -114,11 +117,16 @@ export function CanvasView() {
     setL2Parent(null);
     setSelected(null);
   };
-  const goToLevel1 = () => {
+  /* `useCallback`, and it is load-bearing rather than a habit: `drill` closes
+     over this and is handed to `registerDrill` in an effect. A fresh function
+     each render would re-run that effect every render, and the store notifies
+     its subscribers when it changes — which is a render loop, not a wasted
+     allocation. All three setters are stable, so the dependency list is empty. */
+  const goToLevel1 = useCallback(() => {
     setLevel(1);
     setL2Parent(null);
     setSelected(null);
-  };
+  }, []);
 
   const processItems: GraphItem[] = useMemo(
     () =>
@@ -167,15 +175,64 @@ export function CanvasView() {
      say, and the second half is the reason to go down there. */
   const hero = <SurfaceHero title="Operations" />;
 
+  /* **One drill, two callers.** The node's own footer strip presses it, and so
+     does the detail panel's sticky footer. It was written inline on
+     `onDrill` and is lifted out because the panel needs the same act — a
+     second copy of these five lines is where the two would start disagreeing
+     about what Level 1 means. `useCallback` is not tidiness here: it is what
+     stops the registration effect below re-running on every render. */
+  const drill = useCallback(
+    (id: string) => {
+      const n = nodeById(id);
+      if (n.level === 0) goToLevel1();
+      else if (n.level === 1 && canDrill(id)) {
+        setLevel(2);
+        setL2Parent(id);
+        setSelected(null);
+      }
+    },
+    [goToLevel1],
+  );
+
+  /* Hand it to the panel for as long as this surface is mounted. The panel is
+     `AppShell`'s and outlives every surface, so it has to be told when there is
+     a canvas to talk to and when there is not. See `registerDrill`. */
+  useEffect(() => registerDrill(drill), [drill]);
+
   /* **Full screen is the surface's state, not the canvas's.** The canvas cannot
      hide the band above it or the masthead above that, and those are most of
      what "full screen" means here: the map goes `fixed inset-0` over the whole
-     window at `z-[80]`, above the masthead's `z-30`, and the band is simply not
-     rendered. Nothing is dimmed or scrimmed, because there is nothing behind it
-     the user is meant to see. */
+     window, above the masthead's `z-30`, and the band is simply not rendered.
+     Nothing is dimmed or scrimmed, because there is nothing behind it the user
+     is meant to see.
+
+     **It is `z-[35]` and it used to be `z-[80]`**, on request, and the move is
+     a correction rather than a tweak. At 80 it was above every panel in the
+     product, so opening a process in full screen put the detail *behind* the
+     map: you clicked a node, the map did not change, and the panel you had
+     asked for was invisible. Full screen is chrome removal — it takes away the
+     masthead and the band — so it belongs immediately above the chrome and
+     below everything the user opens deliberately. That is the rule `AppShell`
+     already states for the masthead itself, applied one layer up.
+
+     What it now sits under, all of it correctly: the evidence panel and its
+     scrim, the gap panel, `SelectionAsk`, and the assistant.
+
+     **The map also gives the panel its width rather than sitting under it.**
+     `fixed inset-0` with a 420px drawer over the right of it hides whatever
+     node is there, and the graph has no reason not to refit — so from `lg`,
+     where the panel has no scrim and the two are genuinely side by side, the
+     right inset moves to the panel's width and `GraphCanvas`'s ResizeObserver
+     refits into what is left. Below `lg` the panel is a full-width overlay with
+     a scrim over the map, which is what it is everywhere else in the product,
+     so there is nothing to inset for. */
   return (
     <div
-      className={cn("flex min-h-0 flex-col", full ? "fixed inset-0 z-[80] bg-canvas" : "h-full")}
+      className={cn(
+        "flex min-h-0 flex-col",
+        full ? "fixed inset-0 z-[35] bg-canvas" : "h-full",
+        full && target && "lg:right-[420px]",
+      )}
     >
       {!full && hero}
       <div className="min-h-0 flex-1">
@@ -187,15 +244,7 @@ export function CanvasView() {
             setSelected(id);
             open({ kind: "node", id });
           }}
-          onDrill={(id) => {
-            const n = nodeById(id);
-            if (n.level === 0) goToLevel1();
-            else if (n.level === 1 && canDrill(id)) {
-              setLevel(2);
-              setL2Parent(id);
-              setSelected(null);
-            }
-          }}
+          onDrill={drill}
           emptyNote="Nothing is mapped underneath this yet. Go back a level, or run research on this section."
           full={full}
           onToggleFull={() => setFull((v) => !v)}
@@ -369,26 +418,26 @@ export function CanvasView() {
                     <p className="-mx-3 border-b border-border px-3 pb-1.5 text-micro font-semibold text-foreground">
                       What the marks mean
                     </p>
-                    <div className="mt-2 space-y-2">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        {(["critical", "watch", "healthy", "unknown"] as Health[]).map((h) => (
-                          <span key={h} className="flex items-center gap-1.5 text-micro">
-                            <span
-                              className={cn("h-2 w-2 rounded-full", HEALTH_DOT[h])}
-                              aria-hidden
-                            />
-                            {HEALTH_LABEL[h]}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        {(["full", "partial", "none"] as Completeness[]).map((c) => (
-                          <span key={c} className="flex items-center gap-1.5 text-micro">
-                            <EvidenceMark completeness={c} />
-                            {COMPLETENESS_LABEL[c]}
-                          </span>
-                        ))}
-                      </div>
+                    {/* **One row: health.** The evidence row came off on
+                        request, and it is the second axis §4 asks to be kept
+                        separable, so what it costs is worth stating: the
+                        dashed, hatched and solid fills on the nodes are now
+                        unglossed on the only screen that draws them. What
+                        survives is `unknown` in the health row, which is the
+                        entry that stops grey reading as a fourth shade of fine,
+                        and the panel, which names the evidence state in words on
+                        every node you open. Restoring it is the block that was
+                        here, and it needs `EvidenceMark` back with it. */}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      {(["critical", "watch", "healthy", "unknown"] as Health[]).map((h) => (
+                        <span key={h} className="flex items-center gap-1.5 text-micro">
+                          <span
+                            className={cn("h-2 w-2 rounded-full", HEALTH_DOT[h])}
+                            aria-hidden
+                          />
+                          {HEALTH_LABEL[h]}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>

@@ -141,6 +141,7 @@ function Shell({ children }: { children: ReactNode }) {
             page content and map overlays   z-10, z-20
             workspace panel  scrim z-24     z-25
             masthead                        z-30   <- this
+            Operations full screen          z-35
             evidence panel  scrim z-40      z-50
             gap panel       scrim z-54      z-56
             selection menu                  z-65
@@ -149,6 +150,14 @@ function Shell({ children }: { children: ReactNode }) {
 
           A panel is a thing you opened deliberately; the chrome does not get
           to cover it. If you add a layer, add it here.
+
+          **Full screen is chrome removal, so it sits with the chrome.** It was
+          `z-[80]`, above everything, described here as the one thing meant to
+          cover the lot — and the cost was that opening a process while full
+          screen put the detail panel behind the map. Nothing it hides is a
+          thing the user opened: it hides the masthead and the surface header.
+          Everything above it in this list is something they asked for. See
+          `CanvasView`.
 
           The two viewport-locked surfaces — Research Brief and Operations —
           never scroll the window at all, so this is inert there rather than

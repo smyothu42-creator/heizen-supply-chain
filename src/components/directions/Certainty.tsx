@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { money } from "@/lib/format";
 import {
@@ -20,14 +19,14 @@ import {
   type Tier,
   type ValuationBasis,
 } from "@/lib/suvarna";
-import { BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
 import { ConfidenceBadge, TIER_MEANING, TierBadge } from "@/components/meridian/Confidence";
 import { Eyebrow } from "@/components/meridian/Primitives";
 import { EmptyState } from "@/components/meridian/EmptyState";
 import { SourceChip } from "@/components/meridian/Evidence";
-import { ArrowIcon, TierMark } from "@/components/meridian/Icons";
+import { TierMark } from "@/components/meridian/Icons";
 import { ValuationBasisBadge } from "@/components/meridian/ValuationBridge";
 import { usePanel } from "@/components/meridian/EvidencePanel";
 
@@ -126,18 +125,12 @@ export function CertaintyBrief() {
         </p>
       </div>
 
-      <div className="shrink-0 pt-1">
-        <div className="flex items-end justify-between gap-4">
-          <ConfidenceBadge level={company.confidence} showReason={false} />
-          <Link
-            href="/research/certainty/full"
-            className="inline-flex shrink-0 items-center gap-1.5 text-small transition-colors hover:text-muted-foreground"
-          >
-            The whole ledger
-            <ArrowIcon />
-          </Link>
-        </div>
-      </div>
+      <BriefFooter
+        href="/research/certainty/full"
+        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
+      >
+        The whole ledger
+      </BriefFooter>
     </BriefFrame>
   );
 }

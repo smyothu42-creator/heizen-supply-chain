@@ -16,7 +16,7 @@ import {
   systemsByState,
   type Gap,
 } from "@/lib/suvarna";
-import { BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
 import { ConfidenceBadge } from "@/components/meridian/Confidence";
 import { ArrowIcon } from "@/components/meridian/Icons";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
@@ -90,18 +90,16 @@ export function AllBrief() {
         </ol>
       </div>
 
-      <div className="shrink-0 pt-1">
-        <div className="flex items-end justify-between gap-4">
-          <ConfidenceBadge level={company.confidence} showReason={false} />
-          <Link
-            href="/research/all/full"
-            className="inline-flex shrink-0 items-center gap-1.5 text-small transition-colors hover:text-muted-foreground"
-          >
-            Every topic
-            <ArrowIcon />
-          </Link>
-        </div>
-      </div>
+      <BriefFooter
+        href="/research/all/full"
+        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
+      >
+        {/* **"Every topic" named the destination; a button wants a verb.** As a
+            link a noun phrase reads as a label on where you land. In a drawn box
+            the same words read as a heading somebody has boxed. This says what
+            pressing it does. */}
+        See the full view
+      </BriefFooter>
     </BriefFrame>
   );
 }

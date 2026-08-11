@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { money } from "@/lib/format";
 import {
@@ -14,13 +13,12 @@ import {
   stakeholderById,
   stakeholders,
 } from "@/lib/suvarna";
-import { BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
 import { ConfidenceBadge } from "@/components/meridian/Confidence";
 import { Eyebrow, Card } from "@/components/meridian/Primitives";
 import { QuestionRow } from "@/components/meridian/QuestionRow";
 import { GapRow } from "@/components/meridian/GapRow";
 import { SourceChip } from "@/components/meridian/Evidence";
-import { ArrowIcon } from "@/components/meridian/Icons";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
 import { usePanel } from "@/components/meridian/EvidencePanel";
@@ -138,22 +136,20 @@ export function CallBrief() {
         </ol>
       </div>
 
-      <div className="shrink-0 pt-1">
-        <div className="flex items-end justify-between gap-4">
+      {/* Call's left end is who is in the room rather than a confidence badge:
+          the one thing you check last before dialling. */}
+      <BriefFooter
+        href="/research/call/full"
+        confidence={
           <p className="text-small text-muted-foreground">
             <span className="text-foreground">Met:</span> {met.map((s) => s.name).join(", ")}.{" "}
             <span className="text-foreground">Not met:</span> {notMet.map((s) => s.name).join(", ")}
             .
           </p>
-          <Link
-            href="/research/call/full"
-            className="inline-flex shrink-0 items-center gap-1.5 text-small transition-colors hover:text-muted-foreground"
-          >
-            Full call plan
-            <ArrowIcon />
-          </Link>
-        </div>
-      </div>
+        }
+      >
+        Full call plan
+      </BriefFooter>
     </BriefFrame>
   );
 }

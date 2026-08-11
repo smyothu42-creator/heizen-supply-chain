@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { initialsOf } from "@/lib/projects";
 import { ROLE_LABEL } from "@/lib/workspace";
 import { useWorkspace } from "./WorkspaceProvider";
+import { Plus } from "lucide-react";
 import { ChevronIcon, SearchIcon } from "@/components/meridian/Icons";
 
 /**
@@ -74,7 +75,7 @@ export function ProjectMenu() {
      workspace store rather than from the static module, because a project can
      now be *created*. A switcher reading a frozen import is a switcher that
      does not list the project you made a moment ago on the Projects page. */
-  const { projects, currentProjectId, setCurrentProject, me } = useWorkspace();
+  const { projects, currentProjectId, setCurrentProject, askNewProject, me } = useWorkspace();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const id = useId();
@@ -198,6 +199,12 @@ export function ProjectMenu() {
                       **Every row is pressable**, on request, and the note beside
                       it is what carries the honesty the disabled state used to.
                       The same change went into the project cards. */}
+                  {/* **Compact**, on request: 6px of vertical padding rather
+                      than 8, so nine projects are a list you take in at once
+                      instead of one that fills two thirds of the window. The
+                      row is still 30px tall, which clears a pointer target on a
+                      list this dense; the 44px floor is for the chrome you aim
+                      at on a phone, and this popover is 19rem of names. */}
                   <button
                     type="button"
                     role="menuitemradio"
@@ -207,17 +214,23 @@ export function ProjectMenu() {
                       setOpen(false);
                       trigger.current?.focus();
                     }}
-                    className="flex w-full items-baseline justify-between gap-2 px-3 py-2 text-left text-small transition-colors hover:bg-muted"
+                    className={cn(
+                      "flex w-full items-baseline justify-between gap-2 px-3 py-1.5 text-left text-small transition-colors hover:bg-muted",
+                      /* The open one is marked on the row rather than by a word
+                         at the end of it. A tint and a weight say *you are here*
+                         without spending the only column the row has. */
+                      isCurrent && "bg-muted font-medium",
+                    )}
                   >
-                    <span className={cn("truncate", isCurrent && "font-medium")}>{p.name}</span>
-                    {isCurrent ? (
-                      <span className="shrink-0 text-micro text-evidence">Open</span>
-                    ) : (
-                      !p.researched && (
-                        <span className="shrink-0 text-micro text-muted-foreground">
-                          No research yet
-                        </span>
-                      )
+                    <span className="truncate">{p.name}</span>
+                    {/* Nothing on the current row. *Open* was there to explain a
+                        row that could not be pressed, and every row is pressable
+                        now, so it was a label on the thing you are already
+                        looking at. */}
+                    {!isCurrent && !p.researched && (
+                      <span className="shrink-0 text-micro text-muted-foreground">
+                        No research yet
+                      </span>
                     )}
                   </button>
                 </li>
@@ -230,31 +243,35 @@ export function ProjectMenu() {
             )}
           </ul>
 
-          {/* Project-first creation, which is a decision rather than an
-              omission: the project exists before any source does, so it
-              survives a failed upload and can be opened with nothing in it. */}
-          {/* **A link to the Projects page, not a form in a popover.** Creating
-              a project asks six questions and one of them is a paragraph; a
-              menu 19rem wide hanging off the masthead is the wrong room for it.
-              This is the shortest route to the page that owns the form. */}
+          {/* **A button that starts the creation, not a signpost to it.** It
+              was a link with a line of instruction under it — *Name the company
+              and sector first. Sources come after* — which is the form
+              explaining itself before you have reached the form.
+
+              It still routes to `/projects`, because creating a project asks
+              six questions and one is a paragraph, and a menu 19rem wide
+              hanging off the masthead is the wrong room for that. What changed
+              is that it arrives with the form **open**: `askNewProject` sets a
+              flag the Projects page picks up. Project-first creation (§5)
+              survives intact; this is one press instead of two.
+
+              A `<Link>` and not a `<button>` with `router.push`, so the
+              destination is in the status bar and the row can be opened in a
+              new tab. */}
           <div className="border-t border-border p-1">
             <Link
               href="/projects"
               role="menuitem"
-              onClick={() => setOpen(false)}
-              className="block w-full rounded-md px-2 py-1.5 text-left text-small text-evidence transition-colors hover:bg-muted"
+              onClick={() => {
+                askNewProject();
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-md border border-border-strong bg-card px-2.5 py-1.5 text-left text-small font-medium transition-colors hover:bg-muted"
             >
+              <Plus className="size-4 shrink-0" />
               New project
-              <span className="mt-0.5 block text-micro text-muted-foreground">
-                Name the company and sector first. Sources come after.
-              </span>
             </Link>
           </div>
-
-          <p className="border-t border-border px-3 py-2 text-micro text-muted-foreground">
-            This prototype carries one research set. The other two are real
-            Heizen projects and are listed as they are.
-          </p>
 
           {/* Who is signed in. The email is the identity — no display name is
               invented from it, because an address is not a name. */}

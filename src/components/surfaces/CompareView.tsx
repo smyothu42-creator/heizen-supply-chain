@@ -76,6 +76,13 @@ export function CompareView() {
           <legend className="text-micro text-muted-foreground">
             Stack a lane below
           </legend>
+          {/* Each lane is a card, and it is the card the rest of the product
+              draws: `rounded-lg border border-border bg-card shadow-card`, the
+              same shape as a gap in the plan panel and a boxed `Field`. They
+              were transparent rectangles on the ivory page with only the
+              ticked one lifted onto the card ground, so the two states read as
+              a box and an absence of one rather than as three boxes, one of
+              which is chosen. Selection is the ink border and the tick. */}
           <div className="mt-2 flex flex-wrap gap-2">
             {lanes
               .filter((l) => !l.isCurrent)
@@ -83,18 +90,39 @@ export function CompareView() {
                 <label
                   key={lane.id}
                   className={cn(
-                    "flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 transition-colors",
+                    "flex cursor-pointer items-start gap-2.5 rounded-lg border bg-card px-3 py-2.5 shadow-card transition-colors",
                     shown.has(lane.id)
-                      ? "border-foreground bg-card"
+                      ? "border-foreground"
                       : "border-border hover:border-border-strong",
                   )}
                 >
-                  <input
-                    type="checkbox"
-                    checked={shown.has(lane.id)}
-                    onChange={() => toggle(lane.id)}
-                    className="mt-0.5 h-4 w-4 accent-foreground"
-                  />
+                  {/* The product's tick-box, written out rather than taken from
+                      `Checkbox`: that component is itself a `<label>` carrying
+                      its own `sr-only` name, and a label inside a label is
+                      invalid markup. Here the visible company name is the
+                      label, so there is nothing to name it with. */}
+                  <span className="relative mt-px flex size-[1.125rem] shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={shown.has(lane.id)}
+                      onChange={() => toggle(lane.id)}
+                      className="peer size-[1.125rem] shrink-0 appearance-none rounded-[5px] border border-border-strong bg-card transition-colors checked:border-evidence checked:bg-evidence hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+                    />
+                    <svg
+                      viewBox="0 0 16 16"
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0 size-[1.125rem] text-card opacity-0 transition-opacity peer-checked:opacity-100"
+                    >
+                      <path
+                        d="M3.75 8.5 6.6 11.25 12.25 5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
                   <span>
                     <span className="block text-small font-medium">{lane.company}</span>
                     <span className="block text-micro text-muted-foreground">{lane.sector}</span>

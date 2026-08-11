@@ -201,13 +201,22 @@ for (const vp of VIEWPORTS) {
     await page.goto(BASE + path, { waitUntil: "networkidle" });
     // Only count what is genuinely focusable. Content inside a collapsed
     // section is [hidden] and must not be in the tab order.
+    //
+    // `el.tabIndex !== -1` is the third filter and it is not the same as the
+    // selector's `:not([tabindex="-1"])`: a `<button>` matches on its tag
+    // whatever its tabindex says. A roving-focus group — Radix Tabs on Sources
+    // — parks -1 on every trigger but the current one and takes the single tab
+    // stop itself, which is the correct ARIA pattern and which this check read
+    // as two unreachable controls. Reading the property rather than the
+    // attribute counts what Tab can actually land on.
     const interactive = await page.evaluate(
       () =>
         [
           ...document.querySelectorAll(
             'a[href],button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])',
           ),
-        ].filter((el) => !el.closest("[hidden]") && el.offsetParent !== null).length,
+        ].filter((el) => !el.closest("[hidden]") && el.offsetParent !== null && el.tabIndex !== -1)
+          .length,
     );
     const seen = new Set();
     for (let i = 0; i < interactive + 8; i++) {
@@ -227,6 +236,16 @@ for (const vp of VIEWPORTS) {
     let panel = null;
     const trigger = PANEL_TRIGGERS[path];
     if (trigger) {
+      /* Research Full now opens with every section folded, so the row this
+         check wants to click is inside a `[hidden]` body and Playwright waits
+         for it forever. Press "Open all" first where there is one, rather than
+         naming a section: the control is on every Full sheet and it keeps
+         working whichever way the default goes next. */
+      const openAll = page.getByRole("button", { name: "Open all sections" });
+      if (await openAll.count()) {
+        await openAll.first().click();
+        await page.waitForTimeout(120);
+      }
       if (trigger.expand) {
         const row = page.locator(trigger.expand).first();
         if (await row.count()) await row.click();

@@ -29,7 +29,7 @@ import { Field, PageHead, Said } from "./Form";
  * dangerous control is never the first one under the cursor.
  */
 export function SettingsView() {
-  const { organisation, updateOrganisation, me, projects, members } = useWorkspace();
+  const { organisation, updateOrganisation, me, members } = useWorkspace();
   const [name, setName] = useState(organisation.name);
   const [line, setLine] = useState(organisation.line);
   const [logo, setLogo] = useState<string | undefined>(organisation.logoUrl);
@@ -49,7 +49,7 @@ export function SettingsView() {
     }
     setError("");
     updateOrganisation({ name: name.trim(), line: line.trim(), logoUrl: logo });
-    setSaid("Saved to this tab. There is no server behind it yet, so it goes when the tab does.");
+    setSaid("Saved to this tab only.");
   };
 
   const pickLogo = (file: File | undefined) => {
@@ -63,7 +63,7 @@ export function SettingsView() {
     <div className="surface-frame py-8">
       <PageHead
         title="Settings"
-        line="What this workspace is called and who is allowed to change it. One workspace, and everything in the product sits under it."
+        line="What this workspace is called, and who may change it."
       />
 
       {!manage && (
@@ -79,9 +79,6 @@ export function SettingsView() {
         <h2 id="identity-heading" className="text-base font-semibold">
           Workspace
         </h2>
-        <p className="mt-1 text-small text-muted-foreground">
-          The name is on the side panel and on anything that leaves the product.
-        </p>
 
         <form onSubmit={save} className="mt-4 space-y-5">
           {/* The mark, and the file that replaces it. A monogram until there is
@@ -120,8 +117,7 @@ export function SettingsView() {
                 className="sr-only"
               />
               <p className="mt-1.5 text-micro text-muted-foreground">
-                Square reads best. It is not uploaded anywhere: the file stays in
-                this browser.
+                Square reads best. It stays in this browser.
               </p>
               {logo && (
                 <button
@@ -151,7 +147,7 @@ export function SettingsView() {
                 explanation. A disabled box with no reason reads as broken. */}
             <Field
               label="Address"
-              hint="Fixed when the workspace was made. Changing it would break every link anybody has saved."
+              hint="Fixed. Changing it would break every saved link."
             >
               {/* `readOnly`, not `disabled`. A disabled box is greyed to half
                   strength and reads as a field that failed to load. This one is
@@ -170,7 +166,7 @@ export function SettingsView() {
             <Field
               label="What this team does"
               className="sm:col-span-2"
-              hint="One line. It sits under the name wherever the workspace is introduced."
+              hint="One line, under the name."
             >
               {(id) => (
                 <Textarea
@@ -229,9 +225,10 @@ export function SettingsView() {
             </div>
           ))}
         </dl>
+        {/* The counts went. Neither is a fact about roles, and both are on the
+            pages that own them. */}
         <p className="mt-3 text-micro text-muted-foreground">
-          {members.length} people, {projects.length} projects. Roles are set on the
-          Team page.
+          Roles are set on the Team page.
         </p>
       </section>
 
@@ -244,9 +241,8 @@ export function SettingsView() {
             Delete this workspace
           </h2>
           <p className="reading mt-1 max-w-[46rem] text-small text-muted-foreground">
-            Every project goes with it, and every source, map, dossier, gap and
-            question inside them. The {members.length} people here lose access the
-            moment it happens.
+            Every project goes with it, and all {members.length} people here lose
+            access.
           </p>
           <Button
             variant="destructive"
@@ -307,16 +303,12 @@ function DeleteWorkspaceDialog({
         <DialogHeader>
           <DialogTitle>Delete {name}</DialogTitle>
           <DialogDescription>
-            This removes the workspace and everything under it. There is no undo and
-            no copy kept.
+            The workspace and everything under it. No undo, no copy kept.
           </DialogDescription>
         </DialogHeader>
 
         <DialogBody>
-          <Field
-            label={`Type ${name} to confirm`}
-            hint="Slow enough to think about, which is the point of it."
-          >
+          <Field label={`Type ${name} to confirm`}>
             {(id) => (
               <Input
                 id={id}
@@ -328,10 +320,11 @@ function DeleteWorkspaceDialog({
             )}
           </Field>
 
+          {/* The honesty note stays and the explanation of *why* it is built at
+              all goes. That reasoning is a decision record, and it belongs in
+              CLAUDE.md rather than in the dialog. */}
           <p className="mt-4 rounded-md border border-border bg-muted px-3 py-2 text-micro text-muted-foreground">
-            Nothing behind this is wired up. The form is here because it is the
-            shape the real one has to have, and the day there is a server the only
-            change is what the button calls.
+            Nothing behind this is wired up.
           </p>
         </DialogBody>
 

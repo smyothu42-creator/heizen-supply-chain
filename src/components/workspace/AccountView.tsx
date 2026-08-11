@@ -26,7 +26,7 @@ import { Field, PageHead, Said } from "./Form";
  * button that admits that in its own disabled tooltip is worse than no button.
  */
 export function AccountView() {
-  const { me, projects, members, updateMember } = useWorkspace();
+  const { me, projects, updateMember } = useWorkspace();
   const [name, setName] = useState(me.name ?? "");
   const [said, setSaid] = useState("");
 
@@ -41,14 +41,14 @@ export function AccountView() {
   const save = (e: React.FormEvent) => {
     e.preventDefault();
     updateMember(me.id, { name: name.trim() || undefined });
-    setSaid("Saved to this tab. There is no server behind it yet, so it goes when the tab does.");
+    setSaid("Saved to this tab only.");
   };
 
   return (
     <div className="surface-frame py-8">
       <PageHead
         title="Account"
-        line="Who you are signed in as, what that lets you open, and which companies you are on."
+        line="Who you are signed in as, and what you can open."
       />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -80,7 +80,7 @@ export function AccountView() {
           <form onSubmit={save} className="mt-5">
             <Field
               label="Display name"
-              hint="What the team list and the assistant call you. The address stays what it is."
+              hint="What the team list calls you."
             >
               {(id) => (
                 <Input
@@ -131,7 +131,7 @@ export function AccountView() {
           <p className="reading mt-1 text-small text-muted-foreground">
             {me.role === "member"
               ? "The projects you have been put on. An admin adds you to the rest."
-              : `Everything in the workspace, because you are ${ROLE_LABEL[me.role].toLowerCase()}. ${members.length} people are here.`}
+              : `Everything, because you are ${ROLE_LABEL[me.role].toLowerCase()}.`}
           </p>
 
           <ul className="mt-4 divide-y divide-border border-t border-border">

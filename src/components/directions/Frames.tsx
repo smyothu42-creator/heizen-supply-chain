@@ -8,9 +8,10 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { ChevronsDownUp, ChevronsUpDown } from "lucide-react";
-import { ChevronIcon, FilingIcon } from "@/components/meridian/Icons";
+import { ArrowIcon, ChevronIcon, FilingIcon } from "@/components/meridian/Icons";
 import { usePanel } from "@/components/meridian/EvidencePanel";
 import { ResearchSwitches } from "@/components/shell/ResearchSwitch";
 
@@ -64,11 +65,24 @@ export function BriefFrame({
     <>
       {hero}
       <div className="prose-full flex-1 min-h-0 overflow-hidden">
-        <div className=/* The masthead went from 44px to 56px, and Brief is a fixed screen —
-              so the 12px it gained comes straight back out of here, and the
-              roomy rhythm loses 8 for the same reason. Three Briefs clipped by
-              7 to 13px in between; `check:ui` is what said so. */
-            "surface-frame flex h-full max-w-lg flex-col py-1 sm:py-2 roomy:max-w-none roomy:py-5">
+        <div className=/* **The switch row sits exactly where Full's does, at every width**, on
+              request: `sm:pt-6`, the same value `FullFrame` uses, with the same
+              16px under the row. It was `py-1 sm:py-2 roomy:py-5` — a squeeze
+              Brief levied on itself because it is a fixed screen — so switching
+              Full↔Brief moved the one row the two views share, by 4px from
+              `roomy` and by 16 below it. The row is the skeleton, and a
+              skeleton that shifts when you press it is the thing it may not do.
+
+              **375 keeps the squeeze, and that is measured rather than
+              chosen.** Full's rhythm costs 26px at the top (16 here, 10 in the
+              gap below the row), and at 375×667 four Briefs clip on it: Leaks
+              by 21px, Tech by 20, Money by 11, Idea Build by 3. Every other
+              viewport takes it with room to spare. Nobody compares the two
+              views on a phone; Brief is simply what you read there.
+
+              The bottom keeps the squeeze everywhere. Nothing is under it to
+              line up with, and it is what pays for the top. */
+            "surface-frame flex h-full max-w-lg flex-col pt-1 pb-1 sm:pt-6 sm:pb-2 roomy:max-w-none roomy:pb-5">
           {/* Both switches are the first thing on the page, above the
               document they change. On the band they were chrome describing
               the surface; here they are the choices you are making about what
@@ -101,19 +115,89 @@ export function BriefFrame({
                 of one dossier did not line up. `roomy` is defined as
                 `min-width: 1024px`, which is exactly `lg`, so using `lg` here
                 is identical in behaviour and correct in order. */
-              "mt-1.5 flex min-h-0 flex-1 flex-col roomy:mt-4 lg:grid lg:grid-cols-[19rem_minmax(0,1fr)] lg:gap-x-10 xl:grid-cols-[22rem_minmax(0,1fr)]">
+              /* 16px under the row from `sm`, which is Full's `pt-4` on the
+                 grid below its own switch row. It was 6px up to `roomy`, so
+                 the row sat on the content in one view and clear of it in the
+                 other. 375 keeps the 6, for the reason above. */
+          "mt-1.5 flex min-h-0 flex-1 flex-col sm:mt-4 lg:grid lg:grid-cols-[19rem_minmax(0,1fr)] lg:gap-x-10 xl:grid-cols-[22rem_minmax(0,1fr)]">
             {lead && (
               <div className="hidden roomy:block roomy:self-start roomy:rounded-lg roomy:border roomy:border-border roomy:bg-card roomy:p-5 roomy:shadow-card">
                 {lead}
               </div>
             )}
-            <div className="flex h-full min-h-0 flex-col gap-2 sm:gap-3 roomy:gap-4 roomy:rounded-lg roomy:border roomy:border-border roomy:bg-card roomy:p-5 roomy:shadow-card">
+            {/* **From `lg` the card is the height of its content, capped at the
+                frame.** On request. It was `h-full`, which on a 1440×1400 window
+                left All Brief's three findings sitting in the top third of a
+                card with about 450px of white under them and the footer pinned
+                to the bottom edge — a card the shape of the viewport rather than
+                the shape of what is in it.
+
+                **`max-h-full`, not just `h-auto`.** The cap is what keeps
+                Brief's contract: it is the fixed screen, and content that
+                overruns has to clip visibly rather than be absorbed by a
+                scrollbar. `check:ui` measures exactly that, so dropping the cap
+                would take the check with it.
+
+                **`lg:` only.** Below it there is no card, the frame is the
+                phone-shaped column, and `h-full` is what lets the content take
+                the height and hold the footer at the bottom of the screen. In a
+                *column* flex container `self-start` is the cross axis, so
+                applying it there would shrink the card to the width of its
+                longest line. */}
+            <div className="flex h-full min-h-0 flex-col gap-2 sm:gap-3 roomy:gap-4 roomy:rounded-lg roomy:border roomy:border-border roomy:bg-card roomy:p-5 roomy:shadow-card lg:h-auto lg:max-h-full lg:self-start">
               {children}
             </div>
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * The foot of every Brief: how sure we are on the left, the way into Full on
+ * the right.
+ *
+ * **It was twelve copies of the same eight lines**, one per direction, each
+ * differing only in its href and its label. Twelve is where a treatment drifts,
+ * and it had already started: Money's link was `text-evidence` and the other
+ * eleven were ink.
+ *
+ * **It is a drawn button now, not bare words.** On request, and for the reason
+ * `Fold all` gives on the other view: on a card whose whole content is
+ * pressable rows, an unbordered phrase in the corner reads as one more line of
+ * the document rather than as the one control that leaves it. This is *the*
+ * thing a consultant does at the end of a Brief that is not reading, so it is
+ * the one thing on the screen that should look placed.
+ *
+ * **It takes the accent, where `Fold all` does not**, and the difference is the
+ * whole rule: cyan on the page means somewhere to go. Folding a section goes
+ * nowhere; this goes to Full.
+ */
+export function BriefFooter({
+  href,
+  children,
+  confidence,
+}: {
+  href: string;
+  /** The direction's own words for what is on the other side. */
+  children: ReactNode;
+  /** Usually a `ConfidenceBadge`. Left end of the row. */
+  confidence?: ReactNode;
+}) {
+  return (
+    <div className="shrink-0 pt-1">
+      <div className="flex items-end justify-between gap-4">
+        {confidence ?? <span />}
+        <Link
+          href={href}
+          className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-card px-3 py-1.5 text-small font-medium text-evidence shadow-card transition-colors hover:border-border-strong hover:bg-muted hover:text-foreground"
+        >
+          {children}
+          <ArrowIcon />
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -520,6 +604,35 @@ const subscribe = (cb: () => void) => {
 };
 
 /**
+ * **Full opens folded**, on request. A section with nothing stored against it
+ * starts closed; `defaultCollapsed` on a `SectionRef` still overrides, and the
+ * entries that set it `true` are now saying the same thing as the default
+ * rather than something extra.
+ *
+ * What it changes: the first read of a direction is its *shape* — eight or nine
+ * headings with their summary lines, one screen — and the second read is
+ * whichever one you open. That is §7.1's three reads with the first two doing
+ * less work each. What it costs is that Full no longer arrives as a document
+ * you can scroll straight through, so `Open all` in the sheet's corner is now
+ * the control that produces the old view rather than an occasional convenience.
+ *
+ * **What stays visible is the heading and whatever the section puts in
+ * `right`** — the rupee figure and its share on Money, the count on the others
+ * — plus any `stats` strip, which was already written to survive a fold. The
+ * `summary` line is not: it renders on `!collapsed`, so a folded document shows
+ * nine headings with their numbers and no prose at all. That is a deliberate
+ * shape read and not an oversight, but **if the folded page ever reads as bare,
+ * the one-line fix is dropping `!collapsed` from the summary's condition** —
+ * heading, line and number is a table of contents rather than a stack of shut
+ * boxes.
+ *
+ * It is the fallback and not a rewrite of the store, so anything the reader has
+ * already opened stays open: `readAll()[id]` still wins. It is also what the
+ * server renders, so there is no hydration mismatch to get wrong.
+ */
+const STARTS_FOLDED = true;
+
+/**
  * useSyncExternalStore rather than an effect: the server renders everything
  * open, and React swaps in the stored state after hydration without a mismatch.
  */
@@ -540,8 +653,8 @@ function useCollapsed(id: string, fallback: boolean) {
 function useAllCollapsed(sections: SectionRef[]) {
   return useSyncExternalStore(
     subscribe,
-    () => sections.every((s) => readAll()[s.id] ?? s.defaultCollapsed ?? false),
-    () => false,
+    () => sections.every((s) => readAll()[s.id] ?? s.defaultCollapsed ?? STARTS_FOLDED),
+    () => STARTS_FOLDED,
   );
 }
 
@@ -655,7 +768,7 @@ export function Section({
   // be a prop here and a module-level registry written during render, which is
   // the impurity `react-hooks/immutability` exists to catch.
   const sections = useContext(SectionsContext);
-  const defaultCollapsed = sections?.find((s) => s.id === id)?.defaultCollapsed ?? false;
+  const defaultCollapsed = sections?.find((s) => s.id === id)?.defaultCollapsed ?? STARTS_FOLDED;
   const collapsed = useCollapsed(id, defaultCollapsed);
 
   return (

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { cn } from "@/lib/cn";
 import {
   buckets,
@@ -11,10 +10,9 @@ import {
   type Gap,
 } from "@/lib/suvarna";
 
-import { BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
 import { ConfidenceBadge, EffortChip } from "@/components/meridian/Confidence";
 import { Eyebrow } from "@/components/meridian/Primitives";
-import { ArrowIcon } from "@/components/meridian/Icons";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
 import { usePanel } from "@/components/meridian/EvidencePanel";
@@ -106,18 +104,12 @@ export function LeaksBrief() {
         </p>
       </div>
 
-      <div className="shrink-0 pt-1">
-        <div className="flex items-end justify-between gap-4">
-          <ConfidenceBadge level={company.confidence} showReason={false} />
-          <Link
-            href="/research/leaks/full"
-            className="inline-flex shrink-0 items-center gap-1.5 text-small transition-colors hover:text-muted-foreground"
-          >
-            All {gaps.length}
-            <ArrowIcon />
-          </Link>
-        </div>
-      </div>
+      <BriefFooter
+        href="/research/leaks/full"
+        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
+      >
+        All {gaps.length}
+      </BriefFooter>
     </BriefFrame>
   );
 }

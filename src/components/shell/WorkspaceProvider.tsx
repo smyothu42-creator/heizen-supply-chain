@@ -46,6 +46,15 @@ interface WorkspaceState {
   setCurrentProject: (id: string) => void;
   createProject: (draft: ProjectDraft) => Project;
   deleteProject: (id: string) => void;
+  /** Somebody pressed *New project* somewhere that is not the Projects page.
+      The form asks six questions and one of them is a paragraph, so it lives on
+      that page and nowhere else; this is how a caller elsewhere routes there and
+      has it open on arrival. A flag in the provider rather than a query
+      parameter because the provider survives a client-side navigation and
+      `useSearchParams` would put a Suspense boundary around a static page. */
+  newProjectAsked: boolean;
+  askNewProject: () => void;
+  clearNewProjectAsk: () => void;
 
   members: Member[];
   /** The signed-in person, resolved once so nothing matches on an address. */
@@ -96,6 +105,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [currentProjectId, setCurrentProjectId] = useState(currentProject.id);
   const [members, setMembers] = useState(seedMembers);
   const [invitations, setInvitations] = useState(seedInvitations);
+  const [newProjectAsked, setNewProjectAsked] = useState(false);
+
+  const askNewProject = useCallback(() => setNewProjectAsked(true), []);
+  const clearNewProjectAsk = useCallback(() => setNewProjectAsked(false), []);
 
   const updateOrganisation = useCallback(
     (patch: Partial<Organisation>) => setOrganisation((o) => ({ ...o, ...patch })),
@@ -220,6 +233,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setCurrentProject: setCurrentProjectId,
       createProject,
       deleteProject,
+      newProjectAsked,
+      askNewProject,
+      clearNewProjectAsk,
       members,
       me,
       updateMemberRole,
@@ -238,6 +254,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       currentProjectId,
       createProject,
       deleteProject,
+      newProjectAsked,
+      askNewProject,
+      clearNewProjectAsk,
       members,
       me,
       updateMemberRole,
