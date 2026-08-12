@@ -84,6 +84,14 @@
   --masthead-muted: #b3c3d2;
   --masthead-border: #3a5c78;
   --masthead-accent: #63d2e3;
+  /* The ground a tab takes while the pointer is on it: the band and its border
+     line, halfway. It exists because the active tab now fills with
+     `--masthead-border` and hover had to be a step below that — a hover in the
+     same tone as the current tab makes two tabs look current. **Opaque, not an
+     alpha of the foreground**, so `check:ui` can read text against it: the
+     checker walks to the nearest opaque ancestor and a `/10` tint reports the
+     colour underneath it. White on this is 8.6:1. */
+  --masthead-hover: #2e4f6a;
 
   /* brand accent — the deepened cyan for anything read, its brighter twin for
      anything merely seen (rules, dots, bars, fills) */
@@ -166,6 +174,8 @@
   --masthead-muted: #a9bccb;
   --masthead-border: #2f4557;
   --masthead-accent: #5fd6e4;
+  /* Band and border line, halfway, as in light. Foreground on it is 11.3:1. */
+  --masthead-hover: #223546;
 
   --accent: #5fd6e4;
   --accent-soft: #4cc5d5;
@@ -272,6 +282,7 @@
   --color-masthead-muted: var(--masthead-muted);
   --color-masthead-border: var(--masthead-border);
   --color-masthead-accent: var(--masthead-accent);
+  --color-masthead-hover: var(--masthead-hover);
 
   --color-canvas: var(--canvas-bg);
   --color-canvas-node: var(--canvas-node);

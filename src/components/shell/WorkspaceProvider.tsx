@@ -45,6 +45,12 @@ interface WorkspaceState {
   currentProjectId: string;
   setCurrentProject: (id: string) => void;
   createProject: (draft: ProjectDraft) => Project;
+  /** The research inputs, changed after the fact. A first lead is a name and a
+      sector; the website, the revenue, the people and the line that biases the
+      run all arrive later, usually off the first call. Nothing here touches
+      `status` or `researched`: those are the pipeline's readings, and §5's rule
+      against hand-editing AI output is about exactly that half. */
+  updateProject: (id: string, patch: ProjectDraft) => void;
   deleteProject: (id: string) => void;
   /** Somebody pressed *New project* somewhere that is not the Projects page.
       The form asks six questions and one of them is a paragraph, so it lives on
@@ -145,6 +151,30 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return project;
   }, []);
 
+  /* The draft's optional fields are written as `undefined` when they are
+     cleared rather than left at their old value: a consultant who empties the
+     stakeholder box means "we do not know", and a patch that skipped blanks
+     would make that the one edit the form cannot make. */
+  const updateProject = useCallback(
+    (id: string, patch: ProjectDraft) =>
+      setProjects((ps) =>
+        ps.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                name: patch.name.trim(),
+                sector: patch.sector.trim(),
+                domain: patch.domain?.trim() || undefined,
+                revenueCr: patch.revenueCr,
+                stakeholders: patch.stakeholders?.trim() || undefined,
+                prompt: patch.prompt?.trim() || undefined,
+              }
+            : p,
+        ),
+      ),
+    [],
+  );
+
   const deleteProject = useCallback((id: string) => {
     setProjects((ps) => ps.filter((p) => p.id !== id));
     setMembers((ms) =>
@@ -232,6 +262,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       currentProjectId,
       setCurrentProject: setCurrentProjectId,
       createProject,
+      updateProject,
       deleteProject,
       newProjectAsked,
       askNewProject,
@@ -253,6 +284,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       projects,
       currentProjectId,
       createProject,
+      updateProject,
       deleteProject,
       newProjectAsked,
       askNewProject,

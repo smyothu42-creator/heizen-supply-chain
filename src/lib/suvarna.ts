@@ -72,6 +72,10 @@ export interface Source {
   kind: SourceKind;
   date: string;
   detail: string;
+  /** Where a `web` source lives. The other three kinds are files that were
+      handed to us, and a file has no address — which is why this is optional
+      and why the edit form asks for it on one kind only. */
+  url?: string;
 }
 
 export interface Evidence {

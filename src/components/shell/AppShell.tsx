@@ -3,6 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import {
+  CircleUser,
+  Columns3,
+  FileSearch,
+  Files,
+  FolderKanban,
+  MessageCircleQuestion,
+  Network,
+  Settings,
+  TriangleAlert,
+  Users,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PanelProvider } from "@/components/meridian/EvidencePanel";
 import { ThemeToggle } from "./ThemeToggle";
@@ -13,17 +25,38 @@ import { SelectionAsk } from "./SelectionAsk";
 import { WorkspaceProvider } from "./WorkspaceProvider";
 import { useMastheadVisible } from "./useScrollDirection";
 
-/** Six surfaces. Research is the only one with more than one design on offer. */
+/**
+ * Six surfaces. Research is the only one with more than one design on offer.
+ *
+ * **Each tab carries a mark, on request, and the label stays at every width.**
+ * An icon in the chrome is not decoration here: the six tabs are the one
+ * control on every screen of the product, and a shape is found by peripheral
+ * vision faster than a word is read — which is the whole of what a consultant
+ * does with this row while a call is running. What it must never become is an
+ * icon-only rail: six unlabelled glyphs are six guesses, and "a consultant will
+ * not find a hidden tab mid-call" is the reason the row scrolls rather than
+ * collapsing into a menu.
+ *
+ * **The cost is horizontal and it lands on the phone.** A `size-4` mark and its
+ * gap is about 22px a tab, so the row grows ~130px and scrolls sooner at 375.
+ * It already scrolled there, and it scrolls visibly — `scroll-slim` draws a
+ * thumb — so what this spends is swipe distance rather than reachability.
+ *
+ * The marks are chosen for what the surface *is*, not for its initial: a graph
+ * for the map, a document for the dossier, a warning for the findings, a
+ * question for the questions, two columns for the comparison, files for the
+ * files.
+ */
 const TABS = [
-  { name: "Operations", href: "/operations" },
+  { name: "Operations", href: "/operations", Icon: Network },
   /* Full, not Brief. Brief is the thing you switch *to* in the five minutes
      before a call; Full is the dossier, and it is what "Research" means when
      you arrive from the masthead with no particular errand. */
-  { name: "Research", href: "/research/all/full" },
-  { name: "Gaps", href: "/gaps" },
-  { name: "Questions", href: "/questions" },
-  { name: "Compare", href: "/compare" },
-  { name: "Sources", href: "/sources" },
+  { name: "Research", href: "/research/all/full", Icon: FileSearch },
+  { name: "Gaps", href: "/gaps", Icon: TriangleAlert },
+  { name: "Questions", href: "/questions", Icon: MessageCircleQuestion },
+  { name: "Compare", href: "/compare", Icon: Columns3 },
+  { name: "Sources", href: "/sources", Icon: Files },
 ] as const;
 
 /**
@@ -40,10 +73,10 @@ const TABS = [
  * holding a second copy of either.
  */
 const WORKSPACE_TABS = [
-  { name: "Projects", href: "/projects" },
-  { name: "Team", href: "/team" },
-  { name: "Settings", href: "/settings" },
-  { name: "Account", href: "/account" },
+  { name: "Projects", href: "/projects", Icon: FolderKanban },
+  { name: "Team", href: "/team", Icon: Users },
+  { name: "Settings", href: "/settings", Icon: Settings },
+  { name: "Account", href: "/account", Icon: CircleUser },
 ] as const;
 
 const WORKSPACE_PAGES = new Set(["", "projects", "team", "settings", "account"]);
@@ -204,7 +237,12 @@ function Shell({ children }: { children: ReactNode }) {
             aria-label={inProject ? "Product surfaces" : "Workspace"}
             className="scroll-slim min-w-0 flex-1 overflow-x-auto sm:ml-2"
           >
-            <ul className="flex h-full items-stretch gap-1">
+            {/* A notch more air between tabs, on request: `gap-1` was 4px, and
+                with a mark now sitting in front of every label the six tabs
+                read as one continuous strip of icon-word-icon-word. 10px is
+                enough to group each mark with its own label and not so much
+                that the row costs another wrap of scroll on a phone. */}
+            <ul className="flex h-full items-stretch gap-2.5">
               {tabs.map((tab) => {
                 const active =
                   tab.href.startsWith(`/${surface}`) && surface !== "";
@@ -220,12 +258,46 @@ function Shell({ children }: { children: ReactNode }) {
                         // own rather than a segment of an existing hairline —
                         // and at 2px against the indigo it read as a tint on
                         // the band's edge rather than as a chosen underline.
-                        "flex items-center whitespace-nowrap border-b-[3px] px-2 text-small transition-colors",
+                        //
+                        // **The active tab is a raised block now, on request,
+                        // and that reverses a note in CLAUDE.md.** The old
+                        // argument was that a chip on a dark band has to be a
+                        // light block and would read heavier than the page
+                        // content below it. What it missed is that a cyan
+                        // hairline against indigo is the *only* thing marking
+                        // where you are, on the one control that is on every
+                        // screen in the product: the tab sat in the same colour
+                        // as the band and the mark was three pixels at its
+                        // bottom edge. The ground is `--masthead-border`, which
+                        // is the band's own lifted tone rather than a light
+                        // block, so it reads as a tab standing proud of the
+                        // strip and not as a white chip laid on it. White on it
+                        // is 7.1:1.
+                        //
+                        // **Square corners, on request.** A rounded top made
+                        // the ground read as a chip laid on the band; a plain
+                        // rectangle running the full height of the strip reads
+                        // as a section of the band itself, which is what a
+                        // surface tab is.
+                        "flex items-center gap-1.5 whitespace-nowrap border-b-[3px] px-2.5 text-small transition-colors",
                         active
-                          ? "border-masthead-accent font-medium text-masthead-foreground"
-                          : "border-transparent text-masthead-muted hover:text-masthead-foreground",
+                          ? "border-masthead-accent bg-masthead-border font-medium text-masthead-foreground"
+                          : // The hover ground is the same tone one step down
+                            // in weight — it is what makes the row feel like
+                            // six controls rather than six words. It cannot be
+                            // the *active* ground, or hovering one tab would
+                            // make two of them look current.
+                            "border-transparent text-masthead-muted hover:bg-masthead-hover hover:text-masthead-foreground",
                       )}
                     >
+                      {/* `aria-hidden`, because the label is right beside it
+                          and a screen reader reading "graph Operations" is one
+                          word of noise on every tab in the product. The mark
+                          takes the label's colour rather than a colour of its
+                          own: `--masthead-accent` is what the active underline
+                          spends, and a cyan glyph on every tab would make the
+                          one that means "you are here" mean nothing. */}
+                      <tab.Icon aria-hidden className="size-4 shrink-0" />
                       {tab.name}
                     </Link>
                   </li>

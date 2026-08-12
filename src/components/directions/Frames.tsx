@@ -14,6 +14,8 @@ import { ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { ArrowIcon, ChevronIcon, FilingIcon } from "@/components/meridian/Icons";
 import { usePanel } from "@/components/meridian/EvidencePanel";
 import { ResearchSwitches } from "@/components/shell/ResearchSwitch";
+import { StickyBar } from "@/components/shell/StickyBar";
+import { useMastheadVisible } from "@/components/shell/useScrollDirection";
 
 /**
  * Brief is a fixed screen. The container cannot scroll — if a direction's Brief
@@ -259,10 +261,16 @@ export function FullFrame({
     <>
       {hero}
       {/* Above the sheet and outside the grid, so the row spans the navigator
-          and the document both: it changes the whole page, not one column. */}
-      <div className="surface-frame pt-5 sm:pt-6">
+          and the document both: it changes the whole page, not one column.
+
+          **Pinned while the document scrolls**, on request. Full runs three to
+          four screens and Direction is what decides which dossier you are
+          reading: having to scroll back to the top to change it is what made
+          the seven directions feel like seven pages rather than seven views.
+          See `StickyBar` for why the offset follows the masthead. */}
+      <StickyBar className="pt-5 pb-3 sm:pt-6">
         <ResearchSwitches actions={actions} />
-      </div>
+      </StickyBar>
       <div className="prose-full reading-airy surface-frame grid gap-x-10 gap-y-6 pt-4 pb-12 sm:pb-16 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
         <SectionNav sections={sections} />
         {/* One sheet, not nine cards.
@@ -422,6 +430,14 @@ export function DocumentLead({
  */
 function SectionNav({ sections }: { sections: SectionRef[] }) {
   const [active, setActive] = useState(sections[0]?.id);
+  /* **The navigator now has two sticky things above it, not one.** It used to
+     clear the masthead alone at 68px; the switch row is pinned as well, and it
+     is 72px tall at every width from `lg` up (measured, and it does not wrap —
+     if it ever does, this is wrong). So the card sits below 48 + 72 + 12 while
+     the band is showing and below 72 + 12 once it has gone. Without this the
+     top 52px of the card, which is its heading and its rounded edge, is painted
+     over by the bar's own ground. */
+  const mastheadVisible = useMastheadVisible();
 
   /**
    * Open the section, then glide to it.
@@ -466,7 +482,11 @@ function SectionNav({ sections }: { sections: SectionRef[] }) {
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
         if (visible[0]) setActive(visible[0].target.id);
       },
-      { rootMargin: "-96px 0px -60% 0px", threshold: 0 },
+      /* -132px, up from -96: the top of the window is now the masthead's 48px
+         plus the pinned switch row's 72, and a section counted as "current"
+         while it sits behind the bar highlights an entry for something the
+         reader cannot see. */
+      { rootMargin: "-132px 0px -60% 0px", threshold: 0 },
     );
     sections.forEach((s) => {
       const el = document.getElementById(s.id);
@@ -476,7 +496,7 @@ function SectionNav({ sections }: { sections: SectionRef[] }) {
   }, [sections]);
 
   return (
-    <nav aria-label="Research results" className="hidden lg:block">
+    <nav aria-label="Research table of contents" className="hidden lg:block">
       {/* `overflow-hidden` so the header rule meets the rounded corners rather
           than running past them, and no padding on the card itself — the rule
           has to reach both edges to read as a divider instead of as an
@@ -486,13 +506,23 @@ function SectionNav({ sections }: { sections: SectionRef[] }) {
           first two entries were unreachable exactly when someone was scrolling
           up to reach them. 56px is the band's 44px plus the 12px gap it had
           before. If the masthead's height changes, this changes with it. */}
-      <div className="sticky top-[4.25rem] overflow-hidden rounded-lg border border-border bg-card shadow-card">
+      <div
+        className={cn(
+          "sticky overflow-hidden rounded-lg border border-border bg-card shadow-card transition-[top] duration-200 motion-reduce:transition-none",
+          mastheadVisible ? "top-[8.25rem]" : "top-[5.25rem]",
+        )}
+      >
         {/* No tint behind the header. `bg-muted` is exactly the fill the active
             row uses, so a tinted header reads as a selected entry — and an
             alpha tint is worse still: the contrast checker cannot blend, and
             `bg-muted/40` reported 3.28:1 on text that is 5.9:1 on the card. */}
+        {/* **Table of contents, not results**, on request. The card lists the
+            sections of one document and moves you between them, which is what a
+            contents page is; *results* said it was the findings themselves, and
+            the findings are the sheet beside it. The `aria-label` on the `nav`
+            says the same words, so the two cannot drift. */}
         <p className="border-b border-border px-3 py-2.5 text-micro font-medium text-muted-foreground">
-          Research results
+          Research table of contents
         </p>
         {/* `pt-3` rather than the list's own `p-1.5`: at 6px the first entry
             sat almost on the rule, which read as the heading having an
@@ -777,10 +807,14 @@ export function Section({
           need landmarks. Below that the column is narrow, the page is already
           one thing at a time, and 20px is the right size. */}
       <div className="flex items-baseline justify-between gap-4 border-b border-border-strong pb-2">
-        {/* `scroll-mt-14` clears the sticky masthead: the navigator scrolls
-            a heading to the top of the window, and 24px of margin put it
-            under the band whenever the band was showing. */}
-        <h2 id={id} className="scroll-mt-[4.25rem] min-w-0">
+        {/* The offset clears everything pinned above: the masthead at 48px and
+            the switch row at 72. It is the *worst* case rather than the current
+            one, because the two states differ and an anchor cannot follow them
+            — a jump down hides the band and leaves 56px of air above the
+            heading, and a jump up brings the band back and the heading still
+            clears it by 8px. Air above a heading you asked for is a much
+            cheaper error than a heading behind a bar. */}
+        <h2 id={id} className="scroll-mt-[8.25rem] min-w-0">
           <button
             type="button"
             aria-expanded={!collapsed}

@@ -1,29 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { money } from "@/lib/format";
 import { initialsOf, type Project } from "@/lib/projects";
 import { canManage } from "@/lib/workspace";
-import { useWorkspace, type ProjectDraft } from "@/components/shell/WorkspaceProvider";
+import { useWorkspace } from "@/components/shell/WorkspaceProvider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ConfirmDialog, Field, PageHead, Said } from "./Form";
+import { ConfirmDialog, PageHead, Said } from "./Form";
+import { ProjectDialog } from "./ProjectDialog";
 
 /**
- * The projects list, and the form that makes one.
+ * The projects list. The form that makes one, and the form that corrects one,
+ * are the same dialog and live in `ProjectDialog`.
  *
  * **Project-first creation, which CLAUDE.md §5 records as settled**: you create
  * the project and *then* ingest sources into it. That is why this form asks for
@@ -39,7 +29,6 @@ export function ProjectsView() {
   const {
     projects,
     me,
-    currentProjectId,
     setCurrentProject,
     deleteProject,
     newProjectAsked,
@@ -48,6 +37,19 @@ export function ProjectsView() {
   const [creating, setCreating] = useState(false);
   const [said, setSaid] = useState("");
   const [pendingDelete, setPendingDelete] = useState<Project | null>(null);
+  const [editing, setEditing] = useState<Project | null>(null);
+  /* **Focus goes back to the pencil that opened the dialog**, and it has to be
+     done by hand here. Radix restores focus to its trigger on close, and this
+     dialog is *unmounted* on close rather than held open by a prop — so by the
+     time it would restore, there is nothing to restore from and the caret lands
+     on `<body>`. Found by driving it, which is the only way: nothing about the
+     markup looks wrong.
+
+     The button hands its own element up through the click rather than taking a
+     `ref`, because there is one of these per card and a ref per row is a map
+     kept in step with a list that filters and re-sorts under it. Same shape
+     `GapRow`'s edit control needs on Gaps. */
+  const lastEditTrigger = useRef<HTMLElement | null>(null);
 
   const manage = canManage(me.role);
 
@@ -99,9 +101,13 @@ export function ProjectsView() {
           <li key={project.id} className="min-w-0">
             <ProjectCard
               project={project}
-              open={project.id === currentProjectId}
+              canEdit={manage}
               canDelete={manage && projects.length > 1}
               onOpen={() => setCurrentProject(project.id)}
+              onEdit={(trigger) => {
+                lastEditTrigger.current = trigger;
+                setEditing(project);
+              }}
               onDelete={() => setPendingDelete(project)}
             />
           </li>
@@ -114,11 +120,32 @@ export function ProjectsView() {
         </p>
       )}
 
-      <CreateProjectDialog
-        open={showCreate}
-        onOpenChange={setCreate}
-        onCreated={(name) => setSaid(`${name} created. It lives in this tab only.`)}
-      />
+      {/* Mounted and unmounted rather than held open with a prop, so a
+          half-typed project is gone when the dialog reopens. The edit copy
+          takes `key={editing.id}`: without it, pressing edit on a second card
+          while the first is still mounted would keep the first card's text in
+          the boxes. Same shape `GapPanel` needs on Gaps. */}
+      {showCreate && (
+        <ProjectDialog
+          open
+          onOpenChange={setCreate}
+          onSaved={(name) => setSaid(`${name} created. It lives in this tab only.`)}
+        />
+      )}
+
+      {editing && (
+        <ProjectDialog
+          key={editing.id}
+          open
+          project={editing}
+          onOpenChange={(v) => {
+            if (v) return;
+            setEditing(null);
+            lastEditTrigger.current?.focus();
+          }}
+          onSaved={(name) => setSaid(`${name} saved. The change lives in this tab only.`)}
+        />
+      )}
 
       <ConfirmDialog
         open={pendingDelete !== null}
@@ -141,25 +168,36 @@ export function ProjectsView() {
 
 function ProjectCard({
   project,
-  open,
+  canEdit,
   canDelete,
   onOpen,
+  onEdit,
   onDelete,
 }: {
   project: Project;
-  open: boolean;
+  canEdit: boolean;
   canDelete: boolean;
   onOpen: () => void;
+  /** Takes its own button, so focus can be put back on it when the dialog
+      closes. See the note beside `lastEditTrigger`. */
+  onEdit: (trigger: HTMLElement) => void;
   onDelete: () => void;
 }) {
   const router = useRouter();
 
   return (
     /* A card, because these are separate things side by side, which is the one
-       condition the theme note says a card is for. The left edge carries the
-       primary in a 3px rule on the project that is currently loaded: the list
-       is short and the switcher in the masthead is far away, so which one you
-       are *in* has to be readable from here without counting.
+       condition the theme note says a card is for.
+
+       **No mark on the project that is currently loaded**, on request. The left
+       edge used to carry the primary in a 3px rule on it. The argument for it
+       was that the switcher in the masthead is far away, so which project you
+       are *in* should be readable from here — but this page is where you choose
+       what to open next, and "the one you had open last" is a fact about the
+       past rather than a difference between the cards. One card in nine drawn
+       differently reads as that card being special, and the list is a list of
+       equals. The masthead names the loaded project on every other screen in
+       the product.
 
        **Every card is the same height, and `h-full` is only half of that.**
        `h-full` equalises a card against its *row*, which is what a grid
@@ -169,12 +207,7 @@ function ProjectCard({
        the status clamps to two — so the height is the same everywhere and
        there is nothing left for `mt-auto` to absorb. If a block is ever added
        that can wrap, it has to be capped the same way or this goes back. */
-    <div
-      className={cn(
-        "flex h-full flex-col rounded-lg border border-border bg-card shadow-card transition-colors hover:border-border-strong",
-        open && "border-l-[3px] border-l-primary",
-      )}
-    >
+    <div className="flex h-full flex-col rounded-lg border border-border bg-card shadow-card transition-colors hover:border-border-strong">
       <div className="flex items-start gap-3 px-4 pt-4">
         <span
           aria-hidden
@@ -186,15 +219,41 @@ function ProjectCard({
           <h2 className="truncate text-base font-semibold leading-tight">{project.name}</h2>
           <p className="mt-0.5 truncate text-small text-muted-foreground">{project.sector}</p>
         </div>
-        {canDelete && (
-          <button
-            type="button"
-            onClick={onDelete}
-            aria-label={`Delete ${project.name}`}
-            className="-mr-1 -mt-1 shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-health-critical"
-          >
-            <Trash2 className="size-4" />
-          </button>
+        {/* Two ghosts in the corner, edit before delete. **Always visible, not
+            revealed on hover**: a hover-reveal is the quieter card and puts
+            both controls out of reach of every touch device, which is the same
+            trade `GapRow`'s edit control and the source rows record, with the
+            same mitigation — a 24px mark in `--muted-foreground` rather than a
+            labelled button, so the card's one *action* is still the filled
+            button on the footer.
+
+            Edit is ink on hover and delete goes red, because one of them
+            reverses and the other does not. Colour is doing the same job it
+            does everywhere else in the product: red is the destructive end,
+            and nothing else on the card may borrow it. */}
+        {(canEdit || canDelete) && (
+          <div className="-mr-1 -mt-1 flex shrink-0 items-center">
+            {canEdit && (
+              <button
+                type="button"
+                onClick={(e) => onEdit(e.currentTarget)}
+                aria-label={`Edit ${project.name}`}
+                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Pencil className="size-4" />
+              </button>
+            )}
+            {canDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                aria-label={`Delete ${project.name}`}
+                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-health-critical focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Trash2 className="size-4" />
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -347,177 +406,3 @@ function ProjectCard({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-
-const EMPTY: ProjectDraft = { name: "", sector: "" };
-
-function CreateProjectDialog({
-  open,
-  onOpenChange,
-  onCreated,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  onCreated: (name: string) => void;
-}) {
-  const { createProject } = useWorkspace();
-  const [draft, setDraft] = useState<ProjectDraft>(EMPTY);
-  const [revenue, setRevenue] = useState("");
-  const [errors, setErrors] = useState<{ name?: string; sector?: string; revenue?: string }>({});
-
-  const set = (patch: Partial<ProjectDraft>) => setDraft((d) => ({ ...d, ...patch }));
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const next: typeof errors = {};
-    if (!draft.name.trim()) next.name = "A project is a company. Name it.";
-    if (!draft.sector.trim()) next.sector = "The sector is what the benchmark is drawn from.";
-    if (revenue.trim() && !Number.isFinite(Number(revenue)))
-      next.revenue = "Digits only. The unit is crores.";
-    setErrors(next);
-    if (Object.keys(next).length > 0) return;
-
-    const created = createProject({
-      ...draft,
-      revenueCr: revenue.trim() ? Number(revenue) : undefined,
-    });
-    onCreated(created.name);
-    setDraft(EMPTY);
-    setRevenue("");
-    setErrors({});
-    onOpenChange(false);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle>New project</DialogTitle>
-          <DialogDescription>
-            Sources go in afterwards, on the Sources surface.
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* The form is the scrolling middle, so the two buttons stay reachable
-            on a phone however long the prompt box gets.
-
-            **Five of the six hints came off, on request, and the reason is not
-            only volume.** A hint under every box is a grey paragraph under
-            every box, and in a two-column grid it is worse than that: the hints
-            were one line, two lines and none, so the two columns stopped
-            lining up and the rows read as ragged. Take them off and the grid is
-            a grid again.
-
-            What they said, and where it went:
-
-            - *"What best in class is measured against"* and *"Read first when
-              there is one"* are the **reason** the field exists, not
-              instructions for filling it in. Nobody hesitates over Sector or
-              Website.
-            - *"Names and roles, as loosely as you have them"* is what the
-              placeholder demonstrates. A worked example beats a description of
-              one.
-            - **The unit moved into the label**: `Annual revenue (₹ crore)`. That
-              is the one piece of hint text a wrong answer depends on, and a
-              unit belongs on the label rather than under the box, where it is
-              read after the number has been typed.
-            - **One hint survives**, on *What to look at*, because it is the
-              only field whose shape is genuinely ambiguous: a box that takes a
-              sentence looks exactly like a box that takes a search. */}
-        <form onSubmit={submit} className="contents">
-          <DialogBody>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Company" required error={errors.name}>
-                {(id) => (
-                  <Input
-                    id={id}
-                    value={draft.name}
-                    onChange={(e) => set({ name: e.target.value })}
-                    placeholder="Suvarna Agro Foods"
-                    autoFocus
-                  />
-                )}
-              </Field>
-
-              <Field label="Sector" required error={errors.sector}>
-                {(id) => (
-                  <Input
-                    id={id}
-                    value={draft.sector}
-                    onChange={(e) => set({ sector: e.target.value })}
-                    placeholder="Agri-processing and packaged foods"
-                  />
-                )}
-              </Field>
-
-              <Field label="Website">
-                {(id) => (
-                  <Input
-                    id={id}
-                    value={draft.domain ?? ""}
-                    onChange={(e) => set({ domain: e.target.value })}
-                    placeholder="suvarnaagro.in"
-                  />
-                )}
-              </Field>
-
-              <Field label="Annual revenue (₹ crore)" error={errors.revenue}>
-                {(id) => (
-                  <Input
-                    id={id}
-                    inputMode="numeric"
-                    value={revenue}
-                    onChange={(e) => setRevenue(e.target.value)}
-                    placeholder="1150"
-                  />
-                )}
-              </Field>
-
-              <Field label="Stakeholders you know" className="sm:col-span-2">
-                {(id) => (
-                  <Input
-                    id={id}
-                    value={draft.stakeholders ?? ""}
-                    onChange={(e) => set({ stakeholders: e.target.value })}
-                    placeholder="Rohan Deshmukh, Head of Procurement"
-                  />
-                )}
-              </Field>
-
-              <Field
-                label="What to look at"
-                className="sm:col-span-2"
-                hint="Not a search query. A line that biases the research."
-              >
-                {(id) => (
-                  <Textarea
-                    id={id}
-                    rows={3}
-                    value={draft.prompt ?? ""}
-                    onChange={(e) => set({ prompt: e.target.value })}
-                    placeholder="Procure-to-pay and vendor onboarding. Three plants, one ERP."
-                  />
-                )}
-              </Field>
-            </div>
-          </DialogBody>
-
-          {/* **The footer is two buttons and nothing else, on request.** It
-              carried *"Creating a project does not run the research."* at the
-              reading edge, which was the honesty note this product puts beside
-              anything designed-as-real. What it says is already said one line
-              up: the dialog's own description is *"Sources go in afterwards, on
-              the Sources surface"*, and a project with nothing behind it says
-              *No research yet* on its own card the moment it appears in the
-              list. Three statements of one fact on one screen. */}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">Create project</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}

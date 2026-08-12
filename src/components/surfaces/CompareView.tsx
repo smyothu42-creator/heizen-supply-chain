@@ -13,6 +13,7 @@ import {
 } from "@/lib/compare";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { SwitchTrack, switchItemClass } from "@/components/shell/SwitchTrack";
+import { StickyBar } from "@/components/shell/StickyBar";
 import { ArrowIcon } from "@/components/meridian/Icons";
 
 /**
@@ -53,11 +54,14 @@ export function CompareView() {
   return (
     <>
       <SurfaceHero title="Compare" />
-      <div className="surface-frame py-5">
+      {/* Pinned while the lanes scroll, on request. The stacked lanes run past
+          a screen at every width, and Time against Workflow is the whole
+          question this surface asks. See `StickyBar`. */}
+      <StickyBar className="pt-5 pb-3">
         {/* On the page above the material, like Questions' Arrange and Gaps'
             two dropdowns. Both tabs rearrange what the body says and neither
             changes which surface you are on, so neither belongs on the band. */}
-        <SwitchTrack label="What to compare" className="mb-4">
+        <SwitchTrack label="What to compare">
           {(["time", "workflow"] as const).map((v) => (
             <button
               key={v}
@@ -70,9 +74,11 @@ export function CompareView() {
             </button>
           ))}
         </SwitchTrack>
+      </StickyBar>
 
+      <div className="surface-frame pb-5">
         {/* ------------------------------------------------- lane picker */}
-        <fieldset className="mt-5">
+        <fieldset className="mt-1">
           <legend className="text-micro text-muted-foreground">
             Stack a lane below
           </legend>

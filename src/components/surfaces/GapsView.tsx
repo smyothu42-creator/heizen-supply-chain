@@ -31,6 +31,8 @@ import { NewGapButton } from "@/components/shell/NewGapButton";
 import { GapPanel } from "@/components/shell/GapPanel";
 import { SaveMenu } from "@/components/shell/SaveMenu";
 import { SelectField } from "@/components/shell/SelectField";
+import { StickyBar } from "@/components/shell/StickyBar";
+import { useMastheadVisible } from "@/components/shell/useScrollDirection";
 import { DateField } from "@/components/shell/DateField";
 import { ToggleField } from "@/components/shell/ToggleField";
 import { EditIcon } from "@/components/meridian/Icons";
@@ -132,7 +134,13 @@ export function GapsView() {
   return (
     <>
       <SurfaceHero title="Gaps" />
-      <div className="surface-frame py-5">
+      {/* **The settings row is pinned while the list scrolls**, on request, and
+          twelve rows plus a plan panel is exactly the length that makes it
+          worth it: Order and Area decide what is in the list, and a control you
+          have to scroll back up to reach is one you set once and then live
+          with. `StickyBar` renders the frame itself, so its ground runs to both
+          window edges and the list passes under it rather than through it. */}
+      <StickyBar from="sm" className="pt-5 pb-3">
         {/* The two settings sit on the page above the card, not in its header
             strip, and they are dropdowns rather than tabs. Both on request, and
             both are reversals of notes that used to be in CLAUDE.md — the old
@@ -167,7 +175,7 @@ export function GapsView() {
             carries it instead: settings at the reading edge, buttons at the far
             end. `self-center` on them, because the row is `items-stretch` for
             the divider's sake and a stretched button is a 40px slab. */}
-        <div className="mb-3 flex flex-wrap items-stretch gap-x-6 gap-y-2">
+        <div className="flex flex-wrap items-stretch gap-x-6 gap-y-2">
           <SelectField
             label="Order"
             value={sort}
@@ -210,6 +218,9 @@ export function GapsView() {
             <RunButton label="Run Gap Analysis" />
           </div>
         </div>
+      </StickyBar>
+
+      <div className="surface-frame pb-5">
 
         {/* 60 / 40, not a fixed 320px sidebar. The panel is the densest column in
             the product — a date, a duration, waves with their own dates and a
@@ -303,6 +314,7 @@ function PlanPanel({
   const ids = [...plan];
   const sched = schedule(ids, edits);
   const missing = missingPrerequisites(ids);
+  const mastheadVisible = useMastheadVisible();
 
   /** The gap being dragged, and the wave under the pointer. */
   const [dragging, setDragging] = useState<string | null>(null);
@@ -339,7 +351,16 @@ function PlanPanel({
   };
 
   return (
-    <aside className="lg:sticky lg:top-14 lg:self-start">
+    /* Two pinned things above this now, not one: the masthead at 48px and the
+       settings row at 68. `lg:top-14` put the panel's own header behind the bar
+       whenever the band was showing. Same two-value trick `SectionNav` uses,
+       and the same reason it cannot be a constant. */
+    <aside
+      className={cn(
+        "lg:sticky lg:self-start lg:transition-[top] lg:duration-200 motion-reduce:lg:transition-none",
+        mastheadVisible ? "lg:top-[7.75rem]" : "lg:top-[4.75rem]",
+      )}
+    >
       <div className="rounded-lg border border-border bg-card p-4 shadow-card">
         <div className="flex items-start justify-between gap-3">
           <p className="text-micro font-medium text-muted-foreground">

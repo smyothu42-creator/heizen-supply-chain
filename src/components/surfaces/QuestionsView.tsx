@@ -7,6 +7,7 @@ import { Panel } from "@/components/meridian/Primitives";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
 import { SwitchScroller, SwitchTrack, switchItemClass } from "@/components/shell/SwitchTrack";
+import { StickyBar } from "@/components/shell/StickyBar";
 
 /**
  * Questions — actions, not findings.
@@ -69,7 +70,10 @@ export function QuestionsView() {
     <>
       <SurfaceHero title="Questions" />
 
-      <div className="surface-frame py-5">
+      {/* Pinned while the questions scroll, on request. Eleven rows over two
+          panels is longer than a screen, and Arrange is the control that says
+          which two panels they are. See `StickyBar`. */}
+      <StickyBar className="pt-5 pb-3">
         {/* On the page, not on the band. It was in the band's `actions` slot,
           which is for what you *do* on a surface — and rearranging eleven
           questions is not something you do to the surface, it is a reading of
@@ -86,7 +90,7 @@ export function QuestionsView() {
 
             `items-end` so the button's baseline lands on the rule the tabs sit
             on rather than floating above it. */}
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           {/* `w-full sm:flex-1`, not `flex-1` — see `ResearchSwitches`. At 375
               the bare `flex-1` squeezed the track to ~180px and scrolled its
               last tab out of sight instead of wrapping the button below. */}
@@ -114,6 +118,9 @@ export function QuestionsView() {
             <RunButton label="Refresh Questions" />
           </div>
         </div>
+      </StickyBar>
+
+      <div className="surface-frame pb-5">
 
         {arrange === "call" ? (
           <div className="space-y-4">
