@@ -159,7 +159,16 @@ function ProjectCard({
        condition the theme note says a card is for. The left edge carries the
        primary in a 3px rule on the project that is currently loaded: the list
        is short and the switcher in the masthead is far away, so which one you
-       are *in* has to be readable from here without counting. */
+       are *in* has to be readable from here without counting.
+
+       **Every card is the same height, and `h-full` is only half of that.**
+       `h-full` equalises a card against its *row*, which is what a grid
+       already does; it does nothing across rows, so with a one-line status
+       above and a two-line one below the list stepped. Each block on the card
+       is now a fixed number of lines — name and sector truncate to one each,
+       the status clamps to two — so the height is the same everywhere and
+       there is nothing left for `mt-auto` to absorb. If a block is ever added
+       that can wrap, it has to be capped the same way or this goes back. */
     <div
       className={cn(
         "flex h-full flex-col rounded-lg border border-border bg-card shadow-card transition-colors hover:border-border-strong",
@@ -195,18 +204,65 @@ function ProjectCard({
           the *inputs the consultant typed*, echoed back at him on a screen
           whose whole job is picking which company to open, and between them
           they were half the height of every card. Restoring either is one line
-          here; the data is untouched. */}
-      <p className="reading mt-3 px-4 text-small text-muted-foreground">{project.status}</p>
+          here; the data is untouched.
+
+          **Two lines, always, which is what makes the cards uniform.** The
+          status is the one variable-height thing on the card: "Lead only ·
+          sector and name, nothing else yet" sets to one line and Suvarna's
+          researched line sets to two, so a grid of them stepped. `line-clamp-2`
+          caps the tall ones and the height reserves the second line for the
+          short ones. **The height is in `em` and not a pixel**, because
+          `.reading` sets line-height 1.55 and 2 × 1.55 is the whole
+          calculation: change that class and this number is wrong.
+
+          **It is `h-`, not `min-h-`, and the difference is one pixel that was
+          visible.** Under a floor, a one-line status takes the floor's 43.4px
+          and a two-line one takes whatever its two line boxes round to, which
+          at 375 came out 43 — so the cards were 232 and 233. A fixed height is
+          the same computed value on every card, so there is nothing left to
+          round differently.
+
+          **`mb-5` and not `pb-5`, which is the trap this hit first.** The space
+          above the divider is a margin because `min-h` is border-box here, so
+          padding inside the element is *subtracted* from the two lines it is
+          meant to reserve: the short statuses floored at 43px, which is one
+          line plus the padding, and the list stepped again at 375 where the
+          long ones wrap. A margin sits outside the box the floor applies to.
+
+          **The margin above the divider is 4px, and that is deliberately
+          almost nothing.** It went 20 → 12 → 4 across two requests to reduce
+          it, and the reason it kept looking like too much is that the margin
+          was never most of the gap: the status box reserves two lines so the
+          cards stay uniform, so on every project whose status fits one line
+          there is another ~22px of blank line above the rule that no spacing
+          value here can reach. Cutting the margin to 4 leaves the reserved
+          line doing the separating on its own. **If it is still too much, the
+          lever is the reserve, not this number** — clamping the status to one
+          line closes it entirely and costs the second line at 375, where
+          several statuses genuinely wrap. */}
+      <p className="reading mt-3 mb-1 line-clamp-2 h-[3.1em] px-4 text-small text-muted-foreground">
+        {project.status}
+      </p>
 
       {/* Two facts, no icons, on the footer's own line rather than a block of
           their own. A globe beside a domain and a person beside a name are
           decoration: the string already says which it is, and three icons on
           six cards is eighteen marks carrying nothing. `Created` went with
           them, because the status line above already dates the project and two
-          dates on one card is one date too many. */}
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border px-4 py-3">
-        <dl className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-micro text-muted-foreground">
-          <span className="flex max-w-full min-w-0 items-center">
+          dates on one card is one date too many.
+
+          **The footer does not wrap, and that is the other half of making the
+          cards uniform.** It was `flex-wrap`, so a card whose meta line and
+          button did not quite fit put the button on a second row and grew 30px
+          — and whether it fitted depended on how many digits the revenue had
+          and whether the card carried *No research yet*. Two cards side by side
+          in the same grid came out different heights at 1024. Now the shape is
+          decided by the breakpoint rather than by the content: stacked below
+          `sm`, one row above it, the same on every card. What pays for it is
+          the domain, which truncates instead. */}
+      <div className="mt-auto flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <dl className="flex min-w-0 items-center gap-x-1.5 text-micro text-muted-foreground">
+          <span className="flex shrink-0 items-center whitespace-nowrap">
             <dt className="sr-only">Annual revenue</dt>
             <dd className="tabular-nums">
               {project.revenueCr ? `${money(project.revenueCr)} revenue` : "Revenue not stated"}
@@ -215,10 +271,44 @@ function ProjectCard({
           {/* The same middot the status lines above use, at the same weight. It
               was `--border-strong` with 12px either side and read as a stray
               mark between two facts rather than as the join between them. */}
-          <span aria-hidden>·</span>
-          <span className="flex max-w-full min-w-0 items-center">
+          <span aria-hidden className="shrink-0">
+            ·
+          </span>
+          <span className="flex min-w-0 items-center">
             <dt className="sr-only">Website</dt>
-            <dd className="truncate">{project.domain ?? "No site given"}</dd>
+            {/* **The domain is a link, on request, and it is the one place on
+                this card where cyan is correct**: it is the only thing here
+                that goes somewhere, and somewhere outside the product. The
+                page's rule is that a coloured word means somewhere to go, so
+                spending it on the one string that leaves is spending it
+                exactly once.
+
+                `target="_blank"` because a consultant reading the list is
+                choosing between companies, not leaving to browse one; losing
+                the list to a supplier's homepage is the wrong trade.
+                `rel="noreferrer"` comes with it — `noopener` is implied by
+                modern browsers but stated anyway, since the whole point of the
+                pair is that a target page cannot reach back.
+
+                **`block` on the anchor, not just `truncate`.** An inline
+                element has no width to truncate against, so the ellipsis
+                silently does nothing and a long domain pushes the grid column
+                past the frame — the same failure the `min-w-0` note on the
+                list item above records. */}
+            {project.domain ? (
+              <dd className="min-w-0">
+                <a
+                  href={`https://${project.domain}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block truncate text-evidence transition-colors hover:text-foreground"
+                >
+                  {project.domain}
+                </a>
+              </dd>
+            ) : (
+              <dd className="truncate">No site given</dd>
+            )}
           </span>
         </dl>
         {/* **Every project opens**, on request, and the label is the same on all
@@ -230,9 +320,11 @@ function ProjectCard({
             beside the button, so a card still says whether there is anything
             behind it before you press. The page's own standfirst says the same
             thing once for the whole list. */}
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center justify-end gap-3">
           {!project.researched && (
-            <span className="text-micro text-muted-foreground">No research yet</span>
+            <span className="whitespace-nowrap text-micro text-muted-foreground">
+              No research yet
+            </span>
           )}
           {/* Filled on every card, including the one already loaded. It was an
               outline there, on the argument that the current project is a
@@ -410,18 +502,15 @@ function CreateProjectDialog({
             </div>
           </DialogBody>
 
+          {/* **The footer is two buttons and nothing else, on request.** It
+              carried *"Creating a project does not run the research."* at the
+              reading edge, which was the honesty note this product puts beside
+              anything designed-as-real. What it says is already said one line
+              up: the dialog's own description is *"Sources go in afterwards, on
+              the Sources surface"*, and a project with nothing behind it says
+              *No research yet* on its own card the moment it appears in the
+              list. Three statements of one fact on one screen. */}
           <DialogFooter>
-            {/* The honesty note, on the footer rather than in a tinted box at
-                the end of the form. It is a statement about what the button
-                does, so it belongs beside the button; boxed under the last
-                field it read as a seventh thing to fill in. `mr-auto` puts it
-                at the reading edge from `sm`. Below that the footer is
-                `flex-col-reverse`, so it renders under both buttons — which is
-                where a footnote belongs on a phone, with the primary action
-                under the thumb. */}
-            <p className="text-micro text-muted-foreground sm:mr-auto sm:self-center">
-              Creating a project does not run the research.
-            </p>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

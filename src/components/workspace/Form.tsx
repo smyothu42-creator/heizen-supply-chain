@@ -50,8 +50,13 @@ export function Field({
     <div className={cn("min-w-0", className)}>
       <label htmlFor={id} className="mb-1.5 flex items-baseline gap-1.5 text-small font-medium">
         {label}
+        {/* **Parenthesised, on request.** Beside a label at the same baseline a
+            bare *Required* reads as a second word in the label — "Company
+            Required" — and on the two fields that carry it the eye has to
+            decide whether the word is part of the name. Brackets say it is an
+            aside about the field rather than more of its name. */}
         {required && (
-          <span className="text-micro font-normal text-muted-foreground">Required</span>
+          <span className="text-micro font-normal text-muted-foreground">(Required)</span>
         )}
       </label>
       {children(id)}
