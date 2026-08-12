@@ -13,6 +13,7 @@ import {
 import { Paperclip } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { CloseIcon, SparkIcon } from "@/components/meridian/Icons";
+import { HelixOrb, type HelixState } from "@/components/shell/HelixOrb";
 import { SourceChip } from "@/components/meridian/Evidence";
 import { FILE_ACCEPT, fileSize } from "@/lib/files";
 import { STARTERS, answerFor } from "@/lib/assistant";
@@ -268,9 +269,26 @@ export function AiButton() {
       <span aria-hidden className="ask-ring">
         <span className="ask-ring-blade" />
       </span>
-      {/* The spark sits still and takes the label's colour. It used to pulse
-          from `--masthead-muted` to `--masthead-accent` in step with the ring,
-          which was the right idea on an outlined pill and is the wrong one on a
+      {/* **The spark, on request, after the mascot was tried here and taken
+          back off.** Every other Ask Helix control in the product now carries
+          Helix's own face; this one does not, and the split is deliberate
+          rather than an oversight.
+
+          The reason is the ground, not the mark. The other three sit on a white
+          card or the ivory page, where a pearl sphere with a cyan ring has two
+          clear edges. This pill is a filled cyan gradient: the ring's bright
+          half merges straight into it and the pale head very nearly does too,
+          so the mascot arrived with only its visor doing any work. It was
+          measured at 14, 18 and 20px — 20 was the first size where the eyes
+          separated at all, and it still read as a disc with a dark blob in it
+          next to the label.
+
+          A glyph in the label's own colour has none of that: one value,
+          maximum contrast, at whatever size the chrome asks for.
+
+          It sits still and takes the label's colour. It used to pulse from
+          `--masthead-muted` to `--masthead-accent` in step with the ring, which
+          was the right idea on an outlined pill and is the wrong one on a
           filled pill: on this ground the only colours available to it are the
           label's or something less legible than the label. The animation on
           this control is the light running the edge, and one is enough. */}
@@ -438,9 +456,30 @@ export function AiPanel() {
     inputRef.current?.focus();
   }, []);
   const [draft, setDraft] = useState("");
+  /* Composer focus, held as state because it is the only thing that separates
+     *listening* from *idle*, and `:focus-within` cannot be read by a component
+     three levels up that has to hand the answer to an SVG. */
+  const [composerLive, setComposerLive] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const streaming = turns.some((t) => t.streaming);
+
+  /**
+   * What Helix is doing, in one place, derived rather than set.
+   *
+   * The order is the priority and it matters: a reply can be streaming while
+   * the composer still has focus, and *working* beats *receiving* — the panel
+   * should not claim to be listening while it is mid-answer.
+   *
+   * A draft with focus is not required. Type a line, click away to re-read the
+   * page, and the eyes stay narrowed: there is still something waiting to be
+   * sent, and idle would be a lie about the state of the box.
+   */
+  const helixState: HelixState = streaming
+    ? "thinking"
+    : composerLive || draft.trim() !== ""
+      ? "listening"
+      : "idle";
 
   const stopStreaming = useCallback(() => {
     if (timer.current) clearInterval(timer.current);
@@ -767,8 +806,12 @@ export function AiPanel() {
               at the 320px floor. It is said twice already, in the opening card
               and under the composer, and both of those have a full line to say
               it in. */}
+          {/* The header mark is the one instance that is on screen in every
+              state and at every scroll position, so it is the one that has to
+              carry the state: the opening is gone the moment a question is
+              asked, and the reply's mark is below the fold on a long answer. */}
           <p className="flex min-w-0 items-center gap-2.5">
-            <HelixMark />
+            <HelixMark state={helixState} />
             <span className="truncate text-small font-semibold">Helix</span>
           </p>
           <div className="relative flex shrink-0 items-center gap-1">
@@ -878,7 +921,7 @@ export function AiPanel() {
             )}
           >
             {turns.length === 0 ? (
-              <Empty onPick={send} />
+              <Empty onPick={send} state={helixState} />
             ) : (
               <ul className="space-y-5">
                 {turns.map((t) => (
@@ -1076,6 +1119,11 @@ export function AiPanel() {
               ref={inputRef}
               rows={1}
               value={draft}
+              /* These two are the whole of the listening state. Nothing else
+                 in the panel changes on composer focus, so they earn their
+                 place only because the mark reads them. */
+              onFocus={() => setComposerLive(true)}
+              onBlur={() => setComposerLive(false)}
               onChange={(e) => {
                 setDraft(e.target.value);
                 // Grow to fit, up to a point. `height = auto` first, or the
@@ -1545,25 +1593,21 @@ const HistoryIcon = () => (
 );
 
 /**
- * The panel's identity mark: the spark on a filled `--primary` tile.
+ * The panel's identity mark: Helix's own face.
  *
- * One component in three places — the header, the opening, and every reply —
- * so the assistant is the same object wherever it speaks. `--primary` inverts
- * with the theme and `--primary-foreground` inverts with it, so this is a deep
- * slate tile in light and a pale one in dark without a branch.
+ * One component in three places — the header, the opening, and every reply — so
+ * the assistant is the same object wherever it speaks. It was a spark glyph on
+ * a filled `--primary` tile; it is now the mascot, and it **carries the state**
+ * rather than sitting still: idle while waiting, listening while the composer
+ * is live, thinking while a reply streams. See `HelixOrb` for what each state
+ * changes and for why the visor disappears in the third.
+ *
+ * The tile is gone with the glyph. A round mark does not want a square plate
+ * behind it, and the sphere's own shading is what separates it from the card —
+ * which is exactly why `HelixOrb` puts a hairline on itself below 56px.
  */
-function HelixMark({ size = "sm" }: { size?: "sm" | "lg" }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "grid shrink-0 place-items-center rounded-md bg-primary text-primary-foreground",
-        size === "lg" ? "h-9 w-9" : "h-7 w-7",
-      )}
-    >
-      <SparkIcon />
-    </span>
-  );
+function HelixMark({ state = "idle", size = "sm" }: { state?: HelixState; size?: "sm" | "lg" }) {
+  return <HelixOrb state={state} px={size === "lg" ? 36 : 28} />;
 }
 
 /**
@@ -1581,22 +1625,26 @@ function HelixMark({ size = "sm" }: { size?: "sm" | "lg" }) {
  * over them says they are a list of things to do, and the trailing chevron
  * says each one goes somewhere.
  */
-function Empty({ onPick }: { onPick: (q: string) => void }) {
+function Empty({ onPick, state = "idle" }: { onPick: (q: string) => void; state?: HelixState }) {
   return (
     <div className="py-4">
-      {/* **The orb, and why it is the one decorative thing allowed here.**
-          A blurred blob is decoration, which this product spends carefully —
-          but an assistant with nothing said to it yet has no material to show,
-          and the alternative is what was here before: a heading and a paragraph
-          in the top corner with two thirds of the panel blank underneath.
+      {/* **The orb is Helix, at full size, in whatever state the panel is in.**
+          It was a blurred five-stop blob drawn from the product's own colours,
+          and the note here said it was the one decorative thing allowed on this
+          surface and that it deliberately did not move.
 
-          It is drawn from the product's own colours, cyan into slate, so it
-          reads as this tool's assistant rather than as a stock AI mark. And it
-          is **still**: the ask pill in the masthead is the one thing in the
-          product that moves, and a breathing orb on the surface it opens would
-          be two. */}
+          It is not decoration now, which is what changed. An assistant with
+          nothing said to it yet still has nothing to *show* — but it has
+          something to *be*, and at 112px the difference between waiting,
+          listening and working is legible across a room. Start typing and the
+          eyes narrow before a single word has been sent, which is the panel
+          telling you it is receiving.
+
+          At this size `HelixOrb` draws its full detail: contact shadow,
+          specular highlight, glass sweep and the bounce along the bottom edge.
+          Below 56px all four come off. */}
       <div className="flex flex-col items-center text-center">
-        <span aria-hidden className="ai-orb" />
+        <HelixOrb state={state} px={112} />
         <p className="reading mt-5 max-w-[24rem] text-small text-muted-foreground">
           Ask about anything on this project. Every answer comes out of the research
           already loaded, with the same sources the pages cite.
@@ -1701,8 +1749,11 @@ function Bubble({ turn }: { turn: Turn }) {
      read rather than the thing being said. */
   return (
     <div className="rounded-lg border border-border bg-card p-3 shadow-card">
+      {/* The mark beside a reply reads that reply's own flag, not the panel's.
+          Scroll back to an old answer while a new one is streaming and the old
+          one is settled, which is true: that turn finished. */}
       <p className="mb-2 flex items-center gap-2 text-micro font-medium text-muted-foreground">
-        <HelixMark />
+        <HelixMark state={turn.streaming ? "thinking" : "idle"} />
         Helix
       </p>
       {turn.text === "" ? (
@@ -1736,17 +1787,27 @@ function Bubble({ turn }: { turn: Turn }) {
   );
 }
 
+/**
+ * What sits in the reply while there is nothing to read yet.
+ *
+ * It was three pulsing grey dots, which is the shape every chat has converged
+ * on and says nothing about who is working. It is Helix's own loading orb now,
+ * which is the mascot's thinking state with the head shading kept: the small
+ * circle beside a line of text and the large one on the opening are **the same
+ * object at two sizes** rather than a mascot and an unrelated spinner.
+ *
+ * The `aria-live` survives the change and the word is now visible rather than
+ * `sr-only`. A turning gradient announces nothing, and the three dots did not
+ * either — so the one moment in the panel where a screen reader has to be told
+ * something is happening was also the one moment a sighted reader was told
+ * least. One word covers both, and it is not a second announcement: the orb is
+ * `aria-hidden`.
+ */
 function Thinking() {
   return (
-    <p className="flex items-center gap-1" aria-live="polite">
-      <span className="sr-only">Working</span>
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground"
-          style={{ animationDelay: `${i * 160}ms` }}
-        />
-      ))}
+    <p className="flex items-center gap-2" aria-live="polite">
+      <HelixOrb state="thinking" px={22} />
+      <span className="text-small text-muted-foreground">Working</span>
     </p>
   );
 }

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import { CopyIcon, SparkIcon } from "@/components/meridian/Icons";
+import { CopyIcon } from "@/components/meridian/Icons";
+import { HelixOrb } from "@/components/shell/HelixOrb";
 import { useAi } from "./AiPanel";
 
 /**
@@ -287,7 +288,16 @@ export function SelectionAsk() {
       // it must never be the thing on top of it. See the stack in `AppShell`.
       className="fixed z-[65] w-[17rem] overflow-hidden rounded-lg border border-border bg-card shadow-raised"
     >
-      <MenuItem onClick={askIt} icon={<SparkIcon />} accent>
+      {/* Helix's own face, at the size a menu row's icon slot takes.
+
+          **The masthead's pill says the same words and carries the spark**,
+          which is a split rather than a slip. That pill is a filled cyan
+          gradient and the mascot's ring is cyan, so half of it merges into the
+          ground and the mark arrives with only its visor working. This menu is
+          on a white card, where the pearl head and the ring both have an edge.
+          Same rule either way: the mark is whichever one is legible on the
+          ground it lands on. */}
+      <MenuItem onClick={askIt} icon={<HelixOrb px={16} />} accent>
         Ask Helix
       </MenuItem>
       <div className="mx-3 h-px bg-border" aria-hidden />

@@ -24,7 +24,8 @@ import {
   timingSignals,
   type Tier,
 } from "@/lib/suvarna";
-import { ChevronIcon, CloseIcon, LayersIcon, SparkIcon, TierMark } from "./Icons";
+import { ChevronIcon, CloseIcon, LayersIcon, TierMark } from "./Icons";
+import { HelixOrb } from "@/components/shell/HelixOrb";
 import { SOURCE_ICON, SOURCE_KIND_LABEL } from "./Evidence";
 import { Field } from "./GapRow";
 import { ConfidenceChip } from "./Confidence";
@@ -472,7 +473,7 @@ function AskHelix({
         onClick={go}
         className="inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-card px-2.5 py-1 text-small transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <SparkIcon />
+        <HelixOrb px={16} />
         {label}
       </button>
     );
@@ -501,7 +502,7 @@ function AskHelix({
       onClick={go}
       className="ask-pill flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-micro font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <SparkIcon />
+      <HelixOrb px={16} />
       {label}
     </button>
   );

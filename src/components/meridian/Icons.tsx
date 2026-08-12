@@ -324,6 +324,21 @@ export function RerunIcon({ className = "" }: P) {
  * selection popover needs the same glyph, and two copies of one four-point
  * star is how they drift apart.
  */
+/**
+ * The spark. **The masthead's ask pill only**, on request.
+ *
+ * It was on all four routes into the assistant and briefly on none of them:
+ * the mascot replaced it everywhere, and then this one came back. The pill is
+ * the place the swap cost the most and it is worth recording why, because the
+ * reason is about the ground rather than about the mark. Every other Ask Helix
+ * control sits on a white card or an ivory page, where a pearl sphere with a
+ * cyan ring has two clear edges. The pill is a filled cyan gradient, so the
+ * ring's bright half merges into it and the head's pale disc nearly does too —
+ * the mascot arrives there with only its visor doing any work, at 20px.
+ *
+ * A glyph in the label's own colour has no such problem: one value, maximum
+ * contrast, at any size the chrome asks for.
+ */
 export function SparkIcon({ className = "" }: P) {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden className={`${base} ${className}`}>

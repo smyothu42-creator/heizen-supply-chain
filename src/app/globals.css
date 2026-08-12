@@ -707,28 +707,87 @@
   }
 }
 
-/* The assistant's orb: the opening of an empty chat.
-   Three soft radial stops blurred into one another — cyan, the deepened cyan,
-   and the slate the masthead and every filled button use. **The colours are the
-   product's**, which is the whole reason it is drawn rather than shipped as an
-   asset: a stock gradient blob would be the one thing on screen belonging to
-   another palette, and it would not follow the theme.
-   `--card` at the edge is what feathers it into whatever it sits on.
+/* Helix's motion. The mark is `HelixOrb`; this is the part of it that moves.
 
-   It does not move. The ask pill is the one animated control in the product and
-   this is the surface that pill opens; two things breathing at once is a tool
-   that fidgets while somebody is reading it. */
-.ai-orb {
-  width: 112px;
-  height: 112px;
-  border-radius: 9999px;
-  background:
-    /* a lit edge, so the blob has a direction rather than being a flat disc */
-    radial-gradient(circle at 30% 24%, var(--card) 0%, transparent 40%),
-    radial-gradient(circle at 40% 34%, var(--accent-soft) 0%, transparent 62%),
-    radial-gradient(circle at 72% 46%, var(--evidence) 0%, transparent 58%),
-    radial-gradient(circle at 50% 78%, var(--primary) 0%, transparent 66%),
-    radial-gradient(circle at 50% 50%, var(--accent-soft) 30%, transparent 76%);
-  filter: blur(13px) saturate(1.2);
-  opacity: 0.9;
+   **`.ai-orb` was here and is deleted rather than left unused.** It was a
+   blurred five-stop radial blob, the opening of an empty chat, and the note on
+   it said it deliberately did not move because the ask pill is the one animated
+   control in the product. That is reversed on request, and the reversal is
+   sound for a reason the old note could not have: the blob was decoration, and
+   this is not. The motion is the only thing on screen that says which of three
+   things the assistant is doing. The two controls are also never live together
+   — the pill's runner stops the moment the panel opens.
+
+   Three behaviours, each tied to a state rather than applied for effect:
+
+     breathe — every state. The head rises and falls about 1.5px. This is what
+               says the thing is on rather than a picture of it.
+     blink   — idle and listening. A lid close every 5.5s, off-rhythm from the
+               breath so the two never sync into a pulse.
+     churn   — thinking only. The swirl turns, and it is the one continuous
+               motion in the product. */
+.helix-orb .helix-head {
+  animation: helix-breathe 4.2s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+
+/* `transform-box: fill-box` is load-bearing. Without it the origin resolves
+   against the SVG's own viewport, not the group's box, and the eyes scale
+   towards the top-left corner of the mark instead of closing on themselves. */
+.helix-orb .helix-eyes {
+  animation: helix-blink 5.5s infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.helix-orb .helix-swirl {
+  animation: helix-churn 7s linear infinite;
+  transform-origin: 60px 58px;
+}
+
+@keyframes helix-breathe {
+  0%,
+  100% {
+    transform: translateY(0.9px);
+  }
+  50% {
+    transform: translateY(-0.9px);
+  }
+}
+
+@keyframes helix-blink {
+  0%,
+  93%,
+  100% {
+    transform: scaleY(1);
+  }
+  95.5% {
+    transform: scaleY(0.08);
+  }
+  98% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes helix-churn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Everything stops, and the swirl rests at the 20 degrees its own ellipses are
+   drawn at rather than at 0. An animation stopped at its initial value is not a
+   resting state, it is a paused one — the same argument `--ask-rim` above makes
+   about the runner's core parking on one end.
+
+   **The thinking state is still legible under reduce**, which is what makes
+   this safe: the visor is gone and the swirl is there, so the state reads off
+   the shape rather than off the movement. If it ever stops reading, the fix is
+   a static difference, not letting the animation through. */
+@media (prefers-reduced-motion: reduce) {
+  .helix-orb .helix-head,
+  .helix-orb .helix-eyes,
+  .helix-orb .helix-swirl {
+    animation: none;
+  }
 }
