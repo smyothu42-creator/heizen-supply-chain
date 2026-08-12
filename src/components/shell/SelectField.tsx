@@ -48,7 +48,7 @@ export function SelectField({
     <div className={cn("flex items-center gap-2", className)}>
       <label
         htmlFor={id}
-        className="shrink-0 text-micro font-medium text-muted-foreground"
+        className="shrink-0 text-small font-medium text-muted-foreground"
       >
         {label}
       </label>

@@ -43,7 +43,7 @@ export function ToggleField({
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      <span id={id} className="shrink-0 text-micro font-medium text-muted-foreground">
+      <span id={id} className="shrink-0 text-small font-medium text-muted-foreground">
         {label}
       </span>
       <button

@@ -31,6 +31,7 @@ import { NewGapButton } from "@/components/shell/NewGapButton";
 import { GapPanel } from "@/components/shell/GapPanel";
 import { SaveMenu } from "@/components/shell/SaveMenu";
 import { SelectField } from "@/components/shell/SelectField";
+import { DateField } from "@/components/shell/DateField";
 import { ToggleField } from "@/components/shell/ToggleField";
 import { EditIcon } from "@/components/meridian/Icons";
 import { Panel } from "@/components/meridian/Primitives";
@@ -369,7 +370,7 @@ function PlanPanel({
               </span>
               <span className="min-w-0">
                 <span className="block text-base text-muted-foreground">
-                  {formatSpan(sched.totalWeeks).split(" ")[1]}, end to end
+                  {formatSpan(sched.totalWeeks).split(" ")[1]}
                 </span>
                 <span className="block text-small text-muted-foreground">
                   <DateField
@@ -487,12 +488,36 @@ function PlanPanel({
                 }}
                 onDragLeave={() => setOver((v) => (v === sched.waves.length ? null : v))}
                 onDrop={() => drop(sched.waves.length)}
+                /* **It reads as a target now**, on request. It was a hairline
+                   dashed box in muted grey at 11px, which is the same register
+                   as the caption under a control — so the one thing on the
+                   panel that is asking to be dropped into looked like a note
+                   about the plan. It is 2px dashed in `--evidence`, on
+                   `--evidence-muted`, which is the pairing the tick-box and
+                   every other "you can operate this" mark on the page already
+                   use, and it is a real surface token rather than an alpha so
+                   the contrast is checked in both themes.
+
+                   **The state under the pointer is a fill and a solid border**,
+                   not the 1px ring the waves take: a wave already has three
+                   bordered cards in it to be ringed around, and this box has
+                   nothing inside it, so what changes has to be the box. */
                 className={cn(
-                  "mt-2 rounded-md border border-dashed border-border-strong px-2 py-2 text-center text-micro text-muted-foreground transition-colors",
-                  over === sched.waves.length && "ring-1 ring-evidence",
+                  "mt-2.5 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed px-3 py-4 text-center text-small font-medium transition-colors",
+                  over === sched.waves.length
+                    ? "border-solid border-evidence bg-evidence text-card"
+                    : "border-evidence bg-evidence-muted text-evidence",
                 )}
               >
-                Drop here for a wave of its own
+                <svg viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none" aria-hidden>
+                  <path
+                    d="M8 3.5v9M3.5 8h9"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Drop here for a sprint of its own
               </div>
             )}
 
@@ -584,7 +609,7 @@ function PlanItem({
   const blocked =
     item.blockedBy.length > 0
       ? `Cannot start before “${gapById(item.blockedBy[0]).title}”`
-      : "Already in the first wave";
+      : "Already in the first sprint";
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowUp" && canEarlier) {
@@ -639,8 +664,8 @@ function PlanItem({
         <button
           type="button"
           onKeyDown={onKeyDown}
-          title={canEarlier ? "Drag to another wave, or use the arrow keys" : blocked}
-          className="mt-0.5 flex h-5 w-4 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+          title={canEarlier ? "Drag to another sprint, or use the arrow keys" : blocked}
+          className="flex h-6 w-5 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
         >
           <span className="sr-only">
             Move “{gap.title}”. Sprint {wave + 1} of {lastWave + 1}. Arrow keys move it a sprint
@@ -676,7 +701,7 @@ function PlanItem({
           title wraps to two lines anyway. So the second line is free most of
           the time and clear all of it. The indent is the grip's 16px plus the
           1.5 gap, so the line hangs off the title rather than off the row. */}
-      <p className="mt-1.5 flex items-center gap-1.5 pl-[1.375rem] text-micro text-muted-foreground">
+      <p className="mt-1.5 flex items-center gap-1.5 pl-[1.625rem] text-micro text-muted-foreground">
         {/* **A stroke, on request, and the ghost is gone.** The number and the
             unit share one box with a border on all four sides, hovering to
             `border-border-strong` like the card around them.
@@ -802,37 +827,19 @@ const arrow = "h-3.5 w-3.5";
  * off it through `peer-focus-visible`, which is the only part that had to be
  * wired by hand.
  */
-function DateField({
-  value,
-  onChange,
-  label,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  label: string;
-}) {
-  return (
-    <span className="relative inline-flex">
-      <input
-        type="date"
-        value={value}
-        aria-label={label}
-        onChange={(e) => onChange(e.target.value)}
-        className="peer absolute inset-0 cursor-pointer opacity-0"
-      />
-      <span className="tabular rounded-md px-1 -mx-1 text-foreground underline decoration-border-strong decoration-dotted underline-offset-4 transition-colors peer-hover:decoration-foreground peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring">
-        {formatDay(value)}
-      </span>
-    </span>
-  );
-}
-
-/** Six dots. The one shape a pointer reads as "pick this up" without a label. */
+/**
+ * Six dots. The one shape a pointer reads as "pick this up" without a label.
+ *
+ * **20px, up from 14**, on request, and the dots grew with the box rather than
+ * the box alone: a bigger square holding the same six specks is a bigger target
+ * that does not look any more like a handle. The drag is the panel's whole
+ * interaction and the mark for it was the smallest thing in the card.
+ */
 function Grip() {
   return (
-    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden>
-      {[5, 8, 11].map((y) =>
-        [6, 10].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.15" fill="currentColor" />),
+    <svg viewBox="0 0 16 16" className="h-5 w-5" aria-hidden>
+      {[4, 8, 12].map((y) =>
+        [6, 10].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.4" fill="currentColor" />),
       )}
     </svg>
   );

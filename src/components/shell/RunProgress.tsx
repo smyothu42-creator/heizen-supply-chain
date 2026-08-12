@@ -101,7 +101,7 @@ function stepsFor(kind: RunKind): Step[] {
       title: "Ranking the gaps",
       lines: [
         { text: "12 gaps, 3 waiting on something else" },
-        { text: "Sequenced into 2 waves" },
+        { text: "Sequenced into 2 sprints" },
       ],
     },
     questions: {

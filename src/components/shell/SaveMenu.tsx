@@ -171,11 +171,12 @@ const spanOf = (d: { value: number; unit: keyof typeof UNIT_LABEL }) =>
 const heading = (s: Schedule) =>
   `${company.name}: delivery plan\n${formatSpan(s.totalWeeks)}, ${formatDay(s.startISO)} to ${formatDay(s.endISO)}`;
 
-/** The gloss that makes the wave lengths add up, carried into the file with them. */
-const PARALLEL = "Everything in a wave starts together, so a wave takes as long as its longest job.";
+/** The gloss that makes the sprint lengths add up, carried into the file with them. */
+const PARALLEL =
+  "Everything in a sprint starts together, so a sprint takes as long as its longest job.";
 
 function toCsv(s: Schedule): string {
-  const rows = [["Wave", "Wave length", "Starts", "Ends", "Gap", "To deliver"]];
+  const rows = [["Sprint", "Sprint length", "Starts", "Ends", "Gap", "To deliver"]];
   s.waves.forEach((w, i) =>
     w.gaps.forEach((g) =>
       rows.push([
@@ -202,7 +203,7 @@ function toMarkdown(s: Schedule): string {
   s.waves.forEach((w, i) => {
     out.push(
       "",
-      `## Wave ${i + 1}: ${formatSpan(w.weeks)} (${formatDay(w.startISO)} to ${formatDay(w.endISO)})`,
+      `## Sprint ${i + 1}: ${formatSpan(w.weeks)} (${formatDay(w.startISO)} to ${formatDay(w.endISO)})`,
       "",
     );
     w.gaps.forEach((g) =>
@@ -217,7 +218,7 @@ function toText(s: Schedule): string {
   s.waves.forEach((w, i) => {
     out.push(
       "",
-      `Wave ${i + 1}: ${formatSpan(w.weeks)}, ${formatDay(w.startISO)} to ${formatDay(w.endISO)}`,
+      `Sprint ${i + 1}: ${formatSpan(w.weeks)}, ${formatDay(w.startISO)} to ${formatDay(w.endISO)}`,
     );
     w.gaps.forEach((g) => out.push(`  ${gapById(g.id).title}: ${spanOf(g.duration)} to deliver`));
   });
