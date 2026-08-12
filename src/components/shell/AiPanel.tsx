@@ -1325,22 +1325,6 @@ function ChatSidebar({
           label={collapsed ? "Show previous chats" : "Hide previous chats"}
           icon={<SidebarIcon />}
         />
-        {!collapsed && (
-          /* **Expanded it is a labelled button, not an icon**, because it is the
-             one thing in this column that is an action rather than a
-             destination. Everything below it is a list of places to go. On the
-             rail's ground it takes `--card`, which is the same "raised out of
-             the rail" the active row uses. */
-          <button
-            type="button"
-            onClick={onNew}
-            disabled={!canNew}
-            className="ml-auto flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-micro font-medium text-foreground shadow-card transition-colors hover:border-border-strong hover:bg-background disabled:pointer-events-none disabled:opacity-40"
-          >
-            <NewChatIcon />
-            New chat
-          </button>
-        )}
       </div>
 
       {collapsed ? (
@@ -1355,26 +1339,60 @@ function ChatSidebar({
           />
         </div>
       ) : (
-        <div className="scroll-slim min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2">
+        /* **Rebuilt in the shape Gemini's rail uses**, on request: a pill for
+           the new chat, quiet sentence-case section labels, and one pill per
+           conversation. What that buys over the cards it replaces is density
+           and calm — the list was a stack of bordered, shadowed boxes, each
+           two lines of title over a line of meta, so four conversations filled
+           the column and every one of them asked to be read. A rail is a place
+           you glance at to get back somewhere; the boxes were competing with
+           the answer beside them. */
+        <div className="scroll-slim min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-2.5">
+          {/* **The new-chat pill leads the column rather than sitting in the
+              toolbar**, which is where every one of these products puts it and
+              where the hand goes looking. It is the one action here, so it is
+              the one thing with a filled shape; everything under it is a
+              destination.
+
+              `rounded-full` and `--card` on the rail: the pill is the same
+              "raised out of the rail" the active row uses, in the shape that
+              says press me. */}
+          <button
+            type="button"
+            onClick={onNew}
+            disabled={!canNew}
+            className="mb-1 flex h-9 w-full items-center gap-2 rounded-full border border-border bg-card px-3.5 text-small font-medium text-foreground shadow-card transition-colors hover:border-border-strong hover:bg-background disabled:pointer-events-none disabled:opacity-40"
+          >
+            <NewChatIcon />
+            New chat
+          </button>
+
           {current && (
             <>
               <SidebarLabel>This chat</SidebarLabel>
               {/* Not a button. It is where you already are, and a row that looks
                   pressable and does nothing when pressed is worse than one that
                   never invited it. `aria-current` says so to a screen reader,
-                  which the fill cannot. */}
+                  which the fill cannot.
+
+                  **The fill is what says "this one" now, and *Open now* has
+                  gone with the card it sat in.** A tinted pill among plain ones
+                  is the whole of that statement, and it is the statement the
+                  reference makes: `--evidence-muted` is the product's own
+                  "somewhere you are working" surface, the one the attachment
+                  chip and the drop zone already wear. Ink on it is 13:1. */}
               <p
                 aria-current="true"
-                className="rounded-md border border-border bg-card px-2.5 py-2 shadow-card"
+                title={current}
+                className="flex h-9 items-center rounded-full bg-evidence-muted px-3.5"
               >
-                <span className="line-clamp-2 text-small font-medium">{current}</span>
-                <span className="mt-0.5 block text-micro text-evidence">Open now</span>
+                <span className="truncate text-small font-medium">{current}</span>
               </p>
             </>
           )}
 
           {chats.length > 0 && <SidebarLabel>Earlier</SidebarLabel>}
-          <ul className="space-y-0.5">
+          <ul>
             {chats.map((c) => (
               <li key={c.id}>
                 <ChatRow chat={c} onPick={onPick} />
@@ -1383,7 +1401,7 @@ function ChatSidebar({
           </ul>
 
           {!current && chats.length === 0 && (
-            <p className="reading px-2.5 pt-2 text-micro text-muted-foreground">
+            <p className="reading px-3.5 pt-3 text-micro text-muted-foreground">
               Chats you start appear here. Nothing is kept between visits.
             </p>
           )}
@@ -1401,11 +1419,17 @@ function ChatSidebar({
  * a promise: the two lists were written separately and had already drifted in
  * padding and in what they hid.
  *
- * The title takes two lines and then stops. It is a question somebody typed, so
- * it has no length of its own, and one truncated line cuts most of them at
- * "what does this mean by…". This is the one place in the product where hiding
- * text is right, because the row *is* the thing being restored: nothing here is
- * the only copy of anything.
+ * **One line, in a pill, with the count gone**, on request and modelled on
+ * Gemini's rail. It was two lines of title over "3 questions" in a bordered
+ * box, which is a card rather than a row: four of them filled the column and
+ * each one asked to be read at the weight of the answer beside it.
+ *
+ * The cost is real and worth stating, because it reverses the note that used to
+ * be here: a question truncated to one line does get cut at "what does this
+ * mean by…". Two things pay for it. The full text is on the `title` attribute,
+ * so it is one hover away; and this is the one place in the product where
+ * hiding text is right, because the row *is* the thing being restored and
+ * nothing here is the only copy of anything.
  */
 function ChatRow({
   chat,
@@ -1430,23 +1454,29 @@ function ChatRow({
          active row above is already saying raised means "this one". Inside the
          popover the ground *is* `--card`, so the same class would paint the row
          the colour it already was and the list would have no hover at all. */
+      title={`${chat.title} · ${n} ${n === 1 ? "question" : "questions"}`}
       className={cn(
-        "w-full rounded-md border border-transparent px-2.5 py-2 text-left transition-colors hover:border-border",
+        "flex h-9 w-full items-center rounded-full px-3.5 text-left transition-colors",
         tone === "rail" ? "hover:bg-card" : "hover:bg-muted",
       )}
     >
-      <span className="line-clamp-2 text-small">{chat.title}</span>
-      <span className="mt-0.5 block text-micro text-muted-foreground">
-        {n} {n === 1 ? "question" : "questions"}
-      </span>
+      <span className="truncate text-small">{chat.title}</span>
     </button>
   );
 }
 
+/**
+ * A section label on the rail.
+ *
+ * **Sentence case, and this is the one place in the product that departs from
+ * the tracked micro-cap.** Two of them, four words between them, over a list of
+ * pills: `THIS CHAT` and `EARLIER` in 0.12em capitals were shouting the names
+ * of the groups louder than the conversations they grouped. The convention
+ * holds everywhere it is a *field* label, which is what it is for; here it is
+ * furniture in a rail whose whole job is to be glanced at.
+ */
 const SidebarLabel = ({ children }: { children: ReactNode }) => (
-  <p className="px-2.5 pb-1 pt-2.5 text-micro font-medium uppercase tracking-[0.12em] text-muted-foreground">
-    {children}
-  </p>
+  <p className="px-3.5 pb-1 pt-4 text-micro font-medium text-muted-foreground">{children}</p>
 );
 
 const questionCount = (c: Chat) => c.turns.filter((t) => t.role === "you").length;
