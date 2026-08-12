@@ -677,9 +677,32 @@ export function stageOf(id: string): string {
  * The three sizes are bounded by the hand-authored layout in `positions` and
  * are not free. Measured against the tightest spacing at each level:
  *
- *   L0  360 apart, one row              → 264 wide leaves 96
- *   L1  460 apart, rows 190 apart       → 264 wide leaves 196, 124 tall leaves 66
- *   L2  380 apart, rows 210 apart       → 300 wide leaves 80, 140 tall leaves 70
+ *   L0  440 apart, one row              → 280 wide leaves 160
+ *   L1  460 apart, rows 190 apart       → 280 wide leaves 180, 156 tall leaves 34
+ *   L2  470 apart, rows 210 apart       → 312 wide leaves 158, 168 tall leaves 42
+ *
+ * **The horizontal figures are set by the edge labels, not by the boxes.** A
+ * corridor has to hold a pill plus `LABEL_MARGIN` either side plus the
+ * arrowhead's own `EDGE_GAP`, both in `GraphCanvas`. L0 was 360 apart and L2
+ * 380, leaving 80 and 68 — against a "finished goods" pill that wants 102. The
+ * pill was capped to the corridor, wrapped to two lines and still ran within
+ * eight units of both cards with the arrow cutting into it. That is what the
+ * spacing pass fixed, and it is why these numbers are larger than the boxes
+ * need.
+ *
+ * **The cost is paid in fit zoom, and it is measured rather than guessed.**
+ * Level 0's span went 1720 world units to 2040, so it fits at a smaller `k` and
+ * crosses `COMPACT_BELOW` at a wider window: the value chain drops its
+ * plain-language line below about **1390px** of window, where it used to hold
+ * to about **1157px**. A 1280 laptop now meets Level 0 compact. Measured at
+ * 1440 (k 0.643, full), 1360 (0.605, compact) and 1280 (0.566, compact).
+ *
+ * The number is not free to reduce. A one-line "finished goods" pill is 100
+ * units, and with `LABEL_MARGIN` either side plus the arrowhead's `EDGE_GAP`
+ * the corridor cannot go below about 160 without the pill either wrapping
+ * again or touching the arrow. **If the compact crossover matters more than the
+ * spacing, the lever is the label, not the pitch** — a shorter word costs
+ * nothing anywhere else.
  *
  * Change a position and re-check the pair. `scripts/` has a node-overlap check
  * for exactly this, because two boxes touching is not something `check:ui` can
@@ -718,10 +741,10 @@ export interface GraphEdge {
 export const positions: Record<string, { x: number; y: number }> = {
   /* Level 0 — the value chain, left to right */
   "l0-plan": { x: 0, y: 240 },
-  "l0-source": { x: 360, y: 240 },
-  "l0-make": { x: 720, y: 240 },
-  "l0-deliver": { x: 1080, y: 240 },
-  "l0-return": { x: 1440, y: 240 },
+  "l0-source": { x: 440, y: 240 },
+  "l0-make": { x: 880, y: 240 },
+  "l0-deliver": { x: 1320, y: 240 },
+  "l0-return": { x: 1760, y: 240 },
 
   /* Level 1 — every process, grouped in columns under its parent */
   "l1-demand": { x: 0, y: 130 },
@@ -741,25 +764,25 @@ export const positions: Record<string, { x: number; y: number }> = {
 
   /* Level 2 — laid out inside the parent that was opened */
   "l2-forecast": { x: 0, y: 160 },
-  "l2-sop": { x: 380, y: 160 },
+  "l2-sop": { x: 470, y: 160 },
   "l2-stock-policy": { x: 0, y: 160 },
   "l2-category": { x: 0, y: 60 },
-  "l2-rfq": { x: 380, y: 60 },
+  "l2-rfq": { x: 470, y: 60 },
   "l2-onboarding": { x: 0, y: 270 },
-  "l2-vendor-master": { x: 380, y: 270 },
+  "l2-vendor-master": { x: 470, y: 270 },
   "l2-requisition": { x: 0, y: 160 },
-  "l2-po": { x: 380, y: 160 },
+  "l2-po": { x: 470, y: 160 },
   "l2-gr-inspection": { x: 0, y: 160 },
   "l2-gr-posting": { x: 0, y: 160 },
-  "l2-putaway-in": { x: 380, y: 160 },
+  "l2-putaway-in": { x: 470, y: 160 },
   "l2-invoice-capture": { x: 0, y: 60 },
-  "l2-three-way": { x: 380, y: 60 },
-  "l2-payment": { x: 760, y: 60 },
-  "l2-supplier-queries": { x: 380, y: 270 },
+  "l2-three-way": { x: 470, y: 60 },
+  "l2-payment": { x: 940, y: 60 },
+  "l2-supplier-queries": { x: 470, y: 270 },
   "l2-picking": { x: 0, y: 160 },
-  "l2-stock-count": { x: 380, y: 160 },
+  "l2-stock-count": { x: 470, y: 160 },
   "l2-freight-buy": { x: 0, y: 160 },
-  "l2-despatch": { x: 380, y: 160 },
+  "l2-despatch": { x: 470, y: 160 },
   "l2-rebates": { x: 0, y: 160 },
 };
 

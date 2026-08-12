@@ -140,21 +140,48 @@ export const isVerticalEdge = (a: GraphItem, b: GraphItem) =>
  *   backward  — looped underneath the whole graph, staggered by depth, so
  *               return flows never cut across the diagram
  */
+/**
+ * Daylight at both ends of a forward edge, in world units.
+ *
+ * The curve used to run from one box's edge to the other's, so the arrowhead
+ * landed *on* the target's border — it read as a mark on the box rather than as
+ * something arriving at it, and there was nothing between the two to say the
+ * gap was deliberate.
+ */
+const EDGE_GAP = 12;
+
+/**
+ * How much of the corridor a label pill may not have, per side.
+ *
+ * The pill is centred in the gap between two boxes, so this is the daylight it
+ * keeps from each of them. It was 8 (`- 16` across the pair), which on the
+ * value chain's 80-unit corridor left a two-line pill jammed between two cards
+ * with the arrowhead cutting into it.
+ *
+ * **It only bites on a tight corridor.** The pill takes its natural width
+ * wherever that fits, so raising this changes nothing at Level 1, where the
+ * corridor is 180 and the longest label wants 132.
+ */
+const LABEL_MARGIN = 24;
+
 function edgeGeometry(a: GraphItem, b: GraphItem, loopY: number, t = 0.5, vRank = 0) {
   if (b.x >= a.x + a.w - 40) {
-    const sx = a.x + a.w;
+    /* The corridor is measured between the boxes; the curve is drawn inside it.
+       Insetting both ends by the same amount keeps the midpoint where it was,
+       so the label stays centred in the gap rather than drifting toward the
+       source. */
+    const x0 = a.x + a.w;
+    const x1 = b.x;
+    const sx = x0 + EDGE_GAP;
     const sy = a.y + a.h / 2;
-    const tx = b.x;
+    const tx = x1 - EDGE_GAP;
     const ty = b.y + b.h / 2;
     const dx = Math.max(70, (tx - sx) * 0.5);
     return {
       d: `M ${sx} ${sy} C ${sx + dx} ${sy} ${tx - dx} ${ty} ${tx} ${ty}`,
       mx: bez(sx, sx + dx, tx - dx, tx, t),
       my: bez(sy, sy, ty, ty, t),
-      // The corridor between the two boxes, less a hair either side. This is
-      // what the label may be wide, and on the value chain it is 80 world units
-      // against a 100-unit "finished goods" — which is the overlap you can see.
-      room: Math.max(56, tx - sx - 16),
+      room: Math.max(56, x1 - x0 - LABEL_MARGIN * 2),
     };
   }
 
@@ -619,21 +646,27 @@ export function GraphCanvas({
         {/* Edge labels are HTML, not SVG text — they need a pill, a border and
             a background that matches the rest of the interface.
 
-            **The pill is capped at the corridor it sits in, and wraps.** It was
-            `whitespace-nowrap`, so a label wider than the gap between two boxes
-            simply ran under both of them: on the value chain the gap is 80
-            world units and *finished goods* is 100, which put a third of the
-            pill under a card at either end. Two things were wrong with that and
-            only one was the overlap — the other is that a strip of mono text
-            half-covered by a card reads as a rendering fault rather than as a
-            label.
+            **`width: max-content` is load-bearing, and its absence was the
+            actual bug behind every wrapped pill on this canvas.** The pill is
+            absolutely positioned inside `origin-top-left`, which is a
+            zero-width box: it only exists to carry the pan and zoom transform.
+            For an absolutely positioned child, available width is the
+            containing block's width minus `left` — here 0 minus 1240, which
+            clamps to nothing — so shrink-to-fit fell all the way to the
+            *preferred minimum*, which is the longest single word. Measured,
+            *finished goods* wants 100 units on one line and was laying out at
+            65 and wrapping, with 112 units of `max-width` it never used.
 
-            Wrapping rather than truncating, because the label is two or three
-            words naming what flows between two stages, and half of *finished
-            goods* is not a shorter version of it. Wrapping rather than widening
-            the layout, because the pitch in `canvas.ts` is what sets how big
-            the nodes render at fit, and paying for one label with every box on
-            the level is the wrong trade.
+            So the corridor was only half the story. `max-content` asks for the
+            nowrap width and `maxWidth` still caps it, which is the behaviour
+            the `room` calculation was written for and never got.
+
+            **Wrapping is still the fallback, and truncation still is not**: the
+            label is two or three words naming what flows between two stages,
+            and half of *finished goods* is not a shorter version of it. What
+            has changed is that a label only wraps when the corridor genuinely
+            cannot hold it — Level 1's *accepted deliveries* — rather than
+            always.
 
             `text-center` is what makes a wrapped pill read as one label rather
             than as a ragged block, and `leading-[1.25]` gives the second line
@@ -646,7 +679,7 @@ export function GraphCanvas({
               "rounded-lg border border-border bg-canvas px-2 py-[3px]",
               "font-mono text-[10px] leading-[1.25] text-muted-foreground",
             )}
-            style={{ left: l.x, top: l.y, maxWidth: l.room }}
+            style={{ left: l.x, top: l.y, width: "max-content", maxWidth: l.room }}
           >
             {l.label}
           </span>
