@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import {
   CircleUser,
   Columns3,
@@ -22,6 +22,7 @@ import { ProjectMenu } from "./ProjectMenu";
 import { Wordmark } from "./Wordmark";
 import { AiButton, AiPanel, AiProvider, useAi } from "./AiPanel";
 import { SelectionAsk } from "./SelectionAsk";
+import { NavButton, NavDrawer } from "./NavDrawer";
 import { WorkspaceProvider } from "./WorkspaceProvider";
 import { useMastheadVisible } from "./useScrollDirection";
 
@@ -33,14 +34,17 @@ import { useMastheadVisible } from "./useScrollDirection";
  * control on every screen of the product, and a shape is found by peripheral
  * vision faster than a word is read — which is the whole of what a consultant
  * does with this row while a call is running. What it must never become is an
- * icon-only rail: six unlabelled glyphs are six guesses, and "a consultant will
- * not find a hidden tab mid-call" is the reason the row scrolls rather than
- * collapsing into a menu.
+ * icon-only rail: six unlabelled glyphs are six guesses.
  *
- * **The cost is horizontal and it lands on the phone.** A `size-4` mark and its
- * gap is about 22px a tab, so the row grows ~130px and scrolls sooner at 375.
- * It already scrolled there, and it scrolls visibly — `scroll-slim` draws a
- * thumb — so what this spends is swipe distance rather than reachability.
+ * **The cost is horizontal, and below `xl` it is paid by a drawer rather than
+ * by a scroller.** A `size-4` mark and its gap is about 22px a tab, so the row
+ * wants 647px on its own and about 1130 of window to sit whole on the band.
+ * This note used to say the row scrolls rather than collapsing into a menu,
+ * because a consultant will not find a hidden tab mid-call — and what that
+ * missed is that a horizontal scroller is also a hiding place, and a worse one:
+ * at 375 four of the six were off the edge with nothing on screen saying so.
+ * The marks stay, and from `xl` nothing about the row has changed. See
+ * `NavDrawer`.
  *
  * The marks are chosen for what the surface *is*, not for its initial: a graph
  * for the map, a document for the dossier, a warning for the findings, a
@@ -120,6 +124,14 @@ function Shell({ children }: { children: ReactNode }) {
   const mastheadVisible = useMastheadVisible();
   const { open: aiOpen, full: aiFull, width: aiWidth } = useAi();
 
+  /* The nav below `xl`. State sits here rather than inside the drawer because
+     the drawer has to render *outside* `<header>`: the band carries a transform
+     on the way down, and a transformed ancestor is the containing block for
+     `position: fixed`. See `NavDrawer`. */
+  const [navOpen, setNavOpen] = useState(false);
+  const navTrigger = useRef<HTMLButtonElement>(null);
+  const closeNav = useCallback(() => setNavOpen(false), []);
+
   /* From `lg` the panel pushes the page rather than covering it, and the
      padding here is what does the pushing. The point of a chat beside a
      dossier is that you can still see the dossier — a panel that sits on top
@@ -175,6 +187,7 @@ function Shell({ children }: { children: ReactNode }) {
             workspace panel  scrim z-24     z-25
             masthead                        z-30   <- this
             Operations full screen          z-35
+            nav drawer      scrim z-36      z-38
             evidence panel  scrim z-40      z-50
             gap panel       scrim z-54      z-56
             selection menu                  z-65
@@ -213,6 +226,14 @@ function Shell({ children }: { children: ReactNode }) {
               word: it is 11px wide, against the 70px the wordmark was costing
               the tabs on a 375px line. `Wordmark` hides its own text there. */}
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            {/* Below `xl` the six tabs are behind this. See `NavDrawer` for
+                why that reverses the note under the tab row, and for where the
+                breakpoint comes from. */}
+            <NavButton
+              ref={navTrigger}
+              open={navOpen}
+              onToggle={() => setNavOpen((v) => !v)}
+            />
             {/* The mark is the way back to the projects list, which is what `/`
                 now is. A product whose first screen is the list of companies
                 needs one control that always returns to it, and the brand is
@@ -224,18 +245,22 @@ function Shell({ children }: { children: ReactNode }) {
             >
               <Wordmark />
             </Link>
-            <span className="h-4 w-px bg-masthead-border" aria-hidden />
+            <span
+              className="hidden h-4 w-px bg-masthead-border xl:block"
+              aria-hidden
+            />
           </div>
 
-          {/* Tabs scroll horizontally on a phone rather than collapsing into a
-              menu — a consultant will not find a hidden tab mid-call.
+          {/* From `xl`. Below it the row is a drawer: the six tabs come to
+              647px and the rest of the band to 450, so the row needs ~1130px to
+              be whole and at 1024 *Sources* was off the right edge.
 
               Marked by an underline rather than a filled chip, as the reference
               does: a chip on a dark band has to be a light block, which reads
               as heavier than the page content underneath it. */}
           <nav
             aria-label={inProject ? "Product surfaces" : "Workspace"}
-            className="scroll-slim min-w-0 flex-1 overflow-x-auto sm:ml-2"
+            className="scroll-slim hidden min-w-0 flex-1 overflow-x-auto xl:ml-2 xl:block"
           >
             {/* A notch more air between tabs, on request: `gap-1` was 4px, and
                 with a mark now sitting in front of every label the six tabs
@@ -315,7 +340,10 @@ function Shell({ children }: { children: ReactNode }) {
 
               It keeps a width cap below `sm`: there the trigger is the
               monogram and the chevron, and the project name hides. */}
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          {/* `ml-auto` and not the nav's `flex-1`: below `xl` the nav is not
+              rendered, so without this the cluster would sit against the
+              wordmark with the rest of the band empty behind it. */}
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
             {inProject && (
               <>
                 <div className="flex min-w-0 max-w-[11rem] items-center lg:max-w-none">
@@ -334,6 +362,18 @@ function Shell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+
+      {/* Outside the header on purpose — the band takes a transform on the way
+          down, and a transformed ancestor is the containing block for
+          `position: fixed`. See `NavDrawer`. */}
+      <NavDrawer
+        open={navOpen}
+        onClose={closeNav}
+        tabs={tabs}
+        label={inProject ? "Product surfaces" : "Workspace"}
+        surface={surface}
+        triggerRef={navTrigger}
+      />
 
       {/* The direction and Brief/Full switches used to sit here, in a white bar
           of their own between the masthead and the band — a third horizontal

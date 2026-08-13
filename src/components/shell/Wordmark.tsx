@@ -32,12 +32,13 @@ export function Wordmark({ className }: { className?: string }) {
       {/* The mark and the name, and nothing else. A descriptor line under it
           was tried both inline and stacked; the masthead already says what the
           thing is by having Operations, Research, Gaps, Questions, Compare and
-          Sources on it, and the product name is in the page title. The name
-          goes at 375 and the mark stays — the old text wordmark hid entirely
-          there, because it was costing the tabs 70px of a 375px line. */}
-      <span className="hidden text-base font-semibold sm:inline">
-        Heizen
-      </span>
+          Sources on it, and the product name is in the page title.
+
+          **The name is back at 375**, where it used to hide. It hid because it
+          was costing the six tabs 70px of a 375px line; below `xl` those tabs
+          are a drawer now, so there is nothing left on that line for it to take
+          the space from. */}
+      <span className="text-base font-semibold">Heizen</span>
     </span>
   );
 }
