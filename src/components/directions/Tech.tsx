@@ -1,25 +1,14 @@
 "use client";
 
-import { cn } from "@/lib/cn";
 import { money } from "@/lib/format";
 import {
   company,
-  gapById,
   systemSplit,
   systemsByState,
-  techSystems,
-  valueForSystem,
-  valueForSystemState,
-  type SystemState,
-  type TechSystem,
-} from "@/lib/suvarna";
-import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
-import { ConfidenceBadge } from "@/components/meridian/Confidence";
-import { Eyebrow } from "@/components/meridian/Primitives";
-import { SourceChip } from "@/components/meridian/Evidence";
+  valueForSystemState } from "@/lib/suvarna";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section , type SectionRef } from "./Frames";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
-import { usePanel } from "@/components/meridian/EvidencePanel";
 
 /* -------------------------------------------------------------------------- */
 /* Direction 3 — Tech stack                                                    */
@@ -48,109 +37,60 @@ const LIVE = systemsByState("live");
 const WORKAROUND = systemsByState("workaround");
 const MISSING = systemsByState("missing");
 
-const STATE_LABEL: Record<SystemState, string> = {
-  live: "Live",
-  workaround: "Worked around",
-  missing: "Never bought",
+/** "SAP MM, SAP FI and SAP SD" — an Oxford-free list for running prose. */
+const nameList = (list: { name: string }[]) =>
+  list.length < 2
+    ? (list[0]?.name ?? "")
+    : `${list.slice(0, -1).map((s) => s.name).join(", ")} and ${list[list.length - 1].name}`;
+
+/** How many findings sit on a set of systems. */
+const gapsIn = (list: { gapIds: string[] }[]) => list.reduce((n, s) => n + s.gapIds.length, 0);
+
+/* Small counts are spelled out, because these are derived from the data and
+   land mid-prose. "3 systems the client has never bought" opens a sentence on
+   a digit, which reads as a table cell that escaped into a paragraph. */
+const WORDS = [
+  "no", "one", "two", "three", "four", "five", "six",
+  "seven", "eight", "nine", "ten", "eleven", "twelve",
+];
+const spell = (n: number) => WORDS[n] ?? String(n);
+const Spell = (n: number) => {
+  const w = spell(n);
+  return w.charAt(0).toUpperCase() + w.slice(1);
 };
 
-const BRIEF_STANDFIRST = `${systemSplit.insideGaps} of the ${systemSplit.insideGaps + systemSplit.outsideGaps} findings sit inside SAP. The other ${systemSplit.outsideGaps} are worth ${money(systemSplit.outsideValue)}, and there is no system to put them in.`;
+/* Each row's own `fallsTo`, joined into a sentence. The section paragraph is
+   the only thing on screen now, so where the work goes has to be said in it
+   rather than left to a column that no longer exists.
 
-const BRIEF_HEADLINE = (
-  <p className="font-display text-h2 leading-[1.15]">
-    They run three SAP modules. The money is mostly in the gaps between them.
-  </p>
-);
+   The first letter is lowered: `fallsTo` is authored as a standalone sentence
+   ("Paper, at all three plants.") and arrives here in the middle of one. */
+const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+const fallsList = (list: { name: string; fallsTo?: string }[]) =>
+  list
+    .map((s) => `${s.name} falls to ${s.fallsTo ? lower(s.fallsTo).replace(/\.$/, "") : "nobody"}`)
+    .join(". ");
 
-/**
- * State as a mark, not a colour. Filled, half, hollow — so it survives
- * greyscale and a projector that eats saturation, and so it cannot be confused
- * with Operations' health hues.
- */
-function StateBadge({ state }: { state: SystemState }) {
-  return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-muted px-2 py-0.5 text-micro font-medium text-muted-foreground">
-      <span
-        aria-hidden
-        className={cn(
-          "h-1.5 w-1.5 rounded-full",
-          state === "live"
-            ? "bg-foreground"
-            : state === "workaround"
-              ? "border border-foreground bg-transparent"
-              : "border border-dashed border-border-strong bg-transparent",
-        )}
-      />
-      {STATE_LABEL[state]}
-    </span>
-  );
-}
+const BRIEF_STANDFIRST = `${Spell(systemSplit.insideGaps)} of the ${spell(systemSplit.insideGaps + systemSplit.outsideGaps)} findings sit inside SAP. The other ${spell(systemSplit.outsideGaps)} are worth ${money(systemSplit.outsideValue)}, and there is no system to put them in.`;
+
 
 export function TechBrief() {
   return (
     <BriefFrame
       actions={<RunButton label="Run research" tight />}
-      hero={
-        <SurfaceHero
-          tight
-          collapseAtRoomy
-          title="Research"
-          titleNode={
-            <div className="roomy:hidden">
-              {BRIEF_HEADLINE}
-              <p className="reading measure mt-1 text-small text-muted-foreground">
-                {BRIEF_STANDFIRST}
-              </p>
-            </div>
-          }
-        />
-      }
+      hero={<SurfaceHero title="Research" />}
       lead={
         <DocumentLead
-          bordered={false}
-          titleNode={BRIEF_HEADLINE}
+          title="What they run, and what it does not do"
           standfirst={BRIEF_STANDFIRST}
         />
       }
     >
-      {/* The three that have no system at all. Not the live modules: what a
-          consultant needs out loud is the absence, because that is the thing
-          the client cannot argue with and the thing Heizen sells into. */}
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <Eyebrow>Nothing runs these</Eyebrow>
-        <ul className="mt-1.5 space-y-2">
-          {MISSING.map((sys) => (
-            <li key={sys.id}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-base font-medium leading-snug">{sys.name}</span>
-                <span className="tabular shrink-0 text-base font-medium">
-                  {money(valueForSystem(sys.id))}
-                </span>
-              </div>
-              <p className="reading mt-0.5 text-small text-muted-foreground">{sys.fallsTo}</p>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* What they do have, as one line rather than three rows. On a screen
-          that may not scroll, the live estate is context and the absence is the
-          point — so the modules get named and nothing more. */}
-      <div className="shrink-0 rounded-md border border-dashed border-border-strong px-4 py-2 sm:py-3">
-        <div className="text-micro font-medium text-muted-foreground">
-          What is already live
-        </div>
-        <p className="mt-1 text-small measure">
-          {LIVE.map((s) => s.name).join(", ")} on {company.facts[2].value}. Everything you
-          would build sits on top of these, not instead of them.
-        </p>
-      </div>
-
+      <Section id="h-brief" title="What the work would run on" summary={`${company.erp}, with ${spell(LIVE.length)} modules live and ${spell(WORKAROUND.length + MISSING.length)} processes running outside all of them. ${Spell(systemSplit.insideGaps)} of the twelve findings sit inside software already paid for and are worth ${money(systemSplit.insideValue)} a year: configuration and process, cheaper to fix and harder to sell. The other ${spell(systemSplit.outsideGaps)} sit where no software touches them and are worth ${money(systemSplit.outsideValue)}, close to twice as much, and that is where a build goes. Nothing here needs the ERP replaced, which is the sentence to say early because it is the fear the room brings to the meeting.`} />
       <BriefFooter
         href="/research/tech/full"
-        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
       >
-        All {techSystems.length} systems
+        All nine systems
       </BriefFooter>
     </BriefFrame>
   );
@@ -158,28 +98,26 @@ export function TechBrief() {
 
 /* -------------------------------------------------------------------------- */
 
-const SECTIONS: SectionRef[] = [
-  { id: "split", label: "Where the money sits", meta: "2 lines" },
-  { id: "missing", label: "Never bought", meta: `${MISSING.length} systems` },
-  { id: "workaround", label: "Worked around", meta: `${WORKAROUND.length} systems` },
-  { id: "live", label: "Already live", meta: `${LIVE.length} modules` },
-  {
-    id: "integration",
-    label: "What you would be building on",
-    defaultCollapsed: true,
-  },
+/* The headings this view renders, for the navigator beside it. Built from the
+   same ids the sections carry, so a heading cannot be missing from the list. */
+const TECH_SECTIONS: SectionRef[] = [
+  { id: "split", label: "Where the money sits" },
+  { id: "missing", label: "Never bought" },
+  { id: "workaround", label: "Worked around" },
+  { id: "live", label: "Already live" },
+  { id: "integration", label: "What you would be building on" },
 ];
 
 export function TechFull() {
   return (
     <FullFrame
-      sections={SECTIONS}
+      sections={TECH_SECTIONS}
       actions={<RunButton label="Run research" />}
       hero={<SurfaceHero title="Research" />}
     >
       <DocumentLead
         title="What they run, and what it does not do"
-        standfirst={`${company.facts[2].value}, with ${LIVE.length} modules live. Every finding below is filed under the one system where the work actually lands on a person, so the subtotals add to the same ${money(company.grossLeakageCr)} every other direction ties to.`}
+        standfirst={`${company.erp}, with ${LIVE.length} modules live. Every finding below is filed under the one system where the work actually lands on a person, so the subtotals add to the same ${money(company.grossLeakageCr)} every other direction ties to.`}
       />
 
 
@@ -188,192 +126,48 @@ export function TechFull() {
       <Section
         id="split"
         title="Where the money sits"
-        summary="Both lines are counted from the findings themselves. Nothing here is a claim about the estate that the list below does not also make."
-      >
-        <dl className="divide-y divide-border">
-          <SplitRow
-            label="Inside software they already own"
-            detail={`${LIVE.map((s) => s.name).join(", ")} — configured, live, and carrying ${systemSplit.insideGaps} of the findings.`}
-            count={systemSplit.insideGaps}
-            value={systemSplit.insideValue}
-          />
-          <SplitRow
-            label="In the space between"
-            detail={`${WORKAROUND.length} processes running on email, phone and a spreadsheet, and ${MISSING.length} systems that were never bought.`}
-            count={systemSplit.outsideGaps}
-            value={systemSplit.outsideValue}
-          />
-        </dl>
-        <p className="reading mt-3 text-small text-muted-foreground measure">
-          Same number of findings on each side, and nearly twice the money on the second. That
-          is the argument for buying software rather than more people, and it is the one line
-          on this screen worth saying out loud.
-        </p>
-      </Section>
+        summary={`Every finding is filed under one system, and the split is the scoping answer. ${Spell(systemSplit.insideGaps)} of them sit inside the ${spell(LIVE.length)} SAP modules already running and are worth ${money(systemSplit.insideValue)} a year: that half is configuration and process inside software the client has paid for, so it is cheaper to fix and harder to sell, because nothing new arrives. The other ${spell(systemSplit.outsideGaps)} sit on work no software touches at all and are worth ${money(systemSplit.outsideValue)}, close to twice as much. That is where a build goes, and it is why the first phase is worth scoping outside the ERP rather than inside it. Both figures are counted from the findings themselves, so they move when a finding moves.`}
+      />
 
       <Section
         id="missing"
         title="Never bought"
-        summary="No system does this, so a person does. Each row names who."
+        summary={`${Spell(MISSING.length)} systems the client has never bought: ${nameList(MISSING)}. The work still happens, so a person is doing it. ${fallsList(MISSING)}. ${Spell(gapsIn(MISSING))} findings sit here, worth ${money(valueForSystemState("missing"))} a year, and this is where a first phase has the most room: there is no incumbent product to displace and nothing to migrate off. It is also the weakest evidence on the page, because the one system that would measure any of it is the one nobody bought.`}
         right={
           <span className="tabular text-small text-muted-foreground">
             {money(valueForSystemState("missing"))}
           </span>
         }
-      >
-        <div className="divide-y divide-border">
-          {MISSING.map((sys) => (
-            <SystemBlock key={sys.id} system={sys} />
-          ))}
-        </div>
-      </Section>
+      />
 
       <Section
         id="workaround"
         title="Worked around"
-        summary="The process exists and runs. It just does not run anywhere that leaves a record."
+        summary={`${Spell(WORKAROUND.length)} processes that exist and run, but not anywhere that leaves a record. ${fallsList(WORKAROUND)}. ${Spell(gapsIn(WORKAROUND))} findings sit here, worth ${money(valueForSystemState("workaround"))} a year. These are the hardest to raise on a call, because nobody experiences them as broken: the purchase gets approved, the lorry turns up, the plan gets made. What is missing is the trail, which is why none of it can be measured and why the fix reads as a control rather than as a saving.`}
         right={
           <span className="tabular text-small text-muted-foreground">
             {money(valueForSystemState("workaround"))}
           </span>
         }
-      >
-        <div className="divide-y divide-border">
-          {WORKAROUND.map((sys) => (
-            <SystemBlock key={sys.id} system={sys} />
-          ))}
-        </div>
-      </Section>
+      />
 
       <Section
         id="live"
         title="Already live"
-        summary="What is configured and in use. These are not problems; they are the ground anything new would stand on."
+        summary={`${nameList(LIVE)}, all on ${company.erp} and all supplied by SAP. ${LIVE.map((s) => `${s.name} handles ${s.does.replace(/^[^:]+:\s*/, "").replace(/\.$/, "")}`).join(". ")}. ${Spell(gapsIn(LIVE))} findings sit on them, worth ${money(valueForSystemState("live"))} a year. None of these is a problem in itself. They are the ground anything new would stand on, and the reason to read the section is that an integration touching a live module is a conversation with SAP and whoever manages the estate, not just with the client.`}
         right={
           <span className="tabular text-small text-muted-foreground">
             {money(valueForSystemState("live"))}
           </span>
         }
-      >
-        <div className="divide-y divide-border">
-          {LIVE.map((sys) => (
-            <SystemBlock key={sys.id} system={sys} />
-          ))}
-        </div>
-      </Section>
+      />
 
       <Section
         id="integration"
         title="What you would be building on"
-        summary="The scoping answer, in the form an engineer asks for it."
-      >
-        <p className="reading text-small measure">
-          {company.facts[2].value} with {LIVE.map((s) => s.name).join(", ")} live and no
-          warehouse module. That is an old release, on premise, and it decides the shape of
-          everything: integration is against a stable, well documented interface, and nothing
-          proposed here needs the client to upgrade first.
-        </p>
-        <p className="reading mt-2.5 text-small text-muted-foreground measure">
-          It also decides what not to propose. Replacing a live module is a different
-          conversation from putting a layer in front of one, and every finding above is the
-          second kind.
-        </p>
-      </Section>
+        summary={`${company.erp}, with ${spell(LIVE.length)} modules live and ${spell(WORKAROUND.length + MISSING.length)} processes running outside all of them. Anything built here reads from and writes back to ${nameList(LIVE)}, which is the answer to the first question an engineer asks and the first one a client asks after it. The work splits cleanly: ${money(systemSplit.outsideValue)} of it needs something new that stands beside SAP and feeds it, and ${money(systemSplit.insideValue)} of it is configuration and process inside modules that are already paid for. Nothing here needs the ERP replaced, which is the sentence worth saying early, because it is the fear the room brings to the meeting.`}
+      />
     </FullFrame>
   );
 }
 
-/** One line of the split. The count and the money share a row, because the
- *  comparison the section exists to make is between two pairs of numbers. */
-function SplitRow({
-  label,
-  detail,
-  count,
-  value,
-}: {
-  label: string;
-  detail: string;
-  count: number;
-  value: number;
-}) {
-  return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3 first:pt-0 last:pb-0">
-      <div className="min-w-0">
-        <dt className="text-base font-medium">{label}</dt>
-        <dd className="reading mt-0.5 text-small text-muted-foreground measure">{detail}</dd>
-      </div>
-      <dd className="flex shrink-0 items-baseline gap-3">
-        <span className="tabular text-small text-muted-foreground">{count} findings</span>
-        <span className="tabular text-lead font-medium">{money(value)}</span>
-      </dd>
-    </div>
-  );
-}
-
-/**
- * One system, and what sits on it.
- *
- * `fallsTo` is set apart with a rule and the accent on the two states that have
- * one, the same treatment Risk gives a counter — it is the half of the row that
- * names a person, and on a screen that is otherwise a module list that is the
- * only part anybody acts on.
- */
-function SystemBlock({ system }: { system: TechSystem }) {
-  const { open } = usePanel();
-
-  return (
-    <div className="py-4 first:pt-0 last:pb-0">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <span className="flex flex-wrap items-baseline gap-2.5">
-          <StateBadge state={system.state} />
-          <span className="text-base font-medium">{system.name}</span>
-        </span>
-        <span className="tabular shrink-0 text-small text-muted-foreground">
-          {money(valueForSystem(system.id))}
-        </span>
-      </div>
-
-      <p className="reading mt-2 text-small measure">{system.does}</p>
-
-      {system.fallsTo && (
-        <div className="mt-2.5 border-l-2 border-evidence pl-3">
-          <p className="text-micro font-medium text-muted-foreground">
-            So it falls to
-          </p>
-          <p className="reading mt-1 text-small measure">{system.fallsTo}</p>
-        </div>
-      )}
-
-      {/* The findings on this system, as rows you can open rather than a count.
-          A number here would be the third statement of something the section
-          heading and the subtotal already make. */}
-      <ul className="mt-2.5 space-y-1">
-        {system.gapIds.map((id) => {
-          const gap = gapById(id);
-          return (
-            <li key={id}>
-              <button
-                type="button"
-                onClick={() => open({ kind: "gap", id })}
-                className="group flex w-full items-baseline justify-between gap-3 text-left"
-              >
-                <span className="min-w-0 text-small transition-colors group-hover:text-muted-foreground">
-                  {gap.title}
-                </span>
-                <span className="tabular shrink-0 text-small text-muted-foreground">
-                  {gap.amountCr == null ? "Not priced" : money(gap.amountCr)}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-
-      <div className="mt-2.5 flex flex-wrap items-baseline gap-1.5 text-micro text-muted-foreground">
-        {system.sourceIds.map((id) => (
-          <SourceChip key={id} sourceId={id} />
-        ))}
-      </div>
-    </div>
-  );
-}

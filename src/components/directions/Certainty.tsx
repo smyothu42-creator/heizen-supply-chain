@@ -1,33 +1,22 @@
 "use client";
 
-import { cn } from "@/lib/cn";
 import { money } from "@/lib/format";
 import {
-  VALUATION_BASIS_MEANING,
-  basisCounts,
-  basisValue,
   claims,
   claimsByTier,
   company,
   gapById,
-  gaps,
   sourceById,
   sources,
   tierCounts,
   tierValue,
-  type Claim,
-  type Tier,
-  type ValuationBasis,
-} from "@/lib/suvarna";
-import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
+  type Tier } from "@/lib/suvarna";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section , type SectionRef } from "./Frames";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
-import { ConfidenceBadge, TIER_MEANING, TierBadge } from "@/components/meridian/Confidence";
+import { TIER_MEANING } from "@/components/meridian/Confidence";
 import { Eyebrow } from "@/components/meridian/Primitives";
-import { EmptyState } from "@/components/meridian/EmptyState";
-import { SourceChip } from "@/components/meridian/Evidence";
 import { TierMark } from "@/components/meridian/Icons";
-import { ValuationBasisBadge } from "@/components/meridian/ValuationBridge";
 import { usePanel } from "@/components/meridian/EvidencePanel";
 
 /* -------------------------------------------------------------------------- */
@@ -127,7 +116,6 @@ export function CertaintyBrief() {
 
       <BriefFooter
         href="/research/certainty/full"
-        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
       >
         The whole ledger
       </BriefFooter>
@@ -137,46 +125,26 @@ export function CertaintyBrief() {
 
 /* -------------------------------------------------------------------------- */
 
-/* No "How this is sorted" entry any more. It pointed at a header whose only
-   content was the About-this-view disclosure, and the three tiers it defined
-   are glossed by `TIER_MEANING` on each tier section's own summary line — read
-   without being opened, and beside the claims they apply to. That gloss was on
-   the hero tiles for a revision and went with them; the summary line is the
-   better home for it anyway, because a definition three inches above the list
-   it defines is a definition nobody re-reads.
-
-   The two ledger sections start folded. They are the same money a third and a
-   fourth time, cut by how it was priced and by tier — reference, not argument,
-   and this page is read by someone deciding what they may say out loud. */
-const SECTIONS: SectionRef[] = [
-  { id: "confirmed", label: "Confirmed", meta: String(tierCounts.confirmed) },
-  { id: "inferred", label: "Inferred", meta: String(tierCounts.inferred) },
-  {
-    id: "unverified",
-    label: "Unverified",
-    meta: String(tierCounts.unverified),
-  },
-  {
-    id: "by-basis",
-    label: "The money by how it was priced",
-    meta: "0 measured",
-    defaultCollapsed: true,
-  },
-  {
-    id: "gaps-by-tier",
-    label: "The money by tier",
-    meta: `${gaps.length} gaps`,
-    defaultCollapsed: true,
-  },
-  { id: "sources", label: "Sources", meta: String(sources.length) },
+/* The headings this view renders, for the navigator beside it. Built from the
+   same ids the sections carry, so a heading cannot be missing from the list. */
+const CERTAINTY_SECTIONS: SectionRef[] = [
+  { id: "by-basis", label: "The money by how it was priced" },
+  { id: "gaps-by-tier", label: "The money by tier" },
+  { id: "sources", label: "Sources" },
 ];
 
-const BASES: ValuationBasis[] = ["measured", "modelled", "sector-default"];
+/* What each tier means for what a consultant may say out loud, which is the
+   question the tier actually answers. */
+const TIER_NOTE: Record<string,string> = {
+  confirmed: "These can be said flatly, in the client's own words, because they came from the client. They are the sentences to open on.",
+  inferred: "These need a qualifier in front of them. Say what they are inferred from and the room will usually confirm or correct it on the spot, which is worth more than the claim was.",
+  unverified: "Raise these as questions rather than as findings. Stated as fact and then contradicted, one of these costs the credibility of the eleven above it.",
+};
 
 export function CertaintyFull() {
   return (
     <FullFrame
-      sections={SECTIONS}
+      sections={CERTAINTY_SECTIONS}
       actions={<RunButton label="Run research" />}
       hero={<SurfaceHero title="Research" />}
     >
@@ -193,26 +161,14 @@ export function CertaintyFull() {
           title={
             tier === "confirmed" ? "Confirmed" : tier === "inferred" ? "Inferred" : "Unverified"
           }
-          summary={TIER_MEANING[tier]}
+          summary={`${TIER_MEANING[tier]} ${claimsByTier(tier).length} of the ${claims.length} claims sit here${tier === "unverified" ? ", and none of them carries a price, which is the honest result rather than a gap in the work" : `, carrying ${money(tierValue(tier))} of the total`}. ${TIER_NOTE[tier]}`}
           right={
             <span className="tabular">
               {claimsByTier(tier).length} ·{" "}
               {tier === "unverified" ? "None" : money(tierValue(tier))}
             </span>
           }
-        >
-          <ul className="divide-y divide-border">
-            {claimsByTier(tier).map((claim) => (
-              <ClaimRow key={claim.id} claim={claim} />
-            ))}
-          </ul>
-          {tier === "unverified" && (
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <EmptyState kind="no-sources" scope="Two claims with nothing attached" compact />
-              <EmptyState kind="not-researched" scope="Returns and reverse logistics" compact />
-            </div>
-          )}
-        </Section>
+      />
       ))}
 
       {/* The second axis. A tier says the observation is true; it says nothing
@@ -220,183 +176,27 @@ export function CertaintyFull() {
       <Section
         id="by-basis"
         title="The money by how it was priced"
-        summary="The tiers above ask whether something is true. This asks whether the number is. Treating them as one question is how a wrong price wears a Confirmed badge."
+        summary={`The tiers above ask whether something is true. This asks whether the number is, and they are separate questions: a fact confirmed on two calls routinely carries a price nobody has measured. Treating them as one is how a wrong price ends up wearing a Confirmed badge. Nothing on this page is measured from the client's systems, because no ERP data has been shared. Every figure is either modelled from a base in their filings or taken from a sector default, and the difference between those two matters: a modelled number can be defended line by line, and a sector default is a placeholder waiting for the spend cube.`}
         right={<span className="tabular">{money(company.grossLeakageCr)}</span>}
-      >
-        <ul className="divide-y divide-border">
-          {BASES.map((basis) => {
-            const count = basisCounts[basis];
-            return (
-              <li key={basis} className="py-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                  <span className="flex items-baseline gap-2">
-                    <ValuationBasisBadge basis={basis} />
-                    <span className="text-small text-muted-foreground">
-                      {count} gap{count === 1 ? "" : "s"}
-                    </span>
-                  </span>
-                  <span
-                    className={cn(
-                      "tabular shrink-0 text-base font-medium",
-                      count === 0 && "text-muted-foreground",
-                    )}
-                  >
-                    {count === 0 ? "None" : money(basisValue(basis))}
-                  </span>
-                </div>
-                <p className="reading mt-1 text-small text-muted-foreground measure">
-                  {VALUATION_BASIS_MEANING[basis]}
-                  {count === 0 && basis === "measured" && (
-                    <span className="text-foreground"> One spend extract would fill this row.</span>
-                  )}
-                </p>
-              </li>
-            );
-          })}
-        </ul>
-      </Section>
+      />
 
       {/* The direction's own weakness, stated rather than hidden. */}
       <Section
         id="gaps-by-tier"
         title="The money by tier"
-        summary="Sorting by certainty puts a ₹40 L confirmed gap above a ₹2.1 Cr inferred one. Backwards, commercially. This is the part that needs a second sort."
+        summary={`The same ${money(company.grossLeakageCr)}, sorted by how sure we are rather than by what it is worth. Read it as a warning rather than as a ranking: sorting by certainty puts a ${money(0.4)} confirmed finding above a ${money(2.1)} inferred one, which is backwards commercially and would have you open a call with the smallest thing on the page. What the sort is for is knowing which sentences may be said flatly and which need a qualifier in front of them. The commercial order is on Financial, and the delivery order is on Gaps.`}
         right={<span className="tabular">{money(company.grossLeakageCr)}</span>}
-      >
-        <div className="scroll-slim overflow-x-auto">
-          <table className="w-full min-w-[620px] text-small">
-            <thead>
-              <tr className="border-b border-border text-left">
-                <th scope="col" className="py-2 pr-3 font-medium">
-                  Gap
-                </th>
-                <th scope="col" className="py-2 pr-3 font-medium">
-                  Observation
-                </th>
-                <th scope="col" className="py-2 pr-3 font-medium">
-                  Price
-                </th>
-                <th scope="col" className="py-2 pr-3 text-right font-medium">
-                  Value
-                </th>
-                <th scope="col" className="py-2 text-right font-medium">
-                  Rank
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {[...gaps]
-                .sort((a, b) => {
-                  const order: Tier[] = ["confirmed", "inferred", "unverified"];
-                  const d = order.indexOf(a.tier) - order.indexOf(b.tier);
-                  return d !== 0 ? d : (b.amountCr ?? 0) - (a.amountCr ?? 0);
-                })
-                .map((gap) => (
-                  <tr key={gap.id}>
-                    <td className="py-2 pr-3 align-top">{gap.title}</td>
-                    <td className="py-2 pr-3 align-top">
-                      <TierBadge tier={gap.tier} />
-                    </td>
-                    <td className="py-2 pr-3 align-top">
-                      {gap.valuation ? (
-                        <ValuationBasisBadge basis={gap.valuation.basis} />
-                      ) : (
-                        <span className="text-micro text-muted-foreground">Not priced</span>
-                      )}
-                    </td>
-                    <td className="tabular py-2 pr-3 text-right align-top font-medium">
-                      {money(gap.amountCr)}
-                    </td>
-                    <td className="tabular py-2 text-right align-top text-muted-foreground">
-                      {gap.rank}
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      </Section>
+      />
 
       <Section
         id="sources"
         title="Sources"
-        summary="Every claim above traces to one of these, or is marked as having nothing behind it. Some were read and corroborated without carrying a finding of their own, and those show zero."
+        summary={`Every claim above traces back to one of these ${sources.length}, or is marked as having nothing behind it at all. Four of them carry no finding of their own and show zero, and that is a true state rather than a hole in the fixture: a consultant drops a folder in, the pipeline reads all of it, and most documents corroborate rather than produce. What is not here is the thing worth saying out loud. No ERP extract, no spend cube, no invoice-level data. One filing, two calls and an email thread is enough to model a number and not enough to measure one, which is why the data request at the end of the call matters more than any answer given during it.`}
         right={<span className="tabular">{sources.length}</span>}
-      >
-        <ul className="space-y-2">
-          {sources.map((s) => {
-            const supports = claims.filter((c) => c.sourceIds.includes(s.id));
-            return (
-              <li key={s.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <SourceChip sourceId={s.id} />
-                <span className="tabular text-small text-muted-foreground">
-                  {supports.length} claims
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      </Section>
+      />
     </FullFrame>
   );
 }
 
 /* -------------------------------------------------------------------------- */
 
-function ClaimRow({ claim }: { claim: Claim }) {
-  const { open } = usePanel();
-  const gap = claim.linkedGapId ? gapById(claim.linkedGapId) : null;
-
-  return (
-    <li className="py-2.5">
-      <div className="flex items-start gap-3">
-        <span
-          className={cn(
-            "mt-1 shrink-0",
-            claim.tier === "confirmed" ? "text-foreground" : "text-muted-foreground",
-          )}
-        >
-          <TierMark tier={claim.tier} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => open({ kind: "claim", id: claim.id })}
-              className="measure text-left text-base transition-colors hover:text-muted-foreground"
-            >
-              {claim.statement}
-            </button>
-            {gap && (
-              <span
-                className={cn(
-                  "shrink-0 text-small font-medium",
-                  gap.amountCr == null ? "text-muted-foreground" : "tabular",
-                )}
-              >
-                {/* §6a again: a dash here said "no number" and nothing about
-                    why. The gap is real and researched, it just has no price. */}
-                {gap.amountCr == null ? "Not priced" : money(gap.amountCr)}
-              </span>
-            )}
-          </div>
-          {/* What the claim rests on, in the form that fits one line: where it
-              came from. The full reasoning used to sit here clamped to a single
-              line — nineteen claims' worth of text in the page, two thirds of it
-              behind an ellipsis nobody can read. Cost with no benefit. The
-              reasoning is one click away in the panel, which is where a third
-              read belongs.
-              Sources are named, not chipped: nineteen rows of chips is thirty
-              more controls to skip past, and the row already opens them. */}
-          <p className="mt-0.5 truncate text-small text-muted-foreground">
-            {claim.sourceIds.length > 0 ? (
-              claim.sourceIds.map((s) => sourceById(s).name).join(", ")
-            ) : (
-              <span className="italic">Nothing attached, reasoning only</span>
-            )}
-          </p>
-        </div>
-      </div>
-    </li>
-  );
-}

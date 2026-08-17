@@ -3,21 +3,12 @@
 import { money } from "@/lib/format";
 import {
   company,
-  gapById,
   gapsForStakeholder,
-  questionsForStakeholder,
-  stakeholderById,
   stakeholders,
-  valueForStakeholder,
-} from "@/lib/suvarna";
-import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
+  valueForStakeholder } from "@/lib/suvarna";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section , type SectionRef } from "./Frames";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
-import { ConfidenceBadge } from "@/components/meridian/Confidence";
-import { Eyebrow } from "@/components/meridian/Primitives";
-import { GapRow } from "@/components/meridian/GapRow";
-import { QuestionRow } from "@/components/meridian/QuestionRow";
-import { usePanel } from "@/components/meridian/EvidencePanel";
 
 /* -------------------------------------------------------------------------- */
 /* Direction 4 — Stakeholder-first                                             */
@@ -26,105 +17,28 @@ import { usePanel } from "@/components/meridian/EvidencePanel";
 /* -------------------------------------------------------------------------- */
 
 export function StakeholderBrief() {
-  const { open } = usePanel();
-
   return (
     <BriefFrame
       actions={<RunButton label="Run research" tight />}
-      /* **The person picker is gone**, on request, and this header now draws
-         nothing but its `sr-only` heading like every other surface.
-
-         It was five chips above the direction switch, and the row it sat in was
-         the last thing in the product putting a control between the masthead
-         and the tabs that change what the page says. What it cost is worth
-         recording rather than rediscovering: Brief opens on the Head of
-         Procurement, which is who a first discovery call is with, and the other
-         three people plus the "don't know who I'm meeting" fallback are one
-         click away on Full. `verify-stakeholder.mjs` had five selections to
-         check and now has one.
-
-         Restoring it is putting `titleNode` back on this hero. */
-      hero={<SurfaceHero tight title="Research" />}
+      hero={<SurfaceHero title="Research" />}
       lead={
         <DocumentLead
-          bordered={false}
           title="Who is in the room"
-          standfirst="The same twelve gaps under every name. Order, wording and what to avoid change with the person."
+          standfirst="The same twelve findings under every name. Order, wording and what to avoid change with the person."
         />
       }
     >
-      <KnownBrief id="sh-rohan" onOpen={(id) => open({ kind: "gap", id })} />
-
+      <Section
+        id="p-brief"
+        title="Who has been met, and who owns the money"
+        summary={`Four people matter and two have been met: the Head of Procurement and the Accounts Payable Lead, on both calls. The CFO and the VP Supply Chain have not been spoken to at all, and between them they own most of the money, so getting a meeting with one of them is a better outcome from the next call than any answer the other two can give. Open with Rohan on supplier onboarding rather than on invoices, because invoices sit with Finance and leading there tells him the research was not about his function. Subtotals add to ${money(company.grossLeakageCr)}, of which ${money(company.overlapCr)} is one saving counted twice across two people, so the four columns cannot simply be added.`}
+      />
       <BriefFooter
         href="/research/stakeholder/full"
-        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
       >
         All four people
       </BriefFooter>
     </BriefFrame>
-  );
-}
-
-function KnownBrief({ id, onOpen }: { id: string; onOpen: (gapId: string) => void }) {
-  const person = stakeholderById(id);
-  const theirGaps = gapsForStakeholder(id)
-    .filter((g) => g.amountCr != null)
-    .sort((a, b) => (b.amountCr ?? 0) - (a.amountCr ?? 0))
-    .slice(0, 3);
-
-  return (
-    <>
-      <div className="shrink-0">
-        {/* Leading is 1.2, not snug. Inter's x-height makes 1.375 read loose on
-            a statement this size, and Meera's opening line is the longest of
-            the four — at snug it pushed her gaps 15px past the screen. */}
-        <p className="font-display text-lead leading-[1.2] measure sm:text-h3">
-          {person.openingLine}
-        </p>
-        <p className="mt-1 text-small text-muted-foreground">
-          {person.name} · {person.role}
-          {!person.met && " · you have not met them"}
-        </p>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <Eyebrow>
-          Hits their number: {money(valueForStakeholder(id))} of {money(company.grossLeakageCr)}
-        </Eyebrow>
-        <ul className="mt-1.5 space-y-1.5">
-          {theirGaps.map((gap) => (
-            // The third line used to be `hidden sm:block`: Rohan owns the three
-            // longest plain-language lines of anyone here and at 375 the third
-            // did not fit under his opening line. The picker's row is what it
-            // was competing with, and re-measured without it all three clear
-            // 375×667 with room to spare.
-            <li key={gap.id}>
-              <button
-                type="button"
-                onClick={() => onOpen(gap.id)}
-                className="group flex w-full items-baseline justify-between gap-3 text-left"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block text-base leading-snug transition-colors group-hover:text-muted-foreground">
-                    {gap.plainLine}
-                  </span>
-                </span>
-                <span className="tabular shrink-0 text-base font-medium">
-                  {money(gap.amountCr)}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="shrink-0 rounded-md border border-dashed border-border-strong px-3.5 py-1 sm:py-1.5">
-        <div className="text-micro font-medium text-health-watch">
-          Do not
-        </div>
-        <p className="mt-0.5 text-small measure">{person.avoid}</p>
-      </div>
-    </>
   );
 }
 
@@ -135,20 +49,23 @@ function KnownBrief({ id, onOpen }: { id: string; onOpen: (gapId: string) => voi
 
 /* -------------------------------------------------------------------------- */
 
-const SECTIONS: SectionRef[] = [
-  { id: "room", label: "The room", meta: "4 people" },
-  ...stakeholders.map((s) => ({
-    id: s.id,
-    label: s.name,
-    meta: `${gapsForStakeholder(s.id).length} gaps`,
+/* The headings this view renders, for the navigator beside it. Built from the
+   same ids the sections carry, so a heading cannot be missing from the list. */
+const STAKEHOLDER_SECTIONS: SectionRef[] = [
+  /* From the same array the sections are rendered from, in the same order. */
+  ...stakeholders.map((p) => ({
+    id: p.id,
+    label: p.name,
   })),
-  { id: "unknown", label: "If you don't know", defaultCollapsed: true },
+  { id: "unknown", label: "If you don't know who you're meeting" },
 ];
+
+const lowerFirst = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
 
 export function StakeholderFull() {
   return (
     <FullFrame
-      sections={SECTIONS}
+      sections={STAKEHOLDER_SECTIONS}
       actions={<RunButton label="Run research" />}
       hero={<SurfaceHero title="Research" />}
     >
@@ -203,90 +120,26 @@ export function StakeholderFull() {
       </header>
 
       {stakeholders.map((person) => {
-        const theirGaps = gapsForStakeholder(person.id).sort(
-          (a, b) => (b.amountCr ?? 0) - (a.amountCr ?? 0),
-        );
-        const theirQuestions = questionsForStakeholder(person.id);
         return (
           <Section
             key={person.id}
             id={person.id}
             title={person.name}
-            summary={`${person.role}${person.met ? " · met on both calls" : " · not met yet"}`}
+            summary={`${person.role}, and ${person.met ? "met on both calls" : "not met yet, so everything here is inference"}. ${gapsForStakeholder(person.id).length} of the twelve findings land on their number, worth ${money(valueForStakeholder(person.id))} a year. Open with this: ${person.openingLine} What to avoid: ${lowerFirst(person.avoid.replace(/^Do not /, "do not "))}`}
             right={
               <span className="tabular text-base font-medium text-foreground">
                 {money(valueForStakeholder(person.id))}
               </span>
             }
-          >
-            <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-card">
-              <div className="text-micro font-medium text-muted-foreground">
-                Open with
-              </div>
-              <p className="mt-1.5 text-lead leading-snug measure-lead">{person.openingLine}</p>
-            </div>
-
-            <div className="mt-4 grid gap-5 sm:grid-cols-2">
-              <div>
-                <Eyebrow>Measured on</Eyebrow>
-                <ul className="reading mt-1.5 space-y-1 text-small measure">
-                  {person.measuredOn.map((m) => (
-                    <li key={m}>{m}</li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <Eyebrow>Owns</Eyebrow>
-                <p className="reading mt-1.5 text-small measure">{person.owns.join(", ")}</p>
-              </div>
-            </div>
-
-            <p className="reading mt-4 text-small measure">
-              <span className="font-medium text-health-watch">Do not: </span>
-              <span className="text-muted-foreground">{person.avoid}</span>
-            </p>
-
-            <ul className="mt-4 divide-y divide-border border-t border-border">
-              {theirGaps.map((gap) => (
-                <GapRow key={gap.id} gap={gap} />
-              ))}
-            </ul>
-
-            {theirQuestions.length > 0 && (
-              <ol className="mt-4 border-t border-border pt-3">
-                {theirQuestions.map((q, i) => (
-                  <QuestionRow
-                    key={q.id}
-                    question={q}
-                    last={i === theirQuestions.length - 1}
-                    showTarget={false}
-                  />
-                ))}
-              </ol>
-            )}
-          </Section>
+      />
         );
       })}
 
       <Section
         id="unknown"
         title="If you don't know who you're meeting"
-        summary="The common case, and this direction's weak point. It falls back to the gaps that cross every function."
-      >
-        <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-card">
-          <div className="text-micro font-medium text-muted-foreground">
-            First question on the call
-          </div>
-          <p className="mt-1.5 text-lead leading-snug measure-lead">
-            &ldquo;Before I start, whose numbers do these land on, yours or Finance&apos;s?&rdquo;
-          </p>
-        </div>
-        <ul className="mt-4 divide-y divide-border border-t border-border">
-          {["g3", "g6", "g2"].map((id) => (
-            <GapRow key={id} gap={gapById(id)} />
-          ))}
-        </ul>
-      </Section>
+        summary={`The common case, and this direction's weak point. If you do not know who is in the room, open by asking: whose numbers do these land on, yours or Finance's? The answer picks the person above and the rest of this page becomes usable. Until it does, fall back to the findings that cross every function rather than to one owner's subtotal, because naming the wrong owner is worse than naming none. The subtotals here add to ${money(company.grossLeakageCr)}, of which ${money(company.overlapCr)} is one saving counted twice across two people, so the four columns cannot simply be added.`}
+      />
     </FullFrame>
   );
 }

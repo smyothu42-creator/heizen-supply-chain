@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CloseIcon } from "@/components/meridian/Icons";
 import { ConfidenceChip } from "@/components/meridian/Confidence";
 import { buckets, sourceById, sources, type Gap } from "@/lib/suvarna";
 import { UNIT_LABEL, type DurationUnit } from "@/lib/plan";
+import { useToast } from "./Toast";
 
 /**
  * A gap, in a form: the one the research missed, and the one it got wrong.
@@ -61,10 +62,9 @@ import { UNIT_LABEL, type DurationUnit } from "@/lib/plan";
 export function GapPanel({ gap, onClose }: { gap?: Gap; onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null);
   const first = useRef<HTMLTextAreaElement>(null);
-  const id = useId();
   const editing = gap != null;
   const [title, setTitle] = useState(gap?.title ?? "");
-  const [saved, setSaved] = useState(false);
+  const { notify } = useToast();
 
   useEffect(() => {
     first.current?.focus();
@@ -114,7 +114,13 @@ export function GapPanel({ gap, onClose }: { gap?: Gap; onClose: () => void }) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            setSaved(true);
+            /* The confirmation lands in the corner with every other one rather
+               than under the button, which on a drawer this tall is below the
+               fold as often as not. */
+            notify(editing ? "Changes saved" : "Gap added", {
+              detail: `Nothing was ${editing ? "changed" : "added"}. This is not wired up: the prototype reads one static research set.`,
+            });
+            onClose();
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
@@ -297,12 +303,6 @@ export function GapPanel({ gap, onClose }: { gap?: Gap; onClose: () => void }) {
           </div>
 
           <div className="shrink-0 space-y-2 border-t border-border px-4 py-3">
-            {saved && (
-              <p id={id} role="status" className="text-micro text-muted-foreground">
-                Nothing was {editing ? "changed" : "added"}. This is not wired up. The prototype
-                reads one static research set.
-              </p>
-            )}
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
@@ -313,7 +313,6 @@ export function GapPanel({ gap, onClose }: { gap?: Gap; onClose: () => void }) {
               </button>
               <button
                 type="submit"
-                aria-describedby={saved ? id : undefined}
                 className="rounded-full bg-primary px-3 py-1 text-small font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {editing ? "Save changes" : "Add gap"}

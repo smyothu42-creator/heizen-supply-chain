@@ -1,24 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { money } from "@/lib/format";
 import {
-  buckets,
-  bucketTotal,
   company,
-  dealRisks,
   gaps,
-  questions,
   sources,
-  stakeholders,
   systemSplit,
-  systemsByState,
-  type Gap,
-} from "@/lib/suvarna";
-import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
-import { ConfidenceBadge } from "@/components/meridian/Confidence";
-import { ArrowIcon } from "@/components/meridian/Icons";
+  type Gap } from "@/lib/suvarna";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section , type SectionRef } from "./Frames";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
 
@@ -92,7 +82,6 @@ export function AllBrief() {
 
       <BriefFooter
         href="/research/all/full"
-        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
       >
         {/* **"Every topic" named the destination; a button wants a verb.** As a
             link a noun phrase reads as a label on where you land. In a drawn box
@@ -106,15 +95,6 @@ export function AllBrief() {
 
 /* -------------------------------------------------------------------------- */
 
-const SECTIONS: SectionRef[] = [
-  { id: "a-money", label: "The money", meta: money(company.netLeakageCr) },
-  { id: "a-gaps", label: "What is wrong", meta: `${gaps.length} findings` },
-  { id: "a-tech", label: "What they run", meta: `${systemsByState("live").length} live` },
-  { id: "a-risk", label: "What could stop it", meta: `${dealRisks.length} risks` },
-  { id: "a-people", label: "Who is in the room", meta: `${stakeholders.length} people` },
-  { id: "a-ask", label: "What to ask", meta: `${questions.length} questions` },
-];
-
 /**
  * Every topic at once.
  *
@@ -123,10 +103,21 @@ const SECTIONS: SectionRef[] = [
  * with a seventh name, and the one thing this view is for — arriving with no
  * errand — is exactly the case where you do not want all of it.
  */
+/* The headings this view renders, for the navigator beside it. Built from the
+   same ids the sections carry, so a heading cannot be missing from the list. */
+const ALL_SECTIONS: SectionRef[] = [
+  { id: "a-money", label: "The money" },
+  { id: "a-gaps", label: "What is wrong" },
+  { id: "a-tech", label: "What they run" },
+  { id: "a-risk", label: "What could stop it" },
+  { id: "a-people", label: "Who is in the room" },
+  { id: "a-ask", label: "What to ask" },
+];
+
 export function AllFull() {
   return (
     <FullFrame
-      sections={SECTIONS}
+      sections={ALL_SECTIONS}
       actions={<RunButton label="Run research" />}
       hero={<SurfaceHero title="Research" />}
     >
@@ -135,135 +126,41 @@ export function AllFull() {
       <Section
         id="a-money"
         title="The money"
-        summary="What it is worth a year, split by where it leaks from."
+        summary={`Every finding added up is ${money(company.grossLeakageCr)}; the claimable figure is ${money(company.netLeakageCr)}, because ${money(company.overlapCr)} is one saving counted twice where several findings move the same invoice through the same process. Separately, ${money(company.workingCapitalReleaseCr)} of cash sits in stock that is not needed, which is a one-off release rather than an annual saving and must never be added to the line above. None of it is measured from the client's own data. Every price is modelled from a base in their filings, which is defensible line by line and is not the same thing as being right.`}
         right={<span className="tabular">{money(company.netLeakageCr)} claimable</span>}
-      >
-        <dl className="divide-y divide-border">
-          {buckets.map((b) => (
-            <div key={b.id} className="flex items-baseline justify-between gap-4 py-2">
-              <dt className="min-w-0 text-small">{b.name}</dt>
-              <dd className="tabular shrink-0 text-small font-medium">
-                {money(bucketTotal(b.id))}
-              </dd>
-            </div>
-          ))}
-        </dl>
-        <More href="/research/money/full">See how the total is built</More>
-      </Section>
+      />
 
       <Section
         id="a-gaps"
         title="What is wrong"
-        summary="The three worth opening with. Nine more sit behind them."
-      >
-        <ol className="space-y-3">
-          {HEADLINE_GAPS.map((gap, i) => (
-            <FindingCard key={gap.id} gap={gap} n={i + 1} showPrice />
-          ))}
-        </ol>
-        <More href="/gaps">All {gaps.length} findings and the plan</More>
-      </Section>
+        summary={`Twelve findings, of which three are worth opening a call with: onboarding a supplier takes 21 days, three-way match fails on 42% of invoices, and indirect spend is bought outside negotiated rates. The first is felt by a plant, the second by finance, and between them they name both halves of the room. The other nine are on the page for when they are asked for rather than to be read out. Eleven of the twelve carry a price; the twelfth does not, and that is the honest result rather than an omission.`}
+      />
 
       <Section
         id="a-tech"
         title="What they run"
         summary={`${systemSplit.insideGaps} findings sit inside software they own. The other ${systemSplit.outsideGaps} are worth ${money(systemSplit.outsideValue)}.`}
-      >
-        <dl className="divide-y divide-border">
-          {(["live", "workaround", "missing"] as const).map((state) => (
-            <div key={state} className="flex items-baseline justify-between gap-4 py-2">
-              <dt className="min-w-0 text-small">
-                {state === "live"
-                  ? "Already live"
-                  : state === "workaround"
-                    ? "Worked around"
-                    : "Never bought"}
-                <span className="ml-2 text-muted-foreground">
-                  {systemsByState(state)
-                    .map((s) => s.name)
-                    .join(", ")}
-                </span>
-              </dt>
-            </div>
-          ))}
-        </dl>
-        <More href="/research/tech/full">The whole system estate</More>
-      </Section>
+      />
 
       <Section
         id="a-risk"
         title="What could stop it"
-        summary="Each one with the line to say when it is raised."
-      >
-        <ul className="space-y-2.5">
-          {dealRisks
-            .filter((r) => r.severity === "high")
-            .map((r) => (
-              <li key={r.id}>
-                <p className="text-small">
-                  <span className="font-medium">{r.label}.</span> {r.value}
-                </p>
-                <p className="reading mt-0.5 text-small text-muted-foreground">
-                  <span className="text-evidence" aria-hidden>
-                    →{" "}
-                  </span>
-                  {r.counter}
-                </p>
-              </li>
-            ))}
-        </ul>
-        <More href="/research/risk/full">All {dealRisks.length}, with their counters</More>
-      </Section>
+        summary={`Six things that could stop the deal, each with the line to say when it is raised. Three decide it rather than delay it: the incumbent managing the SAP estate, a project that was tried in 2019 and stopped, and the fact that the process belongs to somebody who inherited it. Every one carries a counter, and that is enforced rather than encouraged. A risk with no answer beside it does not prepare a consultant, it makes them avoid the subject, and avoiding it is how the risk ends up deciding the deal after the call rather than during it.`}
+      />
 
-      <Section id="a-people" title="Who is in the room" summary="And who has not been met.">
-        <ul className="divide-y divide-border">
-          {stakeholders.map((s) => (
-            <li key={s.id} className="flex items-baseline justify-between gap-4 py-2">
-              <span className="min-w-0 text-small">
-                {s.name}
-                <span className="ml-2 text-muted-foreground">{s.role}</span>
-              </span>
-              {!s.met && (
-                <span className="shrink-0 text-small text-muted-foreground">not met</span>
-              )}
-            </li>
-          ))}
-        </ul>
-        <More href="/research/stakeholder/full">The dossier, per person</More>
-      </Section>
+      <Section id="a-people" title="Who is in the room" summary={`Four people, of whom two have been met. The Head of Procurement and the Accounts Payable Lead were on both calls. The Chief Financial Officer and the VP Supply Chain have not been spoken to at all, so everything here about either of them is inference from filings and public signal. That matters commercially rather than academically: between them those two own most of the money on the page, and the strongest outcome from the next call is a meeting with one of them rather than an answer from the people already met.`}
+      />
 
       <Section
         id="a-ask"
         title="What to ask"
-        summary="The four that can be asked today. Seven more need another meeting."
-      >
-        <ol className="space-y-1.5">
-          {questions.slice(0, 4).map((q) => (
-            <li key={q.id} className="text-small">
-              {q.text}
-            </li>
-          ))}
-        </ol>
-        <More href="/questions">All {questions.length}, in ask order</More>
-      </Section>
+        summary={`Eleven questions, of which four can be answered by the people who will be in the room. The other seven need the CFO, the VP Supply Chain or the AP lead, which is itself the finding: a call that produces a meeting with one of them has gone better than a call that produces seven half-answers. One of the four is a data request rather than a question, and it changes the register of the conversation, so it belongs at the end. It is also the most valuable thing to leave with, because every price in this dossier is modelled and the first one measured from their own data is the one that settles whether any of it is real.`}
+      />
 
       <p className="text-small text-muted-foreground">
         Everything above traces back to {sources.length} sources.
       </p>
     </FullFrame>
-  );
-}
-
-/** The way out of a section and into the direction it summarises. */
-function More({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="mt-3 inline-flex items-center gap-1.5 text-small text-evidence transition-colors hover:text-foreground"
-    >
-      {children}
-      <ArrowIcon />
-    </Link>
   );
 }
 

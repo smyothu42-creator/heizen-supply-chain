@@ -6,14 +6,21 @@
 import { chromium } from "playwright";
 
 const BASE = "http://localhost:4311";
+/* The direction slugs had gone stale: `call`, `timing` and `certainty` have not
+   existed for some time, so six of these were 404s counted as pages with very
+   few words on them. A counter measuring a not-found page reports a density
+   improvement, which is the worst possible direction for that error to run in.
+   Read off `src/lib/directions.ts` if this list ever looks doubtful again. */
 const PAGES = [
-  "/operations", "/gaps", "/questions", "/compare", "/sources",
-  "/research/money/brief", "/research/money/full",
-  "/research/call/brief", "/research/call/full",
+  "/prep", "/operations", "/gaps", "/questions", "/compare", "/sources",
+  "/research/all/brief", "/research/all/full",
+  "/research/about/brief", "/research/about/full",
+  "/research/leaks/brief", "/research/leaks/full",
+  "/research/build/brief", "/research/build/full",
   "/research/tech/brief", "/research/tech/full",
-  "/research/timing/brief", "/research/timing/full",
+  "/research/solved/brief", "/research/solved/full",
+  "/research/money/brief", "/research/money/full",
   "/research/risk/brief", "/research/risk/full",
-  "/research/certainty/brief", "/research/certainty/full",
   "/research/stakeholder/brief", "/research/stakeholder/full",
 ];
 

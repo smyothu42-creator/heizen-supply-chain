@@ -77,7 +77,7 @@ export function NavButton({
         // at the other end of the band. `size-8` clears nothing on its own, so
         // the hit area is the padding: 32px of box inside a 48px strip that the
         // strip's own height finishes off.
-        "flex size-8 shrink-0 items-center justify-center rounded-md border transition-colors xl:hidden",
+        "flex size-8 shrink-0 items-center justify-center rounded-md border transition-colors tabs-fit:hidden",
         open
           ? "border-masthead-accent bg-masthead-border text-masthead-foreground"
           : "border-masthead-border text-masthead-muted hover:border-masthead-accent hover:text-masthead-foreground",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileText, Inbox, Pencil, Trash2, Upload, X } from "lucide-react";
+import { Eye, EyeOff, FileText, Inbox, Pencil, Trash2, Upload, X } from "lucide-react";
 import {
   claims,
   dealRisks,
@@ -9,9 +9,9 @@ import {
   sources,
   timingSignals,
   type Source,
-  type SourceKind,
 } from "@/lib/suvarna";
-import { FILE_ACCEPT, REPLACE_ACCEPT, fileSize } from "@/lib/files";
+import { cn } from "@/lib/cn";
+import { FILE_ACCEPT, fileSize } from "@/lib/files";
 import { money } from "@/lib/format";
 import { initialsOf } from "@/lib/projects";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
@@ -22,20 +22,10 @@ import { usePanel } from "@/components/meridian/EvidencePanel";
 import { EmailIcon, FilingIcon, TranscriptIcon, WebIcon } from "@/components/meridian/Icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { SelectNative } from "@/components/ui/select-native";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ConfirmDialog, Field, Said } from "@/components/workspace/Form";
+import { ConfirmDialog } from "@/components/workspace/Form";
+import { useToast } from "@/components/shell/Toast";
 import { ProjectDialog } from "@/components/workspace/ProjectDialog";
 
 /**
@@ -107,12 +97,43 @@ const KIND_ICON = {
  * the badge quietly goes stale in the direction that reads as a fault.
  */
 function citations(id: string) {
-  return (
-    gaps.flatMap((g) => g.evidence).filter((e) => e.sourceId === id).length +
-    claims.filter((c) => c.sourceIds.includes(id)).length +
-    timingSignals.flatMap((s) => s.items).filter((i) => i.sourceId === id).length +
-    dealRisks.filter((r) => r.sourceIds.includes(id)).length
-  );
+  const b = breakdown(id);
+  return b.findings + b.claims + b.signals + b.risks;
+}
+
+/**
+ * The same count, split by what came out of it.
+ *
+ * A single number cannot tell a transcript that produced four findings from one
+ * that merely corroborates four claims somebody else made, and those are
+ * opposite readings of how useful the document was: the first is where the
+ * pipeline found something, the second is where it checked something. On a
+ * surface whose whole job is *what have we read and what did it give us*, that
+ * distinction is the content.
+ *
+ * **A finding counts once per source, not once per excerpt.** Three quotes from
+ * one call supporting one gap is one finding detected, and reporting it as
+ * three was the count reading as productivity rather than as evidence.
+ */
+function breakdown(id: string) {
+  return {
+    findings: gaps.filter((g) => g.evidence.some((e) => e.sourceId === id)).length,
+    claims: claims.filter((c) => c.sourceIds.includes(id)).length,
+    signals: timingSignals.filter((s) => s.items.some((i) => i.sourceId === id)).length,
+    risks: dealRisks.filter((r) => r.sourceIds.includes(id)).length,
+  };
+}
+
+/** What the row says it gave us, in words rather than as a total. */
+function drawnLabel(id: string): string {
+  const b = breakdown(id);
+  const parts = [
+    b.findings && `${b.findings} ${b.findings === 1 ? "finding" : "findings"}`,
+    b.claims && `${b.claims} ${b.claims === 1 ? "claim" : "claims"}`,
+    b.signals && `${b.signals} ${b.signals === 1 ? "signal" : "signals"}`,
+    b.risks && `${b.risks} ${b.risks === 1 ? "risk" : "risks"}`,
+  ].filter(Boolean) as string[];
+  return parts.join(" · ");
 }
 
 export function SourcesView() {
@@ -125,25 +146,25 @@ export function SourcesView() {
      the single source of truth. */
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<Source | null>(null);
-  /* An overlay on the fixture, keyed by id, for the same reason removal is a
-     `Set`: the edited record wins where there is one and `sources` stays the
-     single source of truth underneath. */
-  const [edits, setEdits] = useState<Record<string, Source>>({});
-  const [editing, setEditing] = useState<Source | null>(null);
-  const [said, setSaid] = useState("");
-  /* Focus goes back to the pencil that opened the dialog, by hand. Radix
-     restores focus to its own trigger, and this dialog is unmounted on close
-     rather than held open by a prop — so there is nothing left to restore from
-     and the caret lands on `<body>`. The row hands its own button up through
-     the click, because there is one per row and a ref per row is a map kept in
-     step with a list that filters under it. */
-  const lastEditTrigger = useRef<HTMLElement | null>(null);
-  const closeEditor = () => {
-    setEditing(null);
-    lastEditTrigger.current?.focus();
-  };
+  /**
+   * Switched off, and still on the list.
+   *
+   * A source that is wrong is not the same as a source that should never have
+   * been here, and the list only had the second control. The draft filing, the
+   * machine transcript before it was corrected, the call somebody wants out of
+   * the next run: all of those are documents you want to stop feeding the
+   * research without losing the record that they were read.
+   *
+   * **It says what it does and no more** — the same doctrine as the connectors
+   * and `RunButton`. Nothing here re-reads anything, so a switched-off source
+   * does not retract the claims that already cite it. What it changes is what
+   * the next run would read, and the row and the status line both say so rather
+   * than implying the research just moved underneath the reader.
+   */
+  const [off, setOff] = useState<Set<string>>(new Set());
+  const { notify } = useToast();
 
-  const shown = sources.filter((s) => !removed.has(s.id)).map((s) => edits[s.id] ?? s);
+  const shown = sources.filter((s) => !removed.has(s.id));
 
   return (
     <>
@@ -158,22 +179,19 @@ export function SourcesView() {
           667px phone and most of the room the list has to be read in. On a
           window that cannot afford it the block stays in the flow. */}
       <StickyBar from="lg" className="pt-5 pb-3">
-        <ProjectStrip onSaved={(name) => setSaid(`${name} saved. The change lives in this tab only.`)} />
-
-        {said && (
-          <div className="mt-3">
-            <Said>{said}</Said>
-          </div>
-        )}
+        <ProjectStrip
+          onSaved={(name) => notify(`${name} saved`, { detail: "The change lives in this tab only." })}
+        />
 
         <div className="mt-5">
           <Ingest />
         </div>
       </StickyBar>
 
-      <div className="surface-frame pb-5">
-
-        <section className="mt-5" aria-labelledby="ingested-heading">
+      <div className="surface-frame under-bar pb-5">
+        {/* No `mt-5` of its own. The gap under the bar is `.under-bar`'s, the
+            same on every surface. */}
+        <section aria-labelledby="ingested-heading">
           {/* Heading on the left, count on the right, both on the baseline.
               The count is the length of what is shown rather than a word: a
               number written out is a number that goes stale the first time the
@@ -193,17 +211,26 @@ export function SourcesView() {
               {shown.map((source) => {
                 const Icon = KIND_ICON[source.kind];
                 const cited = citations(source.id);
+                const disabled = off.has(source.id);
                 return (
                   /* **A row, not a button.** The remove control is a sibling of
                      the thing that opens the panel, because a button inside a
                      button is invalid markup that browsers repair by moving the
                      inner one out of the row. Same shape `GapRow` needed when
                      its edit control arrived. */
+                  /* A switched-off row stays in place and goes quiet: it is
+                     still a document that was read, and dropping it down the
+                     list or hiding it would answer a question nobody asked. The
+                     dimming is on the button rather than the row, so the
+                     controls keep their own contrast. */
                   <div key={source.id} className="group flex items-center transition-colors hover:bg-muted">
                     <button
                       type="button"
                       onClick={() => open({ kind: "source", id: source.id })}
-                      className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 text-left"
+                      className={cn(
+                        "flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 text-left transition-opacity",
+                        disabled && "opacity-55",
+                      )}
                     >
                       {/* The kind, as a tile rather than a bare glyph. A 36px
                           muted square gives every row the same left edge
@@ -229,37 +256,61 @@ export function SourcesView() {
                           so nine identical *Ingested* chips would be nine marks
                           saying nothing. What does differ is whether anything
                           has been drawn from it. */}
-                      {cited > 0 ? (
-                        <Badge variant="secondary">{cited} citations</Badge>
+                      {disabled ? (
+                        /* The badge slot carries the one thing that differs row
+                           to row, so on a switched-off row it carries that
+                           instead of the tally: what it gave us is no longer the
+                           useful fact about it. */
+                        <Badge variant="neutral">Off, left out of the next run</Badge>
+                      ) : cited > 0 ? (
+                        <Badge variant="secondary">{drawnLabel(source.id)}</Badge>
                       ) : (
-                        <Badge variant="neutral">Nothing cited yet</Badge>
+                        <Badge variant="neutral">Read, nothing drawn from it</Badge>
                       )}
                     </button>
-                    {/* **Always visible, not revealed on hover.** A hover-reveal
-                        is the quieter list and puts the control out of reach of
-                        every touch device, which is the phone this surface is
-                        read on. The same trade `GapRow`'s edit control records,
-                        and the same mitigation: ghosts rather than labelled
-                        buttons.
+                    {/* **Always visible, not revealed on hover.** A
+                        hover-reveal is the quieter list and puts the control out
+                        of reach of every touch device, which is the phone this
+                        surface is read on. The same trade `GapRow`'s edit
+                        control records, and the same mitigation: ghosts rather
+                        than labelled buttons.
 
-                        **Edit is what a row of ingested documents was missing.**
-                        A name and a date come off a filename and a header, and
-                        both are routinely wrong: *Discovery call 2* is the third
-                        call, a scan's date is the day it was scanned. What the
-                        row says is what the whole evidence chain shows at its
-                        bottom end, so a mis-titled source is a mis-labelled
-                        citation on every claim that rests on it. */}
+                        **Switch off, and remove.** Editing a source's name and
+                        date lived here and has gone on request, along with the
+                        dialog behind it. What replaced it answers the question
+                        that was actually being asked of this list: a document
+                        that turns out to be the wrong draft, or a call nobody
+                        wants counted, should stop feeding the research without
+                        leaving it. Removing it is still there for a document
+                        that should never have been dropped in. */}
                     <div className="mr-2 ml-1 flex shrink-0 items-center">
                       <button
                         type="button"
-                        onClick={(e) => {
-                          lastEditTrigger.current = e.currentTarget;
-                          setEditing(source);
+                        onClick={() => {
+                          setOff((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(source.id)) next.delete(source.id);
+                            else next.add(source.id);
+                            return next;
+                          });
+                          notify(
+                            disabled
+                              ? `${source.name} switched back on`
+                              : `${source.name} switched off`,
+                            {
+                              detail: disabled
+                                ? "It is read again on the next run."
+                                : cited > 0
+                                  ? `${cited} things still cite it and keep their claim. It is left out of the next run.`
+                                  : "Nothing cites it, so nothing else changes.",
+                            },
+                          );
                         }}
-                        aria-label={`Edit ${source.name}`}
+                        aria-pressed={disabled}
+                        aria-label={disabled ? `Switch ${source.name} back on` : `Switch off ${source.name}`}
                         className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        <Pencil className="size-4" />
+                        {disabled ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
                       </button>
                       <button
                         type="button"
@@ -294,35 +345,11 @@ export function SourcesView() {
           onConfirm={() => {
             if (!pending) return;
             setRemoved((r) => new Set(r).add(pending.id));
-            setSaid(`${pending.name} removed from this view.`);
+            notify(`${pending.name} removed`, { detail: "It is gone from this view only." });
             setPending(null);
           }}
         />
 
-        {/* Mounted and unmounted, with `key={editing.id}`, so opening a second
-            row does not arrive holding the first row's text. Same shape
-            `GapPanel` and `ProjectDialog` need, and the same reason: resetting
-            a form on an `open` prop is a `setState` inside an effect. */}
-        {editing && (
-          <SourceDialog
-            key={editing.id}
-            source={editing}
-            onOpenChange={(v) => !v && closeEditor()}
-            /* The replacement is named in the status line rather than swallowed.
-               A file that is attached and never mentioned again is the shape of
-               control this product refuses everywhere else: the consultant has
-               to know the quotes below still come from the copy that was read. */
-            onSave={(next, replacement) => {
-              setEdits((e) => ({ ...e, [next.id]: next }));
-              setSaid(
-                replacement
-                  ? `${next.name} saved, with ${replacement.name} attached. Not ingested: the quotes still come from the document that was read.`
-                  : `${next.name} saved. The change lives in this view only.`,
-              );
-              closeEditor();
-            }}
-          />
-        )}
       </div>
     </>
   );
@@ -421,281 +448,6 @@ function ProjectStrip({ onSaved }: { onSaved: (name: string) => void }) {
 
 /* -------------------------------------------------------------------------- */
 
-const KIND_LABEL: Record<SourceKind, string> = {
-  filing: "Filing",
-  transcript: "Transcript",
-  email: "Email",
-  web: "Web",
-};
-
-/**
- * A source, corrected — and, now, replaced.
- *
- * **What is editable is what somebody typed about the document, plus the
- * document itself. Never what the document says.** The name, the kind, the date
- * and the meta line are a filename and a header read by a machine, and all four
- * are routinely wrong in ways only a person in the room can fix. The excerpts
- * are the evidence, and §5's rule against hand-editing output is about exactly
- * those: a quote a consultant can retype is a chain that no longer walks
- * backwards.
- *
- * **The document is a third thing, and swapping it is not editing a claim.** A
- * source arrives wrong more often than its label does: the draft filing rather
- * than the signed one, the machine transcript before it was corrected, the
- * forwarded thread without its attachment. Replacing it changes what the
- * pipeline would read, which is the honest way to fix a bad reading — the other
- * way is retyping the excerpt, which is what the rule forbids.
- *
- * **The control follows the kind, which is what makes it usable.** Three kinds
- * are files handed to us and get a picker offering what that kind arrives as
- * (`REPLACE_ACCEPT`); `web` is an address rather than a file and gets a URL
- * box. One control that took anything would be a file picker offered for a web
- * page and an `.eml` filter offered for an annual report.
- */
-function SourceDialog({
-  source,
-  onOpenChange,
-  onSave,
-}: {
-  source: Source;
-  onOpenChange: (v: boolean) => void;
-  onSave: (next: Source, replacement: File | null) => void;
-}) {
-  const [draft, setDraft] = useState<Source>(source);
-  const [file, setFile] = useState<File | null>(null);
-  const [error, setError] = useState("");
-
-  const set = (patch: Partial<Source>) => setDraft((d) => ({ ...d, ...patch }));
-
-  /* Read out as a `const` rather than tested inline, because narrowing a
-     *property* does not survive into a closure and the picker's `accept` is
-     read inside `Field`'s render callback. A local const does survive, and it
-     is also the thing the branch below is actually about: this kind is a file,
-     or it is not. */
-  const fileKind = draft.kind === "web" ? null : draft.kind;
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!draft.name.trim()) {
-      setError("A source is cited by its name. It needs one.");
-      return;
-    }
-    onSave(
-      {
-        ...draft,
-        name: draft.name.trim(),
-        date: draft.date.trim(),
-        detail: draft.detail.trim(),
-        url: draft.url?.trim() || undefined,
-      },
-      file,
-    );
-  };
-
-  return (
-    <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Edit source</DialogTitle>
-          <DialogDescription>
-            How it is filed, and the document behind it. What is quoted from it is not
-            edited here.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={submit} className="contents">
-          <DialogBody>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Name" required error={error} className="sm:col-span-2">
-                {(id) => (
-                  <Input
-                    id={id}
-                    value={draft.name}
-                    onChange={(e) => set({ name: e.target.value })}
-                    placeholder="FY25 Annual Report"
-                    autoFocus
-                  />
-                )}
-              </Field>
-
-              {/* A native `<select>`, for the reason `SelectField` is one: it is
-                  keyboard-operable and screen-reader correct for free, and on a
-                  phone it opens the platform's own picker. The kind is not
-                  cosmetic — it picks the icon on the row and in every evidence
-                  chain that cites this document. */}
-              <Field label="Kind">
-                {(id) => (
-                  <SelectNative
-                    id={id}
-                    value={draft.kind}
-                    /* A picked file is dropped when the kind changes. The
-                       picker below offers a different set of extensions per
-                       kind, so a `.eml` chosen while this said Email and then
-                       carried into Filing is a file the form would not have let
-                       you pick in the first place. Clearing it is the only
-                       reading that stays true to what is on screen. */
-                    onChange={(e) => {
-                      set({ kind: e.target.value as SourceKind });
-                      setFile(null);
-                    }}
-                  >
-                    {(Object.keys(KIND_LABEL) as SourceKind[]).map((k) => (
-                      <option key={k} value={k}>
-                        {KIND_LABEL[k]}
-                      </option>
-                    ))}
-                  </SelectNative>
-                )}
-              </Field>
-
-              {/* Free text and not a date input, which is the honest shape here
-                  rather than a shortcut: these dates are written the way the
-                  product reads them out — `27 June 2026` — and several sources
-                  are a range or a period rather than a day. A date picker would
-                  force a precision the document does not have. */}
-              <Field label="Date">
-                {(id) => (
-                  <Input
-                    id={id}
-                    value={draft.date}
-                    onChange={(e) => set({ date: e.target.value })}
-                    placeholder="27 June 2026"
-                  />
-                )}
-              </Field>
-
-              <Field
-                label="What it is"
-                className="sm:col-span-2"
-                hint="The line under the name. Kind, size and who it came from."
-              >
-                {(id) => (
-                  <Input
-                    id={id}
-                    value={draft.detail}
-                    onChange={(e) => set({ detail: e.target.value })}
-                    placeholder="Public filing · 148 pages · fully ingested"
-                  />
-                )}
-              </Field>
-
-              {/* ------------------------------------------- the source itself
-
-                  **The one field on this form that is the document rather than
-                  a fact about it**, and the only one whose control changes with
-                  the kind above it. A web source is an address you can open; a
-                  filing, a transcript and an email are files somebody handed
-                  us, and the picker narrows to what that kind arrives as rather
-                  than offering the whole ingestion list. */}
-              {fileKind === null ? (
-                <Field
-                  label="Address"
-                  className="sm:col-span-2"
-                  hint="Where this reads from. The one kind of source that is a link rather than a file."
-                >
-                  {(id) => (
-                    /* `type="url"`, so a phone keyboard offers a slash and a
-                       dot rather than a space bar, and the browser's own
-                       validation catches a sentence typed into it. */
-                    <Input
-                      id={id}
-                      type="url"
-                      inputMode="url"
-                      value={draft.url ?? ""}
-                      onChange={(e) => set({ url: e.target.value })}
-                      placeholder="https://suvarnaagro.in/careers"
-                    />
-                  )}
-                </Field>
-              ) : (
-                <Field label="Replace the document" className="sm:col-span-2">
-                  {(id) => (
-                    <>
-                      {/* A real `<input type="file">` wearing the product's
-                          field, like the ingestion card's. **Quieter than that
-                          one on purpose**: there the dashed cyan box is the
-                          work the surface exists for and should pull the eye,
-                          here it is one optional field among five and painting
-                          it in the accent would make replacing a document look
-                          like the point of the dialog.
-
-                          `e.target.value = ""` after a pick is what lets the
-                          same file be chosen twice, which matters on the
-                          corrected-and-re-exported transcript this is for. */}
-                      <input
-                        id={id}
-                        type="file"
-                        accept={REPLACE_ACCEPT[fileKind]}
-                        onChange={(e) => {
-                          setFile(e.target.files?.[0] ?? null);
-                          e.target.value = "";
-                        }}
-                        className="block w-full cursor-pointer rounded-md border border-border bg-card px-3 py-2 text-small file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-small file:font-medium file:text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      />
-                      {/* The hint is written here rather than passed to
-                          `Field`, which renders it after everything else: with
-                          a file picked it landed *under* the picked row, so the
-                          line saying what may be chosen sat below the thing
-                          that had been. */}
-                      <p className="mt-1.5 text-micro text-muted-foreground">
-                        Optional. {KIND_LABEL[fileKind].toLowerCase()} files only.
-                      </p>
-                      {file && (
-                        /* Named, sized and removable. A picked file that shows
-                            only in the picker's own grey text is one the reader
-                            cannot undo without closing the dialog. */
-                        <div className="mt-2 flex items-center gap-3 rounded-md border border-border bg-muted px-3 py-2">
-                          <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                          <span className="min-w-0 flex-1 truncate text-small">{file.name}</span>
-                          <span className="shrink-0 tabular text-micro text-muted-foreground">
-                            {fileSize(file.size)}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setFile(null)}
-                            aria-label={`Do not replace with ${file.name}`}
-                            className="-mr-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          >
-                            <X className="size-4" />
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </Field>
-              )}
-            </div>
-
-            {/* Shown rather than left out. An absence reads as an oversight,
-                and the next revision puts a box around it. Same call the gap
-                drawer makes about *why we believe it*.
-
-                **It says what replacing does and does not do**, because the
-                honest answer changed the moment the document became swappable:
-                a new file is attached here and nothing re-reads it, so every
-                excerpt still comes from the copy the pipeline saw. Labelled
-                honestly, like the connectors and `RunButton`. */}
-            <p className="mt-4 rounded-md border border-dashed border-border px-3 py-2 text-micro text-muted-foreground">
-              The excerpts quoted from this source are not editable. Swapping the document
-              here does not re-read it: the quotes stay as they are until the research is run
-              again. To correct what was drawn from it, ask Helix.
-            </p>
-          </DialogBody>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">Save changes</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
 /**
  * The ingestion card: pick files across several passes, or paste text, then
  * commit the set in one go.
@@ -707,7 +459,7 @@ function SourceDialog({
 function Ingest() {
   const [files, setFiles] = useState<File[]>([]);
   const [text, setText] = useState("");
-  const [said, setSaid] = useState("");
+  const { notify } = useToast();
   const input = useRef<HTMLInputElement>(null);
 
   const nothingToSend = files.length === 0 && text.trim() === "";
@@ -769,7 +521,6 @@ function Ingest() {
               const picked = Array.from(e.target.files ?? []);
               if (picked.length) setFiles((f) => [...f, ...picked]);
               e.target.value = "";
-              setSaid("");
             }}
             className="block w-full cursor-pointer rounded-lg border border-dashed border-evidence bg-evidence-muted px-3 py-3 text-small file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-small file:font-medium file:text-primary-foreground hover:file:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
@@ -816,7 +567,6 @@ function Ingest() {
             value={text}
             onChange={(e) => {
               setText(e.target.value);
-              setSaid("");
             }}
             placeholder="Paste notes, a transcript, or an email thread"
           />
@@ -827,19 +577,17 @@ function Ingest() {
       </Tabs>
 
       <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
-        {/* `aria-live`, because the button does not change and the only sign
-            anything happened is this line. Same reason `SaveMenu` names the file
-            it wrote in a `role="status"`. */}
-        <p aria-live="polite" className="min-w-0 flex-1 text-small text-muted-foreground">
-          {said}
-        </p>
+        {/* The confirmation goes to the corner with every other one. The button
+            does not change when it is pressed, so without something saying so
+            the press looks swallowed: that used to be a line beside it and is
+            now the toast, which is in the same place on every surface. */}
         <Button
           type="button"
           disabled={nothingToSend}
           onClick={() =>
-            setSaid(
-              `${files.length + (text.trim() ? 1 : 0)} ready. Ingestion is not wired up: this prototype reads one research set.`,
-            )
+            notify(`${files.length + (text.trim() ? 1 : 0)} ready to ingest`, {
+              detail: "Ingestion is not wired up. This prototype reads one research set.",
+            })
           }
         >
           Ingest selected sources

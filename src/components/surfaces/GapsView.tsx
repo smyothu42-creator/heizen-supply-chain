@@ -2,12 +2,20 @@
 
 import { useMemo, useRef, useState } from "react";
 import {
-  buckets,
   gapById,
   gaps,
   missingPrerequisites,
   sequenceWaves,
+  DOMAIN_LABEL,
+  LENS_LABEL,
+  TAG_LABEL,
+  gapDomains,
+  gapTags,
   type Gap,
+  type QuestionDomain,
+  type QuestionLens,
+  type QuestionTag,
+  type Tier,
 } from "@/lib/suvarna";
 import {
   NO_EDITS,
@@ -25,6 +33,7 @@ import {
 } from "@/lib/plan";
 import { cn } from "@/lib/cn";
 import { GapRow } from "@/components/meridian/GapRow";
+import { TIER_LABEL } from "@/components/meridian/Confidence";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
 import { NewGapButton } from "@/components/shell/NewGapButton";
@@ -35,7 +44,8 @@ import { StickyBar } from "@/components/shell/StickyBar";
 import { useMastheadVisible } from "@/components/shell/useScrollDirection";
 import { DateField } from "@/components/shell/DateField";
 import { ToggleField } from "@/components/shell/ToggleField";
-import { EditIcon } from "@/components/meridian/Icons";
+import { EditIcon, SortIcon } from "@/components/meridian/Icons";
+import { SaveButton } from "@/components/shell/SavedProvider";
 import { Panel } from "@/components/meridian/Primitives";
 import { Checkbox } from "@/components/shell/Checkbox";
 
@@ -56,6 +66,14 @@ import { Checkbox } from "@/components/shell/Checkbox";
 
 type Sort = "effort" | "confidence" | "sequence";
 
+/** The words the icon-only control cannot show. They are the accessible name,
+ *  the tooltip and the option list, so all three say the same thing. */
+const ORDER_LABEL: Record<Sort, string> = {
+  sequence: "Sequence",
+  effort: "Effort",
+  confidence: "How sure",
+};
+
 const EFFORT_RANK = { Low: 0, Medium: 1, High: 2 } as const;
 const TIER_RANK = { confirmed: 0, inferred: 1, unverified: 2 } as const;
 
@@ -73,7 +91,52 @@ const SEQUENCE_RANK = new Map(
 
 export function GapsView() {
   const [sort, setSort] = useState<Sort>("sequence");
-  const [bucketFilter, setBucketFilter] = useState<string | null>(null);
+  /**
+   * The same three filters Questions carries, plus the one this surface cannot
+   * do without.
+   *
+   * Domain, Tag and Kind are the row a consultant already knows from the other
+   * surface, on the same axes and in the same order, so the vocabulary is
+   * learned once. **How sure** is the fourth and is particular to a finding:
+   * a question is worth asking whatever we know, but a finding that rests on
+   * one remark in one call is one you do not say out loud, and narrowing to
+   * *confirmed* is how you decide what is safe to lead with.
+   *
+   * Area went to make room. It was the four money buckets, which is a cut of
+   * the same business that Domain makes more finely and that Money owns
+   * anyway; `bucketId` is untouched in the data and still builds that surface.
+   *
+   * `null` for "all" rather than a sentinel, so the list code never has to know
+   * which value means unfiltered.
+   */
+  const [domain, setDomain] = useState<QuestionDomain | null>(null);
+  const [tag, setTag] = useState<QuestionTag | null>(null);
+  const [lens, setLens] = useState<QuestionLens | null>(null);
+  const [tier, setTier] = useState<Tier | null>(null);
+  const filtered = domain !== null || tag !== null || lens !== null || tier !== null;
+  /**
+   * **The surface opens on the findings that have something behind them**, on
+   * request, and the rest are one press away.
+   *
+   * Four of the twelve are reasoned from sector structure rather than observed
+   * in a source, and they are not the same kind of object as the other eight: a
+   * consultant leading a call with one of them is asserting something nobody
+   * has checked. §7.5 already says the product must state how sure it is; this
+   * takes the next step and stops putting the two kinds in one undifferentiated
+   * list of twelve, which is what made *how sure* a thing you had to go and
+   * look up per row rather than a property of the list you are reading.
+   *
+   * **It is a default, not a rule.** The four are counted in words at the foot
+   * of the list with a control that brings them back, because §7.14 applies
+   * here exactly as it applies to a total: a list that quietly shows eight of
+   * twelve is a list that lies about what was found.
+   *
+   * The *How sure* dropdown wins whenever it is set to anything — asking for
+   * inferred findings and being shown none would be the control not working.
+   */
+  const [showAll, setShowAll] = useState(false);
+  const evidencedOnly = !showAll && tier === null;
+  const hidden = gaps.filter((g) => g.tier !== "confirmed").length;
   /* **Plan mode is off by default**, on request. Gaps opens as what it is:
      twelve findings and what each needs first. The plan is the conversation
      you have after that one has gone well, so it is a thing you turn on rather
@@ -103,14 +166,28 @@ export function GapsView() {
   };
 
   const visible = useMemo(() => {
-    const list = bucketFilter ? gaps.filter((g) => g.bucketId === bucketFilter) : [...gaps];
+    const list = gaps.filter(
+      (g) =>
+        (!domain || g.domain === domain) &&
+        (!tag || g.tags.includes(tag)) &&
+        (!lens || g.lens === lens) &&
+        (!tier || g.tier === tier) &&
+        (!evidencedOnly || g.tier === "confirmed"),
+    );
     return list.sort((a, b) => {
       if (sort === "effort")
         return EFFORT_RANK[a.effort] - EFFORT_RANK[b.effort] || a.rank - b.rank;
       if (sort === "confidence") return TIER_RANK[a.tier] - TIER_RANK[b.tier] || a.rank - b.rank;
       return (SEQUENCE_RANK.get(a.id) ?? 0) - (SEQUENCE_RANK.get(b.id) ?? 0);
     });
-  }, [sort, bucketFilter]);
+  }, [sort, domain, tag, lens, tier, evidencedOnly]);
+
+  const clear = () => {
+    setDomain(null);
+    setTag(null);
+    setLens(null);
+    setTier(null);
+  };
 
   const toggle = (id: string) => {
     setPlan((prev) => {
@@ -133,7 +210,7 @@ export function GapsView() {
 
   return (
     <>
-      <SurfaceHero title="Gaps" />
+      <SurfaceHero title="Gaps & problems" />
       {/* **The settings row is pinned while the list scrolls**, on request, and
           twelve rows plus a plan panel is exactly the length that makes it
           worth it: Order and Area decide what is in the list, and a control you
@@ -175,52 +252,136 @@ export function GapsView() {
             carries it instead: settings at the reading edge, buttons at the far
             end. `self-center` on them, because the row is `items-stretch` for
             the divider's sake and a stretched button is a 40px slab. */}
-        <div className="flex flex-wrap items-stretch gap-x-6 gap-y-2">
+        {/* **16px between the controls, not 24**, on request. The row holds six
+            things now — a sort, four filters and a mode — and at 24 the rules
+            floated in the middle of a gap rather than marking a boundary
+            between two neighbours. A divider needs very little space to be read
+            as one, which is the same measurement the Research group row
+            arrived at. */}
+        <div className="flex flex-wrap items-stretch gap-x-4 gap-y-2">
+          {/* **Sorting is icon-only**, on request. It is the one control on this
+              row that is not a filter — Domain, Tag, Kind and How sure decide
+              *which* findings are listed, this decides only the order — and at
+              36px square it stops competing with the four boxes beside it.
+
+              **A real `<select>` at zero opacity, laid over the icon**, which is
+              the trick `DateField` uses on the plan panel. The element keeps its
+              place in the tab order, its screen-reader semantics and the
+              platform's own picker on a phone; what is presented is a button.
+              The moment this becomes a `<button>` pretending to be a select, all
+              three of those have to be rebuilt by hand.
+
+              **The cost, so it stays a decision.** Twelve findings in one order
+              look exactly like twelve findings in another, so with the value off
+              the face there is nothing on screen saying which way the list runs.
+              Three things carry it instead: the accessible name and the tooltip
+              both name the current order, and a dot appears on the icon whenever
+              it is not the default. That is the same affordance the Clear button
+              uses — mark the state that is unusual, not the one that is. */}
+          <div className="relative flex size-9 shrink-0 items-center justify-center self-center">
+            <select
+              aria-label={`Order: ${ORDER_LABEL[sort]}`}
+              title={`Order: ${ORDER_LABEL[sort]}`}
+              value={sort}
+              onChange={(e) => setSort(e.target.value as Sort)}
+              className="peer absolute inset-0 z-10 cursor-pointer opacity-0"
+            >
+              <option value="sequence">Sequence</option>
+              <option value="effort">Effort</option>
+              <option value="confidence">How sure</option>
+            </select>
+            <span
+              aria-hidden
+              className="pointer-events-none flex size-9 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-card transition-colors peer-hover:border-border-strong peer-hover:text-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background"
+            >
+              <SortIcon />
+              {/* Only while the order is not the default. A mark on every state
+                  is a mark that says nothing. */}
+              {/* A badge on the corner, deliberately overhanging with a ring in
+                  the page colour: at `rounded-md` a dot placed 6px inside sits
+                  exactly on the curve and reads as clipped. */}
+              {sort !== "sequence" && (
+                <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-foreground ring-2 ring-background" />
+              )}
+            </span>
+          </div>
+          <span className="hidden w-px shrink-0 self-stretch bg-border sm:block" aria-hidden />
+          {/* Domain, Tag, Kind: the same three, in the same order, with the same
+              rules between them as Questions. Two surfaces that filter the same
+              way should not disagree about what the controls are called or how
+              they are spaced. */}
           <SelectField
-            label="Order"
-            value={sort}
-            onChange={(v) => setSort(v as Sort)}
+            label="Domain"
+            value={domain ?? "all"}
+            onChange={(v) => setDomain(v === "all" ? null : (v as QuestionDomain))}
             options={[
-              ["sequence", "Sequence"],
-              ["effort", "Effort"],
-              ["confidence", "How sure"],
+              ["all", "All"],
+              ...gapDomains.map((d) => [d, DOMAIN_LABEL[d]] as [string, string]),
             ]}
           />
-          {/* The same rule Research puts between Direction and Detail, and for
-              the same reason: two settings side by side read as one four-item
-              strip, and space alone has to be a lot of space to say otherwise.
-              A `w-px` rule says it outright.
-
-              `self-stretch` rather than a fixed height, so it runs the height of
-              the select boxes and reads as a boundary between two controls
-              rather than a tick floating beside them. That needs the row to be
-              `items-stretch`; on `items-center` a self-stretched child has
-              nothing to stretch to and the rule collapses to nothing.
-
-              It hides when the row wraps, because a vertical rule between two
-              stacked things is pointing the wrong way. */}
           <span className="hidden w-px shrink-0 self-stretch bg-border sm:block" aria-hidden />
           <SelectField
-            label="Area"
-            value={bucketFilter ?? "all"}
-            onChange={(v) => setBucketFilter(v === "all" ? null : v)}
-            options={[["all", "All"], ...buckets.map((b) => [b.id, b.name] as [string, string])]}
+            label="Tag"
+            value={tag ?? "all"}
+            onChange={(v) => setTag(v === "all" ? null : (v as QuestionTag))}
+            options={[
+              ["all", "All"],
+              ...gapTags.map((t) => [t, TAG_LABEL[t]] as [string, string]),
+            ]}
           />
-          {/* A third rule, on request, and it is doing more work than the first
-              one: Order and Area are two of a kind, and this separates both of
-              them from a control that is not a filter at all. Order and Area
-              change *which* gaps are listed; Plan changes whether there is a
-              second column on the page. */}
+          <span className="hidden w-px shrink-0 self-stretch bg-border sm:block" aria-hidden />
+          <SelectField
+            label="Kind"
+            value={lens ?? "all"}
+            onChange={(v) => setLens(v === "all" ? null : (v as QuestionLens))}
+            options={[
+              ["all", "All"],
+              ["business", LENS_LABEL.business],
+              ["technical", LENS_LABEL.technical],
+            ]}
+          />
+          <span className="hidden w-px shrink-0 self-stretch bg-border sm:block" aria-hidden />
+          {/* The fourth, and the one Questions has no use for: how sure we are
+              is what decides whether a finding may be said out loud. */}
+          <SelectField
+            label="How sure"
+            value={tier ?? "all"}
+            onChange={(v) => setTier(v === "all" ? null : (v as Tier))}
+            options={[
+              ["all", "All"],
+              ["confirmed", TIER_LABEL.confirmed],
+              ["inferred", TIER_LABEL.inferred],
+              ["unverified", TIER_LABEL.unverified],
+            ]}
+          />
+          {/* A rule, on request, and it is doing more work than the first one:
+              the three settings to its left are filters, and this separates all
+              of them from a control that is not one. They change *which* gaps
+              are listed; Plan changes whether there is a second column on the
+              page. */}
           <span className="hidden w-px shrink-0 self-stretch bg-border sm:block" aria-hidden />
           <ToggleField label="Plan" checked={planMode} onChange={setPlanMode} />
           <div className="ml-auto flex shrink-0 items-center gap-2 self-center">
+            {/* Only while a filter is on, and it says how many of the twelve
+                survived it. A filtered list that does not say it is filtered is
+                how a consultant walks into a call believing there are four
+                findings. Same control, same words as Questions. */}
+            {filtered && (
+              <button
+                type="button"
+                onClick={clear}
+                className="whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1.5 text-micro font-medium text-muted-foreground shadow-card transition-colors hover:border-border-strong hover:bg-muted hover:text-foreground"
+              >
+                {visible.length} of {gaps.length} · Clear
+              </button>
+            )}
             <NewGapButton ref={addButton} onClick={() => setAdding(true)} />
             <RunButton label="Run Gap Analysis" />
           </div>
         </div>
       </StickyBar>
 
-      <div className="surface-frame pb-5">
+      <div className="surface-frame under-bar pb-5">
 
         {/* 60 / 40, not a fixed 320px sidebar. The panel is the densest column in
             the product — a date, a duration, waves with their own dates and a
@@ -245,8 +406,11 @@ export function GapsView() {
           )}
         >
           <Panel className="min-w-0 px-0 py-0 sm:px-0 sm:py-0">
-            <div className="px-4 py-1.5 sm:px-5">
-              <ul className="divide-y divide-border">
+            <div className="px-3 py-3 sm:px-4">
+              {/* 10px between cards. Two borders closer than that read as one
+                  double rule, which is the measurement the plan panel's own
+                  blocks arrived at from the other direction. */}
+              <ul className="space-y-2.5">
                 {visible.map((gap) => (
                   <SelectableGapRow
                     key={gap.id}
@@ -261,8 +425,53 @@ export function GapsView() {
                   />
                 ))}
               </ul>
+              {/* Nothing survived the filters. It is a real state rather than
+                  an error, and the way out is the control that caused it. Same
+                  shape as Questions' no-match panel. */}
               {visible.length === 0 && (
-                <p className="py-6 text-small text-muted-foreground">Nothing in this area.</p>
+                <div className="py-6">
+                  <p className="text-base font-medium">No findings match that</p>
+                  <p className="mt-1 text-small text-muted-foreground measure">
+                    Widen one of the four, or clear them and start again.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={clear}
+                    className="mt-3 rounded-md border border-border bg-card px-2.5 py-1.5 text-micro font-medium text-muted-foreground shadow-card transition-colors hover:border-border-strong hover:bg-muted hover:text-foreground"
+                  >
+                    Show all {gaps.length}
+                  </button>
+                </div>
+              )}
+
+              {/* **What is not on the list, said on the list.** §7.14 is
+                  written about totals and applies here for the same reason: a
+                  surface showing eight of twelve findings without saying so is
+                  one a consultant walks into a call trusting. The sentence
+                  names *why* they are out rather than counting them, because
+                  "4 hidden" is a number and "they rest on inference rather than
+                  observation" is the thing that decides whether he wants them.
+
+                  It only shows while *How sure* is unset: with that dropdown
+                  driving the list, this line would be a second, quieter filter
+                  disagreeing with the visible one. */}
+              {tier === null && (
+                <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t border-border px-0.5 pt-3">
+                  <p className="reading text-small text-muted-foreground measure">
+                    {showAll
+                      ? `${hidden} of these ${gaps.length} rest on inference rather than observation.`
+                      : `${hidden} more rest on inference rather than observation, and are not shown.`}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowAll((v) => !v)}
+                    className="shrink-0 rounded-md border border-border bg-card px-2.5 py-1.5 text-micro font-medium text-muted-foreground shadow-card transition-colors hover:border-border-strong hover:bg-muted hover:text-foreground"
+                  >
+                    {showAll
+                      ? `Show the ${gaps.length - hidden} evidenced`
+                      : `Show all ${gaps.length}`}
+                  </button>
+                </div>
               )}
             </div>
           </Panel>
@@ -906,7 +1115,18 @@ function SelectableGapRow({
   selectable: boolean;
 }) {
   return (
-    <li className="flex items-start gap-3">
+    /* **A drawn card per finding**, on request, and it is the shape Questions
+       already uses one surface across: `rounded-lg border border-border bg-card
+       shadow-card`, hovering its border rather than its fill so nothing inside
+       moves a pixel. Twelve rows separated by hairlines read as a printed
+       table, which is the register this surface is least well served by — the
+       findings are twelve separate things a consultant picks one of, not twelve
+       readings of one measure, and a card is what says separate.
+
+       The controls sit inside the card, again like Questions: a bookmark and a
+       pencil floating outside a drawn box read as marks on the page rather than
+       as part of the thing they act on. */
+    <li className="flex items-start gap-3 rounded-lg border border-border bg-card px-3.5 py-2 shadow-card transition-colors hover:border-border-strong">
       {/* **The tick-box goes with the plan panel**, because it is the plan
           panel's control: its whole job is choosing what appears over there.
           Left on screen with the panel hidden, twelve of them would be twelve
@@ -920,7 +1140,7 @@ function SelectableGapRow({
           checked={checked}
           onChange={onToggle}
           label={`Add “${gap.title}” to the plan`}
-          className="mt-4.5"
+          className="mt-2.5"
         />
       )}
       {/* No rank number on this surface. `gap.rank` is the value ranking, and
@@ -930,18 +1150,44 @@ function SelectableGapRow({
           by is on the row. Putting it back is one prop if the list turns out to
           need a handle. */}
       <GapRow gap={gap} as="div" mode="delivery" showRank={false} className="min-w-0 flex-1" />
-      {/* `mt-3.5` puts the 24px square on the row's first baseline, beside the
+      {/* Save, then edit, in the order they are reached for: put it aside for
+          the conversation, or correct it. Both are siblings of the row rather
+          than inside it — `GapRow` is a `<button>` on other surfaces and a
+          button inside a button is invalid markup.
+
+          **Both are drawn boxes here, not ghosts**, on request. `SaveButton`
+          already draws one by default and Gaps was the surface stripping it
+          back to `border-0 bg-transparent shadow-none`; the edit control was
+          built to match that ghost. What the box buys, beyond looking placed:
+          the pair now reads as two controls rather than as two marks on the
+          row, and at 32px each they clear the 24px touch floor the old 24px
+          ghost sat under, on a list read on an actual phone.
+
+          They are paired in their own `gap-1.5` box so the space between the
+          two is tighter than the `gap-3` the row puts between its columns.
+          Two buttons 12px apart read as two separate columns; at 6px they read
+          as one control cluster, which is what they are.
+
+          `mt-0.5` puts that cluster on the row's first baseline, beside the
           finding rather than beside the whole expanded detail. The tick-box
-          next to it sits at `mt-4.5` because it is smaller. Both follow the
-          row's own vertical padding, so they move if `py-4` does. */}
-      <button
-        type="button"
-        onClick={(e) => onEdit(e.currentTarget)}
-        className="mt-3.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <span className="sr-only">Edit “{gap.title}”</span>
-        <EditIcon />
-      </button>
+          sits a notch lower because it is smaller. Both follow the row's own
+          vertical padding, so they move if `py-2` does — and it just did, when
+          the row stopped drawing its own ground and the card took over the
+          spacing. */}
+      <div className="mt-0.5 flex shrink-0 items-center gap-1.5">
+        <SaveButton
+          item={{ kind: "gap", id: gap.id, label: gap.plainLine, href: "/gaps" }}
+          className="size-8 rounded-lg"
+        />
+        <button
+          type="button"
+          onClick={(e) => onEdit(e.currentTarget)}
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-card transition-colors hover:border-border-strong hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="sr-only">Edit “{gap.title}”</span>
+          <EditIcon />
+        </button>
+      </div>
     </li>
   );
 }

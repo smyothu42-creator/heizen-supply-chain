@@ -181,7 +181,7 @@ export function ProjectDialog({
                     id={id}
                     value={draft.stakeholders ?? ""}
                     onChange={(e) => set({ stakeholders: e.target.value })}
-                    placeholder="Rohan Deshmukh, Head of Procurement"
+                    placeholder="Rohan Deshpande, Head of Procurement"
                   />
                 )}
               </Field>

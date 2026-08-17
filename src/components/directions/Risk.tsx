@@ -1,17 +1,11 @@
 "use client";
 
-import { cn } from "@/lib/cn";
 import {
   company,
   dealRisks,
-  riskCounts,
-  type DealRisk,
-  type RiskSeverity,
-} from "@/lib/suvarna";
-import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
-import { ConfidenceBadge } from "@/components/meridian/Confidence";
+  riskCounts } from "@/lib/suvarna";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section , type SectionRef } from "./Frames";
 import { Eyebrow } from "@/components/meridian/Primitives";
-import { SourceChip } from "@/components/meridian/Evidence";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
 
@@ -38,39 +32,6 @@ const HIGH = dealRisks.filter((r) => r.severity === "high");
 const REST = dealRisks.filter((r) => r.severity !== "high");
 
 const BRIEF_STANDFIRST = `Six things that could stop this, and the line to say for each. ${riskCounts.high} of them decide the deal rather than delay it.`;
-
-/**
- * Severity as weight, not as a hue.
- *
- * Red on this surface would collide with Operations' health colours, where red
- * means the client's process is failing. Here the subject is the *pitch*, not
- * the company, and a consultant reading a red badge would be looking at the
- * wrong thing. Severity is a filled or hollow mark and a word.
- */
-const SEVERITY_LABEL: Record<RiskSeverity, string> = {
-  high: "Decides it",
-  medium: "Slows it",
-  low: "Noise",
-};
-
-function SeverityBadge({ severity }: { severity: RiskSeverity }) {
-  return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-muted px-2 py-0.5 text-micro font-medium text-muted-foreground">
-      <span
-        aria-hidden
-        className={cn(
-          "h-1.5 w-1.5 rounded-full",
-          severity === "high"
-            ? "bg-foreground"
-            : severity === "medium"
-              ? "border border-foreground bg-transparent"
-              : "border border-border-strong bg-transparent",
-        )}
-      />
-      {SEVERITY_LABEL[severity]}
-    </span>
-  );
-}
 
 export function RiskBrief() {
   return (
@@ -130,7 +91,6 @@ export function RiskBrief() {
 
       <BriefFooter
         href="/research/risk/full"
-        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
       >
         All {dealRisks.length}
       </BriefFooter>
@@ -140,16 +100,24 @@ export function RiskBrief() {
 
 /* -------------------------------------------------------------------------- */
 
-const SECTIONS: SectionRef[] = [
-  { id: "decides", label: "What decides it", meta: `${HIGH.length} risks` },
-  { id: "slows", label: "What slows it down", meta: `${REST.length} risks` },
-  { id: "rule", label: "Why every one has a counter", defaultCollapsed: true },
+/* The headings this view renders, for the navigator beside it. Built from the
+   same ids the sections carry, so a heading cannot be missing from the list. */
+const RISK_SECTIONS: SectionRef[] = [
+  { id: "decides", label: "What decides it" },
+  { id: "slows", label: "What slows it down" },
+  { id: "rule", label: "Why every one has a counter" },
 ];
+
+const WORDS=["No","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve"];
+const Spell=(n:number)=>WORDS[n]??String(n);
+const nameList=(l:{label:string}[])=>
+  l.length<2?(l[0]?.label.toLowerCase()??""):
+  `${l.slice(0,-1).map((x)=>x.label.toLowerCase()).join(", ")} and ${l[l.length-1].label.toLowerCase()}`;
 
 export function RiskFull() {
   return (
     <FullFrame
-      sections={SECTIONS}
+      sections={RISK_SECTIONS}
       actions={<RunButton label="Run research" />}
       hero={<SurfaceHero title="Research" />}
     >
@@ -162,93 +130,31 @@ export function RiskFull() {
       <Section
         id="decides"
         title="What decides it"
-        summary="Raise these yourself rather than waiting for them. All three are things the room already knows and is not going to say first."
+        summary={`${Spell(HIGH.length)} of the ${dealRisks.length} risks decide the deal rather than delay it: ${nameList(HIGH)}. All three are things the room already knows and none of them is going to be said first, which is why the instruction is to raise them yourself. The incumbent vendors and the 2019 project that stopped are both answered the same way: nothing here replaces SAP, and the first phase needs no new module and no plant downtime. The political one is the delicate one. The process is not Rohan's, he inherited it, and naming it inside his first year reads as credit rather than as an admission. Every risk below carries the line to say when it is raised, because a risk with no counter is not preparation, it is a reason to avoid the subject.`}
         right={
           <span className="tabular text-small text-muted-foreground">
             {HIGH.length} of {dealRisks.length}
           </span>
         }
-      >
-        <div className="divide-y divide-border">
-          {HIGH.map((r) => (
-            <RiskBlock key={r.id} risk={r} />
-          ))}
-        </div>
-      </Section>
+      />
 
       <Section
         id="slows"
         title="What slows it down"
-        summary="None of these stops the work. All three change when it starts, which on a March year end is nearly the same thing."
+        summary={`${Spell(REST.length)} more: ${nameList(REST)}. None of these stops the work and all three change when it starts, which against a March year end is nearly the same thing. Budget timing has the cleanest answer: the first phase sits inside the authority Rohan already holds, so it does not need a new budget line at all. In-house capability sounds like a blocker and is not, because the twelve people who could do it already own the S/4 move and this is the work that would sit in the queue behind it. Competing priorities answers itself once the framing is right: this is operating spend against a cash release, not capital against capital.`}
         right={
           <span className="tabular text-small text-muted-foreground">
             {REST.length} of {dealRisks.length}
           </span>
         }
-      >
-        <div className="divide-y divide-border">
-          {REST.map((r) => (
-            <RiskBlock key={r.id} risk={r} />
-          ))}
-        </div>
-      </Section>
+      />
 
       <Section
         id="rule"
         title="Why every one has a counter"
-        summary="The rule this direction is built on, kept on the page because it is the thing that would quietly stop being true."
-      >
-        <p className="reading text-small measure">
-          A risk without an answer does not prepare a consultant. It frightens him, and a frightened
-          consultant avoids the subject, which is how an incumbent vendor or a dead project ends up
-          deciding the deal without ever being discussed. So a counter is not the detail behind a
-          risk here. It is the other half of the same object.
-        </p>
-        <p className="reading mt-2.5 text-small text-muted-foreground measure">
-          It is enforced rather than remembered: <code>counter</code> is required on the type, and{" "}
-          <code>check:data</code> fails the build if any of them is empty.
-        </p>
-      </Section>
+        summary={`Every risk on this page carries a counter, and the data will not build without one. The reason is the reader rather than the rule: a consultant minutes from a call, given six things that could go wrong and no line to say when any of them comes up, is not prepared, he is frightened. A frightened consultant avoids the subject, and avoiding it is exactly how an incumbent vendor or a dead 2019 project ends up deciding the deal off-screen. So the counters are written as speech, in the second person, because they are read seconds before being said out loud and a phrase that has to be translated under pressure is a phrase that will not be. Severity is weight here and never a colour: red on this surface would collide with the health hues on Operations, where it means the client's process is failing rather than the pitch is exposed.`}
+      />
     </FullFrame>
   );
 }
 
-/**
- * One risk and its counter, as one block.
- *
- * The counter is set apart with a rule and the accent, and worded as speech in
- * the second person, because it is read seconds before it is said out loud. A
- * counter phrased as advice — "position the offering as complementary" — has
- * to be translated under pressure, which is exactly when it will not be.
- */
-function RiskBlock({ risk }: { risk: DealRisk }) {
-  return (
-    <div className="py-4 first:pt-0 last:pb-0">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <span className="flex flex-wrap items-baseline gap-2.5">
-          <SeverityBadge severity={risk.severity} />
-          <span className="text-base font-medium">{risk.label}</span>
-        </span>
-        <span className="shrink-0 text-small text-muted-foreground">{risk.value}</span>
-      </div>
-
-      <p className="reading mt-2 text-small measure">{risk.risk}</p>
-
-      <div className="mt-2.5 border-l-2 border-evidence pl-3">
-        <p className="text-micro font-medium text-muted-foreground">
-          Say this
-        </p>
-        <p className="reading mt-1 text-small measure">{risk.counter}</p>
-      </div>
-
-      <div className="mt-2.5 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-micro text-muted-foreground">
-        <span>Raised by {risk.raisedBy}</span>
-        <span className="flex flex-wrap items-baseline gap-1.5">
-          {risk.sourceIds.map((id) => (
-            <SourceChip key={id} sourceId={id} />
-          ))}
-        </span>
-      </div>
-    </div>
-  );
-}

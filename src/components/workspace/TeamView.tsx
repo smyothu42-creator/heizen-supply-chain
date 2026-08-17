@@ -31,7 +31,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ConfirmDialog, Field, PageHead, Said } from "./Form";
+import { ConfirmDialog, Field, PageHead } from "./Form";
+import { useToast, type ToastApi } from "@/components/shell/Toast";
 
 /**
  * Who is in the workspace, what they may do, and what they can open.
@@ -48,7 +49,7 @@ import { ConfirmDialog, Field, PageHead, Said } from "./Form";
  */
 export function TeamView() {
   const { members, invitations, me } = useWorkspace();
-  const [said, setSaid] = useState("");
+  const { notify } = useToast();
   const [inviting, setInviting] = useState(false);
 
   const manage = canManage(me.role);
@@ -66,12 +67,6 @@ export function TeamView() {
           </Button>
         )}
       </PageHead>
-
-      {said && (
-        <div className="mt-3">
-          <Said>{said}</Said>
-        </div>
-      )}
 
       {/* Invitations first, and only when there are any. They are the thing in
           flight: a list of people who are already here does not need chasing
@@ -91,7 +86,7 @@ export function TeamView() {
                 <InvitationRow
                   invitation={invitation}
                   manage={manage}
-                  onSaid={setSaid}
+                  onSaid={notify}
                 />
               </li>
             ))}
@@ -110,7 +105,7 @@ export function TeamView() {
         <ul className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card shadow-card">
           {members.map((member) => (
             <li key={member.id}>
-              <MemberRow member={member} manage={manage} onSaid={setSaid} />
+              <MemberRow member={member} manage={manage} onSaid={notify} />
             </li>
           ))}
         </ul>
@@ -119,9 +114,7 @@ export function TeamView() {
       <InviteDialog
         open={inviting}
         onOpenChange={setInviting}
-        onSent={(email) =>
-          setSaid(`Invitation listed for ${email}. No mail was sent.`)
-        }
+        onSent={(email) => notify(`Invitation listed for ${email}`, { detail: "No mail was sent." })}
       />
     </div>
   );
@@ -136,7 +129,7 @@ function MemberRow({
 }: {
   member: Member;
   manage: boolean;
-  onSaid: (s: string) => void;
+  onSaid: ToastApi["notify"];
 }) {
   const { me, projects, updateMemberRole, removeMember } = useWorkspace();
   const [projectsOpen, setProjectsOpen] = useState(false);
@@ -206,9 +199,9 @@ function MemberRow({
               onChange={(e) => {
                 const role = e.target.value as Role;
                 updateMemberRole(member.id, role);
-                onSaid(
-                  `${member.name ?? member.email} is now ${ROLE_LABEL[role].toLowerCase()}. ${ROLE_MEANING[role]}`,
-                );
+                onSaid(`${member.name ?? member.email} is now ${ROLE_LABEL[role].toLowerCase()}`, {
+                  detail: ROLE_MEANING[role],
+                });
               }}
             >
               {ROLES.filter((r) => r !== "owner").map((r) => (
@@ -250,7 +243,7 @@ function MemberRow({
         confirmLabel="Remove"
         onConfirm={() => {
           removeMember(member.id);
-          onSaid(`${member.name ?? member.email} removed from the workspace.`);
+          onSaid(`${member.name ?? member.email} removed from the workspace`);
         }}
       />
     </div>
@@ -353,7 +346,7 @@ function InvitationRow({
 }: {
   invitation: Invitation;
   manage: boolean;
-  onSaid: (s: string) => void;
+  onSaid: ToastApi["notify"];
 }) {
   const { cancelInvitation, resendInvitation } = useWorkspace();
   const days = daysBetween(invitation.sentOn, TODAY);
@@ -375,7 +368,9 @@ function InvitationRow({
             size="sm"
             onClick={() => {
               resendInvitation(invitation.id);
-              onSaid(`Invitation to ${invitation.email} dated today. Still no mail sent.`);
+              onSaid(`Invitation to ${invitation.email} dated today`, {
+                detail: "Still no mail sent.",
+              });
             }}
           >
             <RotateCw className="size-4" />
@@ -385,7 +380,7 @@ function InvitationRow({
             type="button"
             onClick={() => {
               cancelInvitation(invitation.id);
-              onSaid(`Invitation to ${invitation.email} cancelled.`);
+              onSaid(`Invitation to ${invitation.email} cancelled`);
             }}
             aria-label={`Cancel the invitation to ${invitation.email}`}
             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-health-critical"

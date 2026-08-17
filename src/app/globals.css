@@ -393,6 +393,33 @@
   ::selection {
     background: var(--evidence-muted);
   }
+
+  /* ---------------------------------------------------------------------------
+     Find in the dossier
+
+     The navigator's find box marks its matches in the research sheet through
+     the CSS Custom Highlight API rather than by wrapping them in `<mark>`. See
+     the note above `scanSheet` in `Frames.tsx` for why the ranges live beside
+     the DOM instead of in it.
+
+     A tint plus a rule under the word, rather than a solid block: at the
+     density this document runs at, forty filled rectangles read as a second
+     kind of chip, and a deep fill would put the ink at the mercy of whatever
+     colour the matched text already carries. The ink is stated as well, because
+     a match can land on `--muted-foreground` or on a heading and the mark has
+     to look the same on both.
+
+     `--evidence` is the right family: on the page a cyan mark is a thing that
+     was found. `::highlight()` accepts colour, background-colour and
+     text-decoration and nothing else, so there is no radius or padding to be
+     tempted by.
+     --------------------------------------------------------------------------- */
+  ::highlight(meridian-find) {
+    background-color: var(--evidence-muted);
+    color: var(--foreground);
+    text-decoration: underline 2px var(--evidence);
+    text-underline-offset: 3px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -430,6 +457,33 @@
   .surface-frame {
     padding-inline: 2.5rem;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   .under-bar — the gap under the control bar, one value for the product
+
+   On request. Every surface pins its controls in a `StickyBar` and then starts
+   its material underneath, and each one had made up its own distance: Gaps,
+   Questions, Compare, Saved and Prep ran the body straight off the bar's own
+   12px of bottom padding, Sources added 20 on top of it, Research 16. Three
+   answers to one question, and the one that showed was Research, where the
+   document sat visibly lower than the list on the tab next to it.
+
+   It is a class rather than the same two utilities in seven files for the
+   reason `.surface-frame` is: a distance repeated by hand is a distance that
+   drifts, and this one is read on every screen in the product.
+
+   **The gap lives here and not in `StickyBar`'s `pb`.** That padding is the
+   bar's own breathing room, inside its ground and above the edge where the
+   ground stops; this is the space between that edge and the first thing on the
+   page. Two different measurements that happen to be adjacent.
+
+   **Top only.** The tail is not the same question: a four-screen document wants
+   more room under its last line than a twelve-row list does, so Research keeps
+   `pb-16` and the collection surfaces keep `pb-5`.
+   --------------------------------------------------------------------------- */
+.under-bar {
+  padding-top: 1rem;
 }
 
 /* ---------------------------------------------------------------------------
@@ -562,6 +616,34 @@
  * `transform: rotate()` on an element has neither problem. It is the oldest
  * animation primitive on the web, it is composited rather than repainted, and
  * when it is unsupported nothing is. */
+/* The toast arriving in the top right corner.
+ *
+ * It slides in from the edge it is pinned to, which is the one direction that
+ * reads as *this came from outside the page* rather than as something on the
+ * page moving. Under `prefers-reduced-motion` it fades and does not travel:
+ * travel is what that setting is about, and the same split the ask pill makes
+ * between its runner and its halo. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.toast-in {
+  animation: toast-in 180ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-in {
+    animation: none;
+  }
+}
+
 @keyframes ask-spin {
   from {
     transform: translate(-50%, -50%) rotate(0deg);
@@ -801,4 +883,95 @@
   .helix-orb .helix-swirl {
     animation: none;
   }
+}
+
+/* The width at which the surface tabs stop being a drawer.
+ *
+ * It was Tailwind's `xl` (1280px), measured when the longest tab was "Research".
+ * With "Gaps & problems" on the row the tabs need 807px against the 734 a 1280
+ * window leaves them, so *Sources* scrolled off the right edge — which is the
+ * hiding place the drawer exists to avoid, arriving through the back door.
+ *
+ * 1360 is the measured fit, not a guess: at 1360 the row needs 814 and has 814.
+ * If a tab is renamed again, re-measure and move this number; it is the only
+ * place either side of the switch reads it from.
+ */
+@custom-variant tabs-fit (@media (min-width: 1360px));
+
+/* Threaded replies — the elbow that joins a follow-up to the question above it.
+ *
+ * On request, and it is the connector a comment thread draws: a hairline that
+ * drops out of the parent and curves into the child. It replaces the plain
+ * indent, which was carrying the whole hierarchy on its own once the rails came
+ * off, and it says something the indent cannot — *this one came out of that
+ * one* — which on this surface is the entire point of the tier below an opener.
+ *
+ * Two pseudo-elements rather than one. `::before` is the elbow, drawn on every
+ * child; `::after` is the run of line that carries on down to the next sibling,
+ * and it is absent on the last child so the thread ends where the thread ends
+ * rather than trailing past its final question.
+ *
+ * Both are `pointer-events: none`: they sit in the gutter a card would
+ * otherwise own, and a decoration that eats a click is worse than no
+ * decoration.
+ */
+.thread-link::before {
+  content: "";
+  position: absolute;
+  /* `-1rem` is the gap this row leaves above itself (`pb-2` on the row before
+     plus `mt-2` on the list), so the line starts exactly on the bottom edge of
+     the card it comes out of rather than floating below it. */
+  left: -1.25rem;
+  top: -1rem;
+  width: 1.25rem;
+  height: 2rem;
+  border-left: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+  border-bottom-left-radius: 0.65rem;
+  pointer-events: none;
+}
+
+.thread-link:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: -1.25rem;
+  top: -1rem;
+  bottom: -0.5rem;
+  border-left: 1px solid var(--border-strong);
+  pointer-events: none;
+}
+
+/* The same elbow the question threads draw, at navigator scale.
+ *
+ * `.thread-link`'s geometry is tuned to a row that is a card with 8px of gap
+ * above it; a table-of-contents entry is a 28px line with no gap at all, so the
+ * offsets are their own rather than shared. What is shared is the shape and the
+ * reason for it: a curve out of the parent says *this came from that*, where an
+ * indent alone only says *this is smaller*.
+ *
+ * Same two-pseudo-element split: `::before` is the elbow on every child,
+ * `::after` is the run of line carrying on to the next sibling and is absent on
+ * the last, so the branch ends where the branch ends.
+ */
+.toc-link::before {
+  content: "";
+  position: absolute;
+  left: -0.75rem;
+  top: -0.55rem;
+  width: 0.75rem;
+  height: 1.35rem;
+  border-left: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+  border-bottom-left-radius: 0.45rem;
+  pointer-events: none;
+}
+
+.toc-link:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: -0.75rem;
+  top: -0.55rem;
+  bottom: 0;
+  border-left: 1px solid var(--border-strong);
+  pointer-events: none;
 }

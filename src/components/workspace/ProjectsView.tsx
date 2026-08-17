@@ -8,7 +8,8 @@ import { initialsOf, type Project } from "@/lib/projects";
 import { canManage } from "@/lib/workspace";
 import { useWorkspace } from "@/components/shell/WorkspaceProvider";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog, PageHead, Said } from "./Form";
+import { ConfirmDialog, PageHead } from "./Form";
+import { useToast } from "@/components/shell/Toast";
 import { ProjectDialog } from "./ProjectDialog";
 
 /**
@@ -35,7 +36,7 @@ export function ProjectsView() {
     clearNewProjectAsk,
   } = useWorkspace();
   const [creating, setCreating] = useState(false);
-  const [said, setSaid] = useState("");
+  const { notify } = useToast();
   const [pendingDelete, setPendingDelete] = useState<Project | null>(null);
   const [editing, setEditing] = useState<Project | null>(null);
   /* **Focus goes back to the pencil that opened the dialog**, and it has to be
@@ -85,12 +86,6 @@ export function ProjectsView() {
         )}
       </PageHead>
 
-      {said && (
-        <div className="mt-3">
-          <Said>{said}</Said>
-        </div>
-      )}
-
       <ul className="mt-5 grid gap-4 lg:grid-cols-2">
         {projects.map((project) => (
           /* `min-w-0` on the grid item, not only inside the card. A grid track
@@ -129,7 +124,7 @@ export function ProjectsView() {
         <ProjectDialog
           open
           onOpenChange={setCreate}
-          onSaved={(name) => setSaid(`${name} created. It lives in this tab only.`)}
+          onSaved={(name) => notify(`${name} created`, { detail: "It lives in this tab only." })}
         />
       )}
 
@@ -143,7 +138,7 @@ export function ProjectsView() {
             setEditing(null);
             lastEditTrigger.current?.focus();
           }}
-          onSaved={(name) => setSaid(`${name} saved. The change lives in this tab only.`)}
+          onSaved={(name) => notify(`${name} saved`, { detail: "The change lives in this tab only." })}
         />
       )}
 
@@ -156,7 +151,7 @@ export function ProjectsView() {
         onConfirm={() => {
           if (!pendingDelete) return;
           deleteProject(pendingDelete.id);
-          setSaid(`${pendingDelete.name} deleted.`);
+          notify(`${pendingDelete.name} deleted`);
           setPendingDelete(null);
         }}
       />
@@ -391,11 +386,17 @@ function ProjectCard({
               different weight reads as one row being special rather than as one
               row being where you are. The 3px primary rule on the card's left
               edge already says that, and says it without changing the action. */}
+          {/* **Opening a project lands on Research**, on request, at the same
+              route the masthead's own Research tab points at so the two ways in
+              agree. It went to Operations, which is the map: a picture of how
+              the company runs, before the reader has been told anything about
+              it. Research is the dossier, and it is what "open this client"
+              means in the minutes before a call. */}
           <Button
             size="sm"
             onClick={() => {
               onOpen();
-              router.push("/operations");
+              router.push("/research/company/brief");
             }}
           >
             View project

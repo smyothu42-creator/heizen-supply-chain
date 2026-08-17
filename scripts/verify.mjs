@@ -14,14 +14,32 @@ import { chromium } from "playwright";
 const BASE = "http://localhost:4311";
 const RM = { reducedMotion: "reduce" };
 
-/* Six now. Timing and Risk answer the two questions the other four cannot —
-   why now, and what could kill this. Adding a direction means adding it here:
-   a new Brief that clips is exactly the failure this script exists to catch,
-   and it is invisible if the route is not in the list. */
-const DIRECTIONS = ["all", "about", "leaks", "build", "tech", "solved", "money", "risk", "stakeholder"];
+/* The eleven live direction slugs, from `src/lib/directions.ts`. Adding a
+   direction means adding it here, or its two views are never looked at.
 
-/** Research Brief is the only surface that must fit one screen with no scroll. */
-const BRIEFS = DIRECTIONS.map((d) => `/research/${d}/brief`);
+   It used to also list `all`, `about` and `risk`. Those slugs were re-cut out
+   of `directions.ts` and their routes now render an empty shell, so the checks
+   below were measuring three pages nobody can reach. */
+const DIRECTIONS = [
+  "company", "context", "initiatives", "leaks", "tech", "vendors",
+  "money", "spend", "build", "solved", "stakeholder",
+];
+
+/**
+ * **Research Brief is no longer a fixed screen, so nothing asserts that here.**
+ *
+ * Brief was one viewport with no scrollbar, and this list drove the check that
+ * held the line: content that overran had to clip visibly rather than be
+ * absorbed. Brief now takes Full's layout — navigator, sheet, one section — and
+ * scrolls like any other document, so the assertion would fail on every route
+ * for the reason the design intends.
+ *
+ * What replaced the guarantee is editorial rather than structural: a Brief is
+ * short because it is written short, one section and one paragraph. That is the
+ * weaker promise and the honest one, and it is not a thing a script can measure.
+ * The contrast, overflow and keyboard checks below still cover both views.
+ */
+const BRIEFS = [];
 
 /** Everything that renders, for contrast and keyboard. */
 const PAGES = [

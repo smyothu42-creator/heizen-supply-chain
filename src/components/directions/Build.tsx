@@ -1,17 +1,10 @@
 "use client";
 
-import { cn } from "@/lib/cn";
 import { buckets, company, gapById, gaps } from "@/lib/suvarna";
 
-import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
-import { ConfidenceBadge } from "@/components/meridian/Confidence";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section , type SectionRef } from "./Frames";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
-import { usePanel } from "@/components/meridian/EvidencePanel";
-
-/** The gaps in one bucket, in the order the bucket lists them. */
-const gapsIn = (bucketId: string) =>
-  (buckets.find((b) => b.id === bucketId)?.gapIds ?? []).map(gapById);
 
 /* -------------------------------------------------------------------------- */
 /* What should build — the proposal                                            */
@@ -68,67 +61,103 @@ const WORKFLOWS: Workflow[] = [
 ];
 
 const bucketName = (id: string) => buckets.find((b) => b.id === id)?.name ?? id;
-const weeksFor = (id: string) =>
-  Math.max(...gapsIn(id).map((g) => g.weeks), 0);
+
+/* -------------------------------------------------------------------------- */
+/* The four workflows, as a table                                              */
+/*                                                                             */
+/* On request, and it is the right shape for what this direction is: four       */
+/* things that answer the same two questions. As four stacked blocks of prose   */
+/* the reader had to hold *what it does* from workflow one in their head to     */
+/* compare it with workflow two, which is precisely the work a column does for  */
+/* free. A proposal is read across as often as it is read down.                 */
+/*                                                                             */
+/* The row is the anchor, not a `Section` per workflow. Full's navigator still  */
+/* lists all four by name and still jumps to them; what it lands on is a `<tr>` */
+/* rather than an `<h2>`. `scanSheet` in `Frames.tsx` knows about that shape,   */
+/* so a find hit inside a cell is still reported against the right entry.       */
+/*                                                                             */
+/* It scrolls sideways rather than wrapping to a second table, the same trade   */
+/* Certainty's and Stakeholder's tables make: three columns of sentences will   */
+/* not fold into 319px, and a "responsive" table that restacks into cards is    */
+/* two layouts to keep in step for one set of facts.                            */
+/* -------------------------------------------------------------------------- */
+
+function WorkflowTable({ anchored = false }: { anchored?: boolean }) {
+  return (
+    <div className="scroll-slim -mx-4 mt-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6">
+      <table className="w-full min-w-[46rem] text-small">
+        <caption className="sr-only">
+          The four workflows, what each one does and what changes once it is running
+        </caption>
+        <thead>
+          <tr className="text-micro tracking-[0.12em] text-muted-foreground uppercase">
+            <th scope="col" className="w-[15rem] pr-5 pb-2 text-left font-medium">
+              Workflow
+            </th>
+            <th scope="col" className="pr-5 pb-2 text-left font-medium">
+              What it does
+            </th>
+            <th scope="col" className="pb-2 text-left font-medium">
+              What changes
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {WORKFLOWS.map((w) => (
+            <tr
+              key={w.bucketId}
+              /* Only Full puts ids here. Brief's navigator lists no headings,
+                 so an anchor on the row would be an id nothing points at. */
+              id={anchored ? `w-${w.bucketId}` : undefined}
+              className="scroll-mt-[8.25rem] border-t border-border align-top"
+            >
+              <th scope="row" className="py-3 pr-5 text-left align-top">
+                <span className="block text-base font-medium">{w.name}</span>
+                {/* Which part of the operation it covers, under the name rather
+                    than in a fourth column: it is how the row is filed, not a
+                    fact to be compared down the page. */}
+                <span className="mt-0.5 block text-micro font-normal text-muted-foreground">
+                  {bucketName(w.bucketId)}
+                </span>
+              </th>
+              <td className="reading py-3 pr-5 text-muted-foreground">{w.does}</td>
+              <td className="reading py-3 text-muted-foreground">{w.changes}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export function BuildBrief() {
   return (
     <BriefFrame
       actions={<RunButton label="Run research" tight />}
-      hero={
-        <SurfaceHero
-          tight
-          collapseAtRoomy
-          title="Research"
-          titleNode={
-            <div className="roomy:hidden">
-              <p className="font-display text-h2 leading-[1.15]">
-                Four workflows, on top of the SAP they already run
-              </p>
-              <p className="reading measure mt-1 text-small text-muted-foreground">
-                One per part of the operation. No new ERP, no plant downtime.
-              </p>
-            </div>
-          }
-        />
-      }
+      hero={<SurfaceHero title="Research" />}
       lead={
         <DocumentLead
-          bordered={false}
-          titleNode={
-            <p className="font-display text-h2 leading-[1.15]">
-              Four workflows, on top of the SAP they already run
-            </p>
-          }
+          title="What Heizen would build"
           standfirst={`What Heizen would deploy at ${company.name}, one workflow per part of the operation, each covering findings that already have evidence behind them.`}
         />
       }
     >
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <ol className="space-y-3">
-          {WORKFLOWS.map((w, i) => (
-            /* The fourth drops at 375: Brief may not scroll, and the claims
-               workflow is the smallest of the four by every measure. */
-            <li key={w.bucketId} className={cn("flex gap-3", i === 3 && "hidden sm:flex")}>
-              <span className="tabular w-6 shrink-0 pt-0.5 text-small font-medium text-muted-foreground">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <span className="min-w-0">
-                <span className="block text-base font-medium leading-snug">{w.name}</span>
-                <span className="reading mt-0.5 block text-small text-muted-foreground">
-                  {w.does}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ol>
-      </div>
-
+      {/* The paragraph that used to be this whole Brief said the four workflow
+          names in a run-on sentence, then their effects in another. That is a
+          table read out loud. What is left in the summary is the part the table
+          cannot carry: that nothing here replaces anything, which is the answer
+          to the three objections that arrive before any of the detail does. */}
+      <Section
+        id="b-brief"
+        title="Four workflows, and nothing to replace"
+        summary={`Four workflows, one per part of the operation, covering ${gaps.length} findings between them. Everything sits on top of ${company.erp}: no new ERP, no module to license, no plant downtime.`}
+      >
+        <WorkflowTable />
+      </Section>
       <BriefFooter
         href="/research/build/full"
-        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
       >
-        What each one covers
+        All four workflows
       </BriefFooter>
     </BriefFrame>
   );
@@ -136,15 +165,14 @@ export function BuildBrief() {
 
 /* -------------------------------------------------------------------------- */
 
-const SECTIONS: SectionRef[] = WORKFLOWS.map((w, i) => ({
+/* Built from the same array the sections are, so the navigator cannot list a
+   workflow the page does not render. */
+const SECTIONS: SectionRef[] = WORKFLOWS.map((w) => ({
   id: `w-${w.bucketId}`,
   label: w.name,
-  meta: `${String(i + 1).padStart(2, "0")}`,
 }));
 
 export function BuildFull() {
-  const { open } = usePanel();
-
   return (
     <FullFrame
       sections={SECTIONS}
@@ -153,55 +181,22 @@ export function BuildFull() {
     >
       <DocumentLead
         title="What Heizen would build"
-        standfirst={`Four workflows, one per part of the operation, covering ${gaps.length} findings between them. Everything sits on top of ${company.facts[2].value}: no new ERP, no module to license, no plant downtime.`}
+        standfirst={`Four workflows, one per part of the operation, covering ${gaps.length} findings between them. Everything sits on top of ${company.erp}: no new ERP, no module to license, no plant downtime.`}
       />
 
-      {WORKFLOWS.map((w, i) => (
-        <Section
-          key={w.bucketId}
-          id={`w-${w.bucketId}`}
-          title={w.name}
-          summary={`Covers ${bucketName(w.bucketId).toLowerCase()}.`}
-          right={
-            <span className="tabular text-small text-muted-foreground">
-              {String(i + 1).padStart(2, "0")}
-            </span>
-          }
-        >
-          <p className="reading text-base">{w.does}</p>
-
-          <div className="mt-3 border-l-2 border-evidence pl-3">
-            <p className="text-micro font-medium text-muted-foreground">What changes</p>
-            <p className="reading mt-1 text-small">{w.changes}</p>
-          </div>
-
-          <p className="mt-4 text-micro font-medium text-muted-foreground">
-            The findings it covers
-          </p>
-          <ul className="mt-1.5 divide-y divide-border">
-            {gapsIn(w.bucketId).map((g) => (
-              <li key={g.id}>
-                <button
-                  type="button"
-                  onClick={() => open({ kind: "gap", id: g.id })}
-                  className="group flex w-full items-baseline justify-between gap-3 py-2 text-left"
-                >
-                  <span className="min-w-0 text-small transition-colors group-hover:text-muted-foreground">
-                    {g.title}
-                  </span>
-                  <span className="tabular shrink-0 text-small text-muted-foreground">
-                    {g.weeks} weeks
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-small text-muted-foreground">
-            Longest job in this workflow: {weeksFor(w.bucketId)} weeks. The order they run in is
-            on Gaps, where the prerequisites are.
-          </p>
-        </Section>
-      ))}
+      {/* One section holding one table, rather than a section per workflow.
+          Four headings whose bodies each answered the same two questions were
+          four copies of a table with the columns thrown away, and the reader
+          had to scroll between them to compare. The navigator still lists all
+          four names: `SECTIONS` points at the row ids, which is why the table
+          is `anchored` here and not on Brief. */}
+      <Section
+        id="w-all"
+        title="The four workflows"
+        summary={`One per part of the operation, in the order the money is in them. Each covers findings that already have evidence behind them, and each runs on top of ${company.erp}.`}
+      >
+        <WorkflowTable anchored />
+      </Section>
     </FullFrame>
   );
 }

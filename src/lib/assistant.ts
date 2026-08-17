@@ -2,6 +2,7 @@ import { money } from "./format";
 import {
   buckets,
   bucketTotal,
+  businessContext,
   company,
   coverage,
   dealRisks,
@@ -346,13 +347,37 @@ function route(question: string): Answer {
     };
   }
 
-  if (has(q, "company", "who are they", "about", "suvarna", "revenue", "plants")) {
+  if (
+    has(
+      q,
+      "company",
+      "who are they",
+      "about",
+      "suvarna",
+      "revenue",
+      "plants",
+      "profit",
+      "margin",
+      "customers",
+      "suppliers",
+      "scale",
+      "how big",
+    )
+  ) {
     return {
       text: [
         company.thesis,
-        company.facts.map((f) => `${f.label}: ${f.value} — ${f.detail}`).join("\n"),
+        /* Grouped, not a flat list of fifteen. The panel answers "who are
+           they?" and the four headings are the four halves of that question.
+           No dashes, per §6a: this is read out loud as often as it is read. */
+        businessContext
+          .map(
+            (g) =>
+              `${g.title}\n${g.facts.map((f) => `${f.label}: ${f.value}. ${f.detail}`).join("\n")}`,
+          )
+          .join("\n\n"),
       ].join("\n\n"),
-      cites: ["src-ar25"],
+      cites: ["src-ar25", "src-mca", "src-inv"],
       followUps: ["Where does the total come from?", "Why now?"],
     };
   }

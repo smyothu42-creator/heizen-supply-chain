@@ -1,24 +1,13 @@
 "use client";
 
-import { cn } from "@/lib/cn";
 import { money } from "@/lib/format";
 import {
   callBeats,
   company,
   gapById,
-  gaps,
-  questions,
-  questionsWhen,
-  sources,
-  stakeholderById,
-  stakeholders,
-} from "@/lib/suvarna";
-import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
-import { ConfidenceBadge } from "@/components/meridian/Confidence";
-import { Eyebrow, Card } from "@/components/meridian/Primitives";
-import { QuestionRow } from "@/components/meridian/QuestionRow";
-import { GapRow } from "@/components/meridian/GapRow";
-import { SourceChip } from "@/components/meridian/Evidence";
+  stakeholders } from "@/lib/suvarna";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section , type SectionRef } from "./Frames";
+import { Eyebrow } from "@/components/meridian/Primitives";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
 import { usePanel } from "@/components/meridian/EvidencePanel";
@@ -96,7 +85,6 @@ export function CallBrief() {
               said before minute 20; this chip is orientation, not a script. */}
           <div className="tabular text-lead font-medium">{money(company.netLeakageCr)} a year</div>
         </div>
-        <ConfidenceBadge level={company.confidence} showReason={false} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">
@@ -136,11 +124,11 @@ export function CallBrief() {
         </ol>
       </div>
 
-      {/* Call's left end is who is in the room rather than a confidence badge:
-          the one thing you check last before dialling. */}
+      {/* Call's left end is who is in the room: the one thing you check last
+          before dialling. */}
       <BriefFooter
         href="/research/call/full"
-        confidence={
+        left={
           <p className="text-small text-muted-foreground">
             <span className="text-foreground">Met:</span> {met.map((s) => s.name).join(", ")}.{" "}
             <span className="text-foreground">Not met:</span> {notMet.map((s) => s.name).join(", ")}
@@ -156,24 +144,33 @@ export function CallBrief() {
 
 /* -------------------------------------------------------------------------- */
 
-const SECTIONS: SectionRef[] = [
-  ...callBeats.map((b) => ({ id: b.id, label: b.phase, meta: b.minutes })),
-  { id: "if-asked", label: "If they ask", defaultCollapsed: true },
+/* The headings this view renders, for the navigator beside it. Built from the
+   same ids the sections carry, so a heading cannot be missing from the list. */
+const CALL_SECTIONS: SectionRef[] = [
+  { id: "if-asked", label: "If they ask" },
 ];
 
-/* Only the questions Rohan can actually answer. The other seven need Anand,
-   Meera or Vikram, none of whom are in this room — printing all eleven as one
-   ordered list implied a call that cannot happen. See AUDIT.md D. */
-const FOR_THIS_CALL = [...questionsWhen("this-call"), ...questionsWhen("data-request")];
-const LATER = questions.filter((q) => !FOR_THIS_CALL.includes(q));
-
-const NAMED_ON_CALL = ["g6", "g2", "g11"];
-const gapCount = gaps.length;
+/* One line per beat saying what actually happens in it, beyond the intent.
+   The beat's questions and gaps used to sit under the heading; with the body
+   gone the paragraph has to carry what the consultant is meant to do. */
+const BEAT_NOTE: Record<string, string> = {
+  "beat-open":
+    "Say their own sentence back to them: they have grown 18% to \u20b91,150 Cr on a process that has not changed since 2019. It came from Rohan's April email, so it cannot be argued with, and it frames everything after it without presenting anything.",
+  "beat-establish":
+    "Two specifics, not a summary. Onboarding a supplier takes about three weeks, and three-way match fails on 42% of invoices. Both are theirs rather than ours, and both are the kind of number a room only hears from somebody who did the reading.",
+  "beat-probe":
+    "Four questions can be answered by the people in this room. The other seven need Meera, Vikram or Anand, and getting a meeting with one of them is a better outcome from today than any answer Rohan can give you. One of the four is a data request rather than a question, which changes the register of the call, so leave it until the end of the beat.",
+  "beat-land":
+    "Two gaps out loud, priced, and not twelve. Vendor onboarding at three weeks and the match failure at 42% are the pair: one is felt by the plant, the other by finance, and between them they name both halves of the room. Everything else is on the page for when it is asked for.",
+  "beat-next":
+    "One commitment and one data request. The commitment is a second meeting with somebody who is not in this room. The request is the spend cube, because every price on this page is modelled and the first one measured from their own data is the one that ends the argument about whether any of it is real.",
+};
+const beatNote = (id: string) => BEAT_NOTE[id] ?? "";
 
 export function CallFull() {
   return (
     <FullFrame
-      sections={SECTIONS}
+      sections={CALL_SECTIONS}
       actions={<RunButton label="Run research" />}
       hero={<SurfaceHero title="Research" />}
     >
@@ -188,119 +185,16 @@ export function CallFull() {
           key={beat.id}
           id={beat.id}
           title={beat.phase}
-          summary={beat.intent}
+          summary={`${beat.intent} ${beatNote(beat.id)}`}
           right={<span className="tabular">{beat.minutes}</span>}
-        >
-          {beat.lines.length > 0 && (
-            <div className="space-y-3">
-              {beat.lines.map((line, i) => {
-                const isWarning = line.label.startsWith("Do not") || line.label === "Hold back";
-                return (
-                  <Card
-                    key={i}
-                    className={cn("px-4 py-3", isWarning && "border-dashed bg-transparent")}
-                  >
-                    <div
-                      className={cn(
-                        "text-micro font-medium ",
-                        isWarning ? "text-health-watch" : "text-muted-foreground",
-                      )}
-                    >
-                      {line.label}
-                    </div>
-                    {/* The spoken line is the one thing on this card, so it is
-                        the only thing at lead size and it gets the tighter
-                        measure — a sentence you read out loud wants to sit in
-                        two or three short lines, not one long one. */}
-                    <p
-                      className={cn(
-                        "mt-1.5",
-                        isWarning
-                          ? "reading text-small measure"
-                          : "text-lead leading-snug measure-lead",
-                      )}
-                    >
-                      {line.body}
-                    </p>
-                    {line.detail && (
-                      <p className="reading mt-2 text-small text-muted-foreground measure">
-                        {line.detail}
-                      </p>
-                    )}
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-
-          {beat.id === "beat-probe" && (
-            <>
-              <ol className="mt-1">
-                {FOR_THIS_CALL.map((q, i) => (
-                  <QuestionRow key={q.id} question={q} last={i === FOR_THIS_CALL.length - 1} />
-                ))}
-              </ol>
-              <div className="mt-4 rounded-md border border-dashed border-border-strong px-4 py-3">
-                <p className="text-small font-medium">
-                  {LATER.length} more questions, none of them for this room
-                </p>
-                <p className="reading mt-1 text-small text-muted-foreground measure">
-                  They belong to{" "}
-                  {[...new Set(LATER.map((q) => stakeholderById(q.targetId).name))].join(", ")} ,
-                  and getting a meeting with one of them is a better outcome from today than any
-                  answer Rohan can give you.
-                </p>
-              </div>
-            </>
-          )}
-
-          {beat.id === "beat-land" && (
-            <ul className="mt-3 divide-y divide-border border-t border-border">
-              {NAMED_ON_CALL.map((id) => (
-                <GapRow key={id} gap={gapById(id)} showRank={false} />
-              ))}
-            </ul>
-          )}
-        </Section>
+      />
       ))}
 
       <Section
         id="if-asked"
         title="If they ask"
-        summary="Facts that belong to no moment in the call, kept findable for when someone asks out of order."
-      >
-        <div className="grid gap-x-8 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
-          {company.facts.map((f) => (
-            <div key={f.label}>
-              <div className="flex items-baseline gap-2">
-                <span className="tabular text-base font-medium">{f.value}</span>
-                <span className="text-micro text-muted-foreground">
-                  {f.label}
-                </span>
-              </div>
-              <div className="text-small text-muted-foreground">{f.detail}</div>
-            </div>
-          ))}
-        </div>
-
-        <h3 className="mt-5 text-base font-medium">
-          The other {gapCount - NAMED_ON_CALL.length} gaps
-        </h3>
-        <p className="mt-0.5 text-small text-muted-foreground">Not on the call plan.</p>
-        <ul className="mt-2 divide-y divide-border border-t border-border">
-          {gaps
-            .filter((g) => !NAMED_ON_CALL.includes(g.id))
-            .map((g) => (
-              <GapRow key={g.id} gap={g} />
-            ))}
-        </ul>
-
-        <div className="mt-5 flex flex-wrap gap-1.5">
-          {sources.map((s) => (
-            <SourceChip key={s.id} sourceId={s.id} />
-          ))}
-        </div>
-      </Section>
+        summary={`Facts that belong to no moment in the call, kept findable for when somebody asks out of order. ${money(company.revenueCr)} of revenue in FY25, up 18%, on a procurement process that has not changed since 2019. Nine people in accounts payable clearing about 96,000 invoices a year, which is benchmark headcount rather than overstaffing. Three plants, and not one question asked about any of them. If the room goes somewhere the plan did not, these are the numbers that keep you in the conversation rather than promising to come back with them.`}
+      />
     </FullFrame>
   );
 }

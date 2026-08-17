@@ -142,6 +142,25 @@ export interface Gap {
   title: string;
   /** The version Aryan can say out loud without knowing the domain. */
   plainLine: string;
+  /**
+   * The same three axes the questions carry, so one filter row can be learned
+   * once and used on both surfaces.
+   *
+   * They are authored on the gap rather than derived from the questions that
+   * test it, and that is the load-bearing part: three of the twelve findings
+   * have no question against them at all, and a derived domain would drop those
+   * three out of every filter without saying so. `check:data` holds the two in
+   * agreement instead — where a question does link a gap, the gap's domain has
+   * to be one the linking questions use.
+   *
+   * `lens` on a finding reads slightly differently from `lens` on a question:
+   * technical is *how it works*, business is *what it costs them*. "Invoices are
+   * hand-keyed" is the first; "early-payment discounts going uncollected" is the
+   * second.
+   */
+  domain: QuestionDomain;
+  tags: QuestionTag[];
+  lens: QuestionLens;
   /** SCOR Level 0 → Level 1 → Level 2. Must match the Canvas node below. */
   scor: ScorStage;
   level1: string;
@@ -210,13 +229,135 @@ export const ASK_WHEN_LABEL: Record<AskWhen, string> = {
   "data-request": "Ask for this at the end",
 };
 
+/**
+ * The part of the business a question is about.
+ *
+ * One per question, and it is the *subject*, not the person. Who to ask is
+ * `targetId` and already has an arrangement of its own — a question about goods
+ * receipts is a warehouse question even though it is put to the AP manager, and
+ * filing it under him would make the domain grouping a second copy of the
+ * person grouping.
+ */
+export type QuestionDomain =
+  | "procurement"
+  | "payables"
+  | "warehouse"
+  | "finance"
+  | "logistics"
+  | "production";
+
+export const DOMAIN_LABEL: Record<QuestionDomain, string> = {
+  procurement: "Procurement",
+  payables: "Accounts payable",
+  warehouse: "Warehouse",
+  finance: "Finance",
+  logistics: "Logistics",
+  production: "Production",
+};
+
+/**
+ * Cross-cutting labels, several per question, from a closed list.
+ *
+ * A domain is where a question sits; a tag is what it touches, and the two do
+ * not nest — SAP runs through procurement, payables and the warehouse, which is
+ * exactly why "show me every SAP question" is a thing a consultant asks for and
+ * a domain cannot answer.
+ *
+ * **Closed rather than free text**, so the filter has a vocabulary rather than
+ * a long tail of near-duplicates. Adding one is adding a line here.
+ */
+export type QuestionTag =
+  | "sap"
+  | "master-data"
+  | "3-way-match"
+  | "contracts"
+  | "working-capital"
+  | "freight"
+  | "yield"
+  | "data-request";
+
+export const TAG_LABEL: Record<QuestionTag, string> = {
+  sap: "SAP",
+  "master-data": "Master data",
+  "3-way-match": "3-way match",
+  contracts: "Contracts",
+  "working-capital": "Working capital",
+  freight: "Freight",
+  yield: "Yield",
+  "data-request": "Data request",
+};
+
+/**
+ * How deep into the conversation a question sits.
+ *
+ * 1 opens a topic, 2 splits the answer, 3 drills into the branch that came
+ * back. The tiers are the fix for the thing that was actually wrong with this
+ * surface: eleven specific questions in one list said nothing about which to
+ * ask first, and a consultant who opens on "what is your first-time match
+ * rate?" has asked his sharpest question before the person on the other end has
+ * said what they care about.
+ *
+ * **Three, and no more.** A fourth level is a script rather than a
+ * conversation, and by the third question the answer has to be doing the
+ * steering.
+ */
+export type QuestionTier = 1 | 2 | 3;
+
+export const TIER_NAME: Record<QuestionTier, string> = {
+  1: "Opener",
+  2: "Follow-up",
+  3: "Drill-down",
+};
+
+/**
+ * What kind of answer the question is after.
+ *
+ * A business question asks what it costs them; a technical question asks how it
+ * works. They belong to different halves of the same call and often to
+ * different people, and mixing them is how a first call turns into a systems
+ * interview: three questions about SAP configuration in a row and the Head of
+ * Procurement stops recognising the conversation as being about his problem.
+ *
+ * It is a separate axis from `domain` and from `tier` on purpose. A technical
+ * question can be an opener and a business question can be a drill-down.
+ */
+export type QuestionLens = "business" | "technical";
+
+export const LENS_LABEL: Record<QuestionLens, string> = {
+  business: "Business impact",
+  technical: "Technical",
+};
+
 export interface Question {
   id: string;
   askOrder: number;
   askWhen: AskWhen;
+  lens: QuestionLens;
+  tier: QuestionTier;
+  /**
+   * The question this one follows from. Absent on tier 1, required below it.
+   *
+   * It is a single parent rather than a list of children on the parent, so a
+   * question can only be reached one way. Two routes to the same question is
+   * two different things being asked, and the second one needs its own words.
+   */
+  parentId?: string;
+  /**
+   * What the parent's answer has to look like for this to be the next question.
+   *
+   * **This is the follow-up logic, and it is written as speech about the person
+   * rather than as a condition.** "If he says suppliers" is something a
+   * consultant can hold while listening; `answer.includes("supplier")` is not a
+   * thing a human runs. Absent on tier 1, which is asked unconditionally.
+   */
+  askIf?: string;
   text: string;
   gloss?: string;
   targetId: string;
+  domain: QuestionDomain;
+  /** From the closed list above. Openers and follow-ups carry none: a question
+   *  broad enough to open a topic is not about any one of these yet. */
+  tags: QuestionTag[];
   whyItMatters: string;
   badAnswer: string;
   goodAnswer: string;
@@ -288,15 +429,276 @@ export const company = {
   /** The single sentence Aryan says first. */
   thesis:
     "Suvarna has scaled to ₹1,150 Cr on a procurement process still run on email, spreadsheets and manual data entry. About ₹9.1 Cr a year leaks out of it, and a further ₹18 Cr of cash sits in stock they do not need.",
-  facts: [
-    { label: "Revenue", value: "₹1,150 Cr", detail: "FY25, up 18% on FY24" },
-    { label: "Plants", value: "3", detail: "Sangli, Nashik, Hubli" },
-    { label: "ERP", value: "SAP ECC 6.0", detail: "MM, FI and SD live. No warehouse module." },
-    { label: "Active suppliers", value: "~2,400", detail: "61% of spend sits with the top 40" },
-    { label: "Headcount", value: "~4,200", detail: "AP team of 9, benchmark for the volume" },
-    { label: "Invoices a year", value: "~96,000", detail: "Roughly 8,000 a month" },
-  ],
+  /** Named once. It was `facts[2].value`, read by four directions off an index
+   *  into a list anybody could reorder. */
+  erp: "SAP ECC 6.0",
 };
+
+/* -------------------------------------------------------------------------- */
+/* Business context — the company, before any finding about it                 */
+/*                                                                             */
+/* What a consultant needs in the first minute and cannot get from a list of    */
+/* gaps: how big this business is, what it earns, who it sells to, who it buys  */
+/* from, and how much of it there is to work on. It was six flat facts on       */
+/* `company` with no sources and no comparators; the four things it did not     */
+/* say were what they keep, who their customers are, what they spend in total,  */
+/* and where any of it came from.                                              */
+/*                                                                             */
+/* Two rules do most of the work here:                                          */
+/*                                                                             */
+/* §7.3 — every number needs a comparator. A revenue figure on its own is       */
+/* trivia. Next to last year's, or the sector's margin, or the ₹9.7 Cr on the   */
+/* findings list, it is the start of an argument.                              */
+/*                                                                             */
+/* §7.5 and §4 — say whose number it is. A figure off a filing and a figure we  */
+/* modelled from sector structure look identical on a slide and are not the     */
+/* same claim, and the difference is the one a CFO finds first.                */
+/* -------------------------------------------------------------------------- */
+
+/** Whose number it is. Only `stated` goes unmarked; the other three say so. */
+export type FactBasis = "stated" | "heard" | "derived" | "estimated";
+
+export const BASIS_LABEL: Record<FactBasis, string> = {
+  stated: "Filed",
+  heard: "Said on a call",
+  derived: "Our arithmetic",
+  estimated: "Our estimate",
+};
+
+export interface BusinessFact {
+  id: string;
+  label: string;
+  /**
+   * As it is read out. Authored rather than formatted, because `money()` has no
+   * thousands separator and "₹1150 Cr" is not what anybody writes.
+   */
+  value: string;
+  /** One line: what it is, or what it is made of. */
+  detail: string;
+  /**
+   * The same measure somewhere else: last year, the sector, or another number
+   * already on this page. §7.3 — this is what turns a fact into a reading.
+   */
+  benchmark?: string;
+  basis: FactBasis;
+  sourceIds: string[];
+  /**
+   * The rupee figure behind `value`, where there is one, so `check:data` can
+   * reconcile it against the spend base rather than trusting a typed string.
+   * Display never reads it.
+   */
+  amountCr?: number;
+}
+
+export interface BusinessGroup {
+  id: string;
+  title: string;
+  /** The question this group answers, in the consultant's words. */
+  line: string;
+  facts: BusinessFact[];
+}
+
+export const businessContext: BusinessGroup[] = [
+  {
+    id: "bc-size",
+    title: "Size and profit",
+    line: "What the business earns, and what it keeps.",
+    facts: [
+      {
+        id: "bf-revenue",
+        label: "Revenue",
+        value: "₹1,150 Cr",
+        detail: "FY25. Third year of double-digit growth.",
+        benchmark: "Up 18% on FY24, which was ₹975 Cr.",
+        basis: "stated",
+        sourceIds: ["src-ar25"],
+        amountCr: 1150,
+      },
+      {
+        id: "bf-ebitda",
+        label: "EBITDA",
+        value: "₹104 Cr",
+        detail: "9.0% of revenue, before interest, tax and depreciation.",
+        benchmark: "Packaged foods at this size runs 11 to 13%. Two points of margin is ₹23 Cr.",
+        basis: "stated",
+        sourceIds: ["src-mca", "src-ar25"],
+        amountCr: 103.5,
+      },
+      {
+        id: "bf-pat",
+        label: "Profit after tax",
+        value: "₹58 Cr",
+        detail: "5.0% of revenue.",
+        benchmark: "4.4% in FY24, so the margin is recovering while the process has not changed.",
+        basis: "stated",
+        sourceIds: ["src-mca"],
+        amountCr: 57.5,
+      },
+      {
+        id: "bf-cogs",
+        label: "Cost of goods sold",
+        value: "₹828 Cr",
+        detail: "72% of revenue. Material, packaging and conversion.",
+        benchmark: "One point of it is ₹8.3 Cr, which is more than everything on the findings list.",
+        basis: "stated",
+        sourceIds: ["src-ar25"],
+        amountCr: 828,
+      },
+    ],
+  },
+  {
+    id: "bc-customers",
+    title: "Who they sell to",
+    line: "Where the revenue comes from, and who sets the terms.",
+    facts: [
+      {
+        id: "bf-distributors",
+        label: "Distributors",
+        value: "318",
+        detail: "General trade, across 19 states.",
+        benchmark: "Two thirds of volume, and the half of the business with the longest payment terms.",
+        basis: "stated",
+        sourceIds: ["src-inv"],
+      },
+      {
+        id: "bf-chains",
+        label: "Retail chains",
+        value: "14",
+        detail: "Modern trade, billed direct.",
+        benchmark: "Six of them take 31% of volume between them.",
+        basis: "stated",
+        sourceIds: ["src-inv"],
+      },
+      {
+        id: "bf-concentration",
+        label: "Top 10 customers",
+        value: "44% of revenue",
+        detail: "Concentration is normal in packaged foods.",
+        benchmark: "It is also who dictates terms, which is why the discount conversation is theirs and not ours.",
+        basis: "derived",
+        sourceIds: ["src-inv"],
+      },
+      {
+        id: "bf-exports",
+        label: "Exports",
+        value: "₹69 Cr",
+        detail: "6% of revenue. Gulf and East Africa, through two agents.",
+        basis: "stated",
+        sourceIds: ["src-ar25"],
+        amountCr: 69,
+      },
+    ],
+  },
+  {
+    id: "bc-suppliers",
+    title: "Who they buy from",
+    line: "Where the money goes, and how much of it we would be working on.",
+    facts: [
+      {
+        id: "bf-bought-in",
+        label: "Bought in a year",
+        value: "₹832 Cr",
+        detail: "Material, indirect and freight together. This is the base every finding is a percentage of.",
+        benchmark: "The ₹9.7 Cr on the findings list is about 1.2% of it.",
+        basis: "derived",
+        sourceIds: ["src-ar25", "src-call2"],
+        amountCr: 832,
+      },
+      {
+        id: "bf-suppliers",
+        label: "Active suppliers",
+        value: "~2,400",
+        detail: "61% of spend sits with the top 40.",
+        benchmark: "The other 2,360 are where the duplicate records and the off-contract buying are.",
+        basis: "heard",
+        sourceIds: ["src-call2", "src-ar25"],
+      },
+      {
+        id: "bf-direct",
+        label: "Direct material",
+        value: "₹713 Cr",
+        detail: "62% of revenue. Raw material and packaging.",
+        benchmark: "Normal for agri-processing, which is also why the split below is ours and not theirs.",
+        basis: "estimated",
+        sourceIds: ["src-ar25"],
+        amountCr: 713,
+      },
+      {
+        id: "bf-indirect",
+        label: "Indirect spend",
+        value: "₹66 Cr",
+        detail: "5.7% of revenue. MRO, services, consumables, travel.",
+        benchmark: "The largest single finding is 3.2% of this line.",
+        basis: "estimated",
+        sourceIds: ["src-ar25"],
+        amountCr: 66,
+      },
+      {
+        id: "bf-freight",
+        label: "Freight",
+        value: "₹53 Cr",
+        detail: "4.6% of revenue, and this one is their figure rather than our split.",
+        basis: "stated",
+        sourceIds: ["src-ar25"],
+        amountCr: 53,
+      },
+    ],
+  },
+  {
+    id: "bc-scale",
+    title: "The operation",
+    line: "How much of a thing there is to work on.",
+    facts: [
+      {
+        id: "bf-plants",
+        label: "Plants",
+        value: "3",
+        detail: "Sangli, Nashik and Hubli.",
+        benchmark: "None of the three has been researched. See what has been looked at, below.",
+        basis: "stated",
+        sourceIds: ["src-ar25"],
+      },
+      {
+        id: "bf-headcount",
+        label: "Headcount",
+        value: "~4,200",
+        detail: "Across the three plants, the depots and the head office.",
+        basis: "stated",
+        sourceIds: ["src-ar25"],
+      },
+      {
+        id: "bf-invoices",
+        label: "Invoices a year",
+        value: "~96,000",
+        detail: "Roughly 8,000 a month, keyed from PDF and paper.",
+        benchmark: "Nine people in accounts payable, which is benchmark for that volume rather than over it.",
+        basis: "heard",
+        sourceIds: ["src-call2"],
+      },
+      {
+        id: "bf-erp",
+        label: "ERP",
+        value: company.erp,
+        detail: "MM, FI and SD live. No warehouse module.",
+        benchmark: "Everything Heizen would build sits on top of it. No new ERP, no module to license.",
+        basis: "heard",
+        sourceIds: ["src-call2"],
+      },
+    ],
+  },
+];
+
+export const businessFacts = businessContext.flatMap((g) => g.facts);
+export const businessFactById = (id: string) => businessFacts.find((f) => f.id === id)!;
+
+/**
+ * The four a Brief has room for: what they earn, what they keep, who they sell
+ * to, who they buy from. One from each group, so the short version is still the
+ * whole shape of the business rather than the top of one list.
+ */
+export const headlineFacts = ["bf-revenue", "bf-ebitda", "bf-distributors", "bf-suppliers"].map(
+  businessFactById,
+);
 
 /* -------------------------------------------------------------------------- */
 /* Coverage — what this total is, and is not, a total of                       */
@@ -735,6 +1137,9 @@ export const gaps: Gap[] = [
     title: "Indirect spend bought outside negotiated rates",
     plainLine:
       "More than half of non-production buying happens outside agreed pricing, so Suvarna pays list price.",
+    domain: "procurement",
+    tags: ["contracts"],
+    lens: "business",
     scor: "Source",
     level1: "Sourcing",
     level2: "Indirect category management",
@@ -792,6 +1197,9 @@ export const gaps: Gap[] = [
     title: "Planning runs on spreadsheets, so stock cover runs high",
     plainLine:
       "Demand planning is done in Excel, so the warehouses carry more days of stock than they need to.",
+    domain: "production",
+    tags: [],
+    lens: "technical",
     scor: "Plan",
     level1: "Demand planning",
     level2: "Sales and operations planning",
@@ -857,6 +1265,9 @@ export const gaps: Gap[] = [
     title: "Freight is tendered manually, one carrier per lane",
     plainLine:
       "Transport is booked by phone and email with a single hauler per route, so rates are never tested.",
+    domain: "logistics",
+    tags: ["freight"],
+    lens: "business",
     scor: "Deliver",
     level1: "Transport",
     level2: "Freight procurement",
@@ -914,6 +1325,9 @@ export const gaps: Gap[] = [
     title: "Early-payment discounts are going uncollected",
     plainLine:
       "Suppliers offer money off for paying early. Suvarna collects it on about one invoice in eight.",
+    domain: "finance",
+    tags: ["contracts", "working-capital"],
+    lens: "business",
     scor: "Source",
     level1: "Accounts payable",
     level2: "Payment scheduling",
@@ -976,6 +1390,9 @@ export const gaps: Gap[] = [
     title: "Vendor onboarding takes 21 days",
     plainLine:
       "Setting up a new supplier takes three weeks, so plants buy at spot prices while they wait.",
+    domain: "procurement",
+    tags: ["sap", "master-data"],
+    lens: "business",
     scor: "Source",
     level1: "Sourcing",
     level2: "Vendor onboarding",
@@ -1030,6 +1447,9 @@ export const gaps: Gap[] = [
     title: "Three-way match fails on 42% of invoices",
     plainLine:
       "Four invoices in ten do not line up with the order and the delivery note, so someone has to chase each one.",
+    domain: "payables",
+    tags: ["sap", "3-way-match"],
+    lens: "technical",
     scor: "Source",
     level1: "Accounts payable",
     level2: "Three-way match",
@@ -1088,6 +1508,9 @@ export const gaps: Gap[] = [
     title: "Distributor claims are reconciled by hand",
     plainLine:
       "Money owed back by distributors is worked out in spreadsheets, so some of it is never collected.",
+    domain: "finance",
+    tags: [],
+    lens: "technical",
     scor: "Deliver",
     level1: "Trade claims",
     level2: "Distributor rebates",
@@ -1142,6 +1565,9 @@ export const gaps: Gap[] = [
     title: "Duplicate supplier records in SAP",
     plainLine:
       "The same supplier is entered several times, so nobody can see how much Suvarna really spends with them.",
+    domain: "procurement",
+    tags: ["sap", "master-data"],
+    lens: "technical",
     scor: "Source",
     level1: "Sourcing",
     level2: "Supplier master data",
@@ -1196,6 +1622,9 @@ export const gaps: Gap[] = [
     bucketId: "b-pay",
     title: "Invoices are hand-keyed into SAP",
     plainLine: "Nine people retype 96,000 supplier invoices a year into the system by hand.",
+    domain: "payables",
+    tags: ["sap"],
+    lens: "technical",
     scor: "Source",
     level1: "Accounts payable",
     level2: "Invoice capture",
@@ -1262,6 +1691,9 @@ export const gaps: Gap[] = [
     // Inbound receiving is a Source activity (SCOR sS1.2-1.4), not Deliver. It
     // was filed under Deliver, which hid the causal chain into the match failure
     // above. See AUDIT.md B2.
+    domain: "warehouse",
+    tags: ["sap", "3-way-match"],
+    lens: "technical",
     scor: "Source",
     level1: "Receiving",
     level2: "Goods receipt posting",
@@ -1317,6 +1749,9 @@ export const gaps: Gap[] = [
     title: "Approvals happen on email and WhatsApp with no audit trail",
     plainLine:
       "Purchases get approved in chat messages, so there is no record of who agreed to what.",
+    domain: "procurement",
+    tags: [],
+    lens: "technical",
     scor: "Source",
     level1: "Purchasing",
     level2: "Requisition and approval",
@@ -1378,6 +1813,9 @@ export const gaps: Gap[] = [
     title: "No supplier scorecard behind goods-receipt rejections",
     plainLine:
       "Deliveries get rejected on quality, but nobody tracks which suppliers cause it.",
+    domain: "procurement",
+    tags: [],
+    lens: "business",
     scor: "Source",
     level1: "Incoming quality",
     level2: "Goods receipt inspection",
@@ -1511,12 +1949,57 @@ export function sequenceWaves(ids: Iterable<string>): string[][] {
 /* -------------------------------------------------------------------------- */
 
 export const questions: Question[] = [
+  /* -- Procurement. The one thread you run today, in the room, with Rohan. -- */
   {
-    id: "q1",
+    id: "q-proc-open",
     askOrder: 1,
     askWhen: "this-call",
+    lens: "business",
+    tier: 1,
+    text: "What is the biggest challenge in procurement right now?",
+    targetId: "sh-rohan",
+    domain: "procurement",
+    tags: [],
+    whyItMatters:
+      "It costs nothing to ask and it decides which of the four below is worth the time. Whatever he names first is what he is measured on, and the words he uses are the words to use for the rest of the call.",
+    badAnswer:
+      "\"Nothing major.\" That is a door closing rather than an answer. Name one finding, ask whether he sees it that way, and let him correct you.",
+    goodAnswer:
+      "Anything specific. You now have his framing, and every question after this one can be asked inside it rather than against it.",
+    linkedGapIds: [],
+  },
+  {
+    id: "q-proc-split",
+    askOrder: 2,
+    askWhen: "this-call",
+    lens: "business",
+    tier: 2,
+    parentId: "q-proc-open",
+    askIf: "he names anything at all",
+    text: "Is that more about planning what to buy, coordinating suppliers, or forecasting demand?",
+    targetId: "sh-rohan",
+    domain: "procurement",
+    tags: [],
+    whyItMatters:
+      "Three answers and three different calls. Suppliers is the branch the evidence is under, so it is the one to hope for, and the other two tell you the research is pointed at the wrong half of his job.",
+    badAnswer:
+      "\"All three.\" Take suppliers and say why: it is where the money on our list sits, and he can move you off it if he disagrees.",
+    goodAnswer:
+      "Any one of the three, named on his own. That is the branch, and the questions under it stop being a list and start being the next thing you say.",
+    linkedGapIds: [],
+  },
+  {
+    id: "q1",
+    askOrder: 3,
+    askWhen: "this-call",
+    lens: "technical",
     text: "How long does it take you to get a new supplier trading?",
     targetId: "sh-rohan",
+    domain: "procurement",
+    tags: ["sap", "master-data"],
+    tier: 3,
+    parentId: "q-proc-split",
+    askIf: "he says suppliers, or anything about getting them set up",
     whyItMatters:
       "It is his number, it is a problem he already admits to, and it opens the conversation on his ground rather than Finance's.",
     badAnswer:
@@ -1527,10 +2010,16 @@ export const questions: Question[] = [
   },
   {
     id: "q2",
-    askOrder: 2,
+    askOrder: 4,
     askWhen: "this-call",
+    lens: "business",
     text: "When a plant needs something and the supplier is not set up yet, what actually happens, and roughly how much goes that way in a year?",
     targetId: "sh-rohan",
+    domain: "procurement",
+    tags: ["master-data", "contracts"],
+    tier: 3,
+    parentId: "q-proc-split",
+    askIf: "onboarding sounds slow, or he mentions plants buying on their own",
     whyItMatters:
       "This is where the onboarding delay converts into money, and the ₹25 Cr base under that ₹75 L is currently ours, not his. Getting a number here is what makes the gap real.",
     badAnswer: "\"They wait.\" Then the cost is production disruption, not price. Reprice the gap.",
@@ -1540,12 +2029,18 @@ export const questions: Question[] = [
   },
   {
     id: "q3",
-    askOrder: 3,
+    askOrder: 5,
     askWhen: "this-call",
+    lens: "business",
     text: "How much of your indirect buying goes through a contracted rate, and where does that figure come from?",
     gloss:
       "Indirect is everything that is not raw material: services, maintenance, packaging consumables, travel.",
     targetId: "sh-rohan",
+    domain: "procurement",
+    tags: ["contracts", "master-data"],
+    tier: 3,
+    parentId: "q-proc-split",
+    askIf: "he says planning, or starts talking about contracts and rates",
     whyItMatters:
       "The largest number on the list at ₹2.1 Cr, and the only thing under it is his own guess on a call. Do not present that figure until this is answered.",
     badAnswer:
@@ -1555,10 +2050,16 @@ export const questions: Question[] = [
   },
   {
     id: "q4",
-    askOrder: 4,
+    askOrder: 6,
     askWhen: "data-request",
+    lens: "technical",
     text: "Could you share twelve months of goods-receipt rejections by supplier, and a spend extract by vendor?",
     targetId: "sh-rohan",
+    domain: "procurement",
+    tags: ["data-request", "master-data"],
+    tier: 3,
+    parentId: "q-proc-split",
+    askIf: "the call has gone well and you are close to the end",
     whyItMatters:
       "Two open items in one ask. The rejections price gap 12; the spend extract is the only thing that turns the ₹2.1 Cr indirect estimate into a number. Ask last. It is a data request, not a discovery question, and it changes the register of the call.",
     badAnswer:
@@ -1566,14 +2067,59 @@ export const questions: Question[] = [
     goodAnswer: "A yes converts the biggest and the smallest thing on the list at the same time.",
     linkedGapIds: ["g12", "g3"],
   },
+  /* -- Paying for it. Anand, once you have a meeting with him. ------------- */
+  {
+    id: "q-pay-open",
+    askOrder: 7,
+    askWhen: "after-this-call",
+    lens: "business",
+    tier: 1,
+    text: "What is the biggest challenge in accounts payable right now?",
+    targetId: "sh-anand",
+    domain: "payables",
+    tags: [],
+    whyItMatters:
+      "His team is the one the invoice chain lands on, and the whole of that chain is inference until somebody who works in it says what it is like.",
+    badAnswer:
+      "\"We manage.\" A team keying 96,000 invoices a year manages by working late. Ask what a bad week looks like.",
+    goodAnswer:
+      "Anything about volume, exceptions or chasing. All three of the findings under this thread are in that sentence.",
+    linkedGapIds: [],
+  },
+  {
+    id: "q-pay-split",
+    askOrder: 8,
+    askWhen: "after-this-call",
+    lens: "business",
+    tier: 2,
+    parentId: "q-pay-open",
+    askIf: "he names anything at all",
+    text: "Is that invoices arriving, invoices matching, or getting them paid on time?",
+    targetId: "sh-anand",
+    domain: "payables",
+    tags: [],
+    whyItMatters:
+      "The three are three different fixes and only one of them is the one we have priced. Splitting them here is what stops a match-rate question landing on a man whose real problem is paper arriving.",
+    badAnswer:
+      "\"They all run into each other.\" They do, and that is the finding. Ask which one he would fix first.",
+    goodAnswer:
+      "Matching. That is the branch with the evidence under it, and the next two questions are written for it.",
+    linkedGapIds: [],
+  },
   {
     id: "q5",
-    askOrder: 5,
+    askOrder: 9,
     askWhen: "after-this-call",
+    lens: "technical",
     text: "What is your first-time match rate?",
     gloss:
       "The share of invoices that reconcile against the order and the delivery note automatically, with nobody touching them.",
     targetId: "sh-anand",
+    domain: "payables",
+    tags: ["sap", "3-way-match"],
+    tier: 3,
+    parentId: "q-pay-split",
+    askIf: "he says matching, or anything about exceptions",
     whyItMatters:
       "The single most diagnostic number in procure-to-pay. It sets the size of the invoice chain, though not a headcount case: his team is already at benchmark.",
     badAnswer:
@@ -1584,22 +2130,73 @@ export const questions: Question[] = [
   },
   {
     id: "q6",
-    askOrder: 6,
+    askOrder: 10,
     askWhen: "after-this-call",
+    lens: "technical",
     text: "When an invoice does not match, who picks it up and how long does it sit?",
     targetId: "sh-anand",
+    domain: "payables",
+    tags: ["3-way-match", "sap"],
+    tier: 3,
+    parentId: "q-pay-split",
+    askIf: "he gives you a match rate, or admits nobody measures one",
     whyItMatters:
       "Turns a percentage into a person and a delay. This is the detail that makes the number feel real to the CFO later.",
     badAnswer: "\"It gets handled.\" Push once: ask how many are open right now.",
     goodAnswer: "A named queue and an ageing figure. That is the business case, given to you.",
     linkedGapIds: ["g2"],
   },
+  /* -- Getting the goods on the system. Same person, different subject. ---- */
+  {
+    id: "q-wh-open",
+    askOrder: 11,
+    askWhen: "after-this-call",
+    lens: "business",
+    tier: 1,
+    text: "What slows your team down most before an invoice even reaches you?",
+    targetId: "sh-anand",
+    domain: "warehouse",
+    tags: [],
+    whyItMatters:
+      "It is the same person as the thread above and a different subject: what happens at the plants decides what arrives on his desk. Asking it as its own question is what keeps the warehouse finding from being an accusation about his team.",
+    badAnswer:
+      "\"That is not our side.\" Fair, and useful. Then ask who would know, and leave with a name.",
+    goodAnswer:
+      "Anything about receipts, plants or paperwork arriving late. That is the missing warehouse system, described by the person it lands on.",
+    linkedGapIds: [],
+  },
+  {
+    id: "q-wh-split",
+    askOrder: 12,
+    askWhen: "after-this-call",
+    lens: "technical",
+    tier: 2,
+    parentId: "q-wh-open",
+    askIf: "he points at the plants at all",
+    text: "Is that goods arriving late, or the paperwork for them arriving late?",
+    targetId: "sh-anand",
+    domain: "warehouse",
+    tags: [],
+    whyItMatters:
+      "One is a supplier problem and the other is ours to sell into. They sound identical on a call and they are opposite findings.",
+    badAnswer:
+      "\"Both.\" Ask which one he hears about more. The answer is nearly always the paperwork.",
+    goodAnswer:
+      "The paperwork. That is the receipt posting, and the question under this one turns it into a timeline.",
+    linkedGapIds: [],
+  },
   {
     id: "q7",
-    askOrder: 7,
+    askOrder: 13,
     askWhen: "after-this-call",
+    lens: "technical",
     text: "Are your goods receipts posted at the plant as goods arrive, or later?",
     targetId: "sh-anand",
+    domain: "warehouse",
+    tags: ["sap", "3-way-match"],
+    tier: 3,
+    parentId: "q-wh-split",
+    askIf: "he says the paperwork, or puts the delay on the plants",
     whyItMatters:
       "The actual root cause behind the match failures, and the one link that has to hold for the whole invoice chain to be one story rather than four projects.",
     badAnswer:
@@ -1607,12 +2204,57 @@ export const questions: Question[] = [
     goodAnswer: "\"When they get to it.\" Confirms the chain from paper receiving to the exception queue.",
     linkedGapIds: ["g11", "g2"],
   },
+  /* -- The cash conversation. Meera, and it is a CFO conversation. --------- */
+  {
+    id: "q-fin-open",
+    askOrder: 14,
+    askWhen: "after-this-call",
+    lens: "business",
+    tier: 1,
+    text: "What is the biggest challenge in the payment cycle right now?",
+    targetId: "sh-meera",
+    domain: "finance",
+    tags: [],
+    whyItMatters:
+      "A CFO opens on cash, and letting her name the problem first is what stops the early-payment argument arriving as a supplier of ours telling her how to run her balance sheet.",
+    badAnswer:
+      "\"It is under control.\" Then move to what it costs: the funding rate is the number this whole thread needs and she is the only person who has it.",
+    goodAnswer:
+      "Anything about timing, terms or working capital. Both questions under this one are in that answer.",
+    linkedGapIds: [],
+  },
+  {
+    id: "q-fin-split",
+    askOrder: 15,
+    askWhen: "after-this-call",
+    lens: "business",
+    tier: 2,
+    parentId: "q-fin-open",
+    askIf: "she names anything at all",
+    text: "Is that about when the cash goes out, or about the terms you are on?",
+    targetId: "sh-meera",
+    domain: "finance",
+    tags: [],
+    whyItMatters:
+      "Terms is a procurement conversation she can hand back to Rohan. Timing is hers, and it is the one that decides whether the discount gap is worth anything.",
+    badAnswer:
+      "\"Terms are terms.\" Then ask what she would need to see to pay earlier than she does today.",
+    goodAnswer:
+      "Timing. She has just told you the discount is a cash decision rather than a pricing one, which is the frame the next question needs.",
+    linkedGapIds: [],
+  },
   {
     id: "q8",
-    askOrder: 8,
+    askOrder: 16,
     askWhen: "after-this-call",
+    lens: "business",
     text: "You have early-payment terms on the ingredient contracts. How often do you hit them?",
     targetId: "sh-meera",
+    domain: "finance",
+    tags: ["contracts", "working-capital", "sap"],
+    tier: 3,
+    parentId: "q-fin-split",
+    askIf: "she talks about terms, or about what suppliers charge her",
     whyItMatters:
       "The cleanest margin argument available and the natural handover point into a CFO conversation.",
     badAnswer:
@@ -1623,12 +2265,18 @@ export const questions: Question[] = [
   },
   {
     id: "q9",
-    askOrder: 9,
+    askOrder: 17,
     askWhen: "after-this-call",
+    lens: "business",
     // The question that makes g4 survivable in front of a CFO. Without it we are
     // quoting a gross discount and hoping she does not do the cash arithmetic.
     text: "If we pulled payment forward to hit the 2% discount, what would that do to your working capital line, and what does that money cost you today?",
     targetId: "sh-meera",
+    domain: "finance",
+    tags: ["working-capital"],
+    tier: 3,
+    parentId: "q-fin-split",
+    askIf: "she says paying earlier would tie up cash she needs",
     whyItMatters:
       "Capturing the discount ties up roughly ₹12 Cr. We have costed that at 9% because we do not know her real rate. Get it, and the ₹1 Cr net becomes her number instead of ours.",
     badAnswer:
@@ -1637,13 +2285,58 @@ export const questions: Question[] = [
       "Any borrowing rate she will state. Below about 12% the discount is worth taking and you can say so with her arithmetic.",
     linkedGapIds: ["g4"],
   },
+  /* -- Moving it. Vikram. -------------------------------------------------- */
+  {
+    id: "q-log-open",
+    askOrder: 18,
+    askWhen: "after-this-call",
+    lens: "business",
+    tier: 1,
+    text: "What is the biggest challenge in moving product out right now?",
+    targetId: "sh-vikram",
+    domain: "logistics",
+    tags: [],
+    whyItMatters:
+      "Nobody in logistics has been spoken to at all, so this is the first question on the whole subject rather than the first question of a thread.",
+    badAnswer:
+      "\"Freight is freight.\" Then ask what he pays and when it was last tested. A shrug about cost is usually a rate nobody has looked at.",
+    goodAnswer:
+      "Anything about cost, availability or lanes. The rate question under this one is the one that prices it.",
+    linkedGapIds: [],
+  },
+  {
+    id: "q-log-split",
+    askOrder: 19,
+    askWhen: "after-this-call",
+    lens: "business",
+    tier: 2,
+    parentId: "q-log-open",
+    askIf: "he names anything at all",
+    text: "Is that what the lorries cost, or getting one when you need it?",
+    targetId: "sh-vikram",
+    domain: "logistics",
+    tags: [],
+    whyItMatters:
+      "Cost is the branch we have modelled. Availability is a bigger problem, a different sale, and worth knowing before the rate question makes it sound like we came for the small one.",
+    badAnswer:
+      "\"We get what we can.\" That is availability, and the freight gap is then the wrong opening. Say so and follow the answer.",
+    goodAnswer:
+      "Cost. The rate question under this one is written for exactly that, and the 5% we have modelled becomes something he can argue with.",
+    linkedGapIds: [],
+  },
   {
     id: "q10",
-    askOrder: 10,
+    askOrder: 20,
     askWhen: "after-this-call",
+    lens: "business",
     text: "What do you pay per tonne-km on your main lanes, and when were those rates last tendered?",
     gloss: "Rate per tonne-km is the comparable number. Freight as a share of revenue is not.",
     targetId: "sh-vikram",
+    domain: "logistics",
+    tags: ["freight"],
+    tier: 3,
+    parentId: "q-log-split",
+    askIf: "he talks about rates, carriers or when a lane was last tendered",
     whyItMatters:
       "The freight gap is the least-evidenced ₹1.6 Cr on the list. Nobody in logistics has been spoken to at all. This question replaces a weak benchmark with a real one.",
     badAnswer:
@@ -1652,16 +2345,61 @@ export const questions: Question[] = [
       "A rate card and a date. If the last tender is more than two years old, the 5% we have modelled is conservative.",
     linkedGapIds: ["g7"],
   },
+  /* -- Making it. Nobody has asked a single question about Make. ----------- */
+  {
+    id: "q-prod-open",
+    askOrder: 21,
+    askWhen: "after-this-call",
+    lens: "business",
+    tier: 1,
+    text: "What is the biggest challenge across the three plants right now?",
+    targetId: "sh-vikram",
+    domain: "production",
+    tags: [],
+    whyItMatters:
+      "Make is the one part of this business nobody has researched, and for an agri-processor it is usually the largest line in it. Everything currently on the list could be the smaller half of the opportunity.",
+    badAnswer:
+      "\"The plants run fine.\" Then ask what a bad shift costs. Nobody who runs three plants believes all three run fine.",
+    goodAnswer:
+      "Anything at all. This is the one thread where a vague answer is still progress, because there is nothing behind it yet.",
+    linkedGapIds: [],
+  },
+  {
+    id: "q-prod-split",
+    askOrder: 22,
+    askWhen: "after-this-call",
+    lens: "business",
+    tier: 2,
+    parentId: "q-prod-open",
+    askIf: "he names anything at all",
+    text: "Is that throughput, or material that goes in and does not come out?",
+    targetId: "sh-vikram",
+    domain: "production",
+    tags: [],
+    whyItMatters:
+      "Throughput is a capital conversation and material loss is a process one. Only the second is something we can price off their own numbers.",
+    badAnswer:
+      "\"We are at capacity.\" That is throughput, and it is a different pitch. Note it and ask the yield question anyway.",
+    goodAnswer:
+      "Material. Half a point of ₹713 Cr is ₹3.6 Cr, and the question under this one is what turns that into their figure rather than ours.",
+    linkedGapIds: [],
+  },
   {
     id: "q11",
-    askOrder: 11,
+    askOrder: 23,
     askWhen: "after-this-call",
+    lens: "business",
     // Nobody has asked a single question about Make, and they run three plants.
     // See AUDIT.md C.
     text: "What is your yield loss and giveaway across the three plants, and who watches it?",
     gloss:
       "Giveaway is product handed over above the declared pack weight. Yield loss is material that goes in and does not come out as sellable product.",
     targetId: "sh-vikram",
+    domain: "production",
+    tags: ["yield"],
+    tier: 3,
+    parentId: "q-prod-split",
+    askIf: "he says material, waste, yield or giveaway",
     whyItMatters:
       "We have not researched Make at all, and for an agri-processor it is usually the largest single line. Half a point of ₹713 Cr of material is ₹3.6 Cr. Everything currently on the list could be the smaller half of the opportunity.",
     badAnswer:
@@ -1675,6 +2413,104 @@ export const questions: Question[] = [
 export const questionById = (id: string) => questions.find((q) => q.id === id)!;
 export const questionsWhen = (when: AskWhen) =>
   questions.filter((q) => q.askWhen === when).sort((a, b) => a.askOrder - b.askOrder);
+
+/**
+ * The domains that actually have questions in them, in ask order.
+ *
+ * Derived, not written down: a fixed list would show an empty *Logistics* panel
+ * the day its one question moves, and a domain with nothing in it is a heading
+ * that says the research is thinner than it is. Ordered by the first question
+ * in each, for the same reason the person groups are — grouping is worthless if
+ * it makes the ask numbers run 8, 9, 10, 5, 6 down the page.
+ */
+export const questionDomains = (list: Question[] = questions): QuestionDomain[] =>
+  (Object.keys(DOMAIN_LABEL) as QuestionDomain[])
+    .filter((d) => list.some((q) => q.domain === d))
+    .sort(
+      (a, b) =>
+        Math.min(...list.filter((q) => q.domain === a).map((q) => q.askOrder)) -
+        Math.min(...list.filter((q) => q.domain === b).map((q) => q.askOrder)),
+    );
+
+/**
+ * Restructure the view around one part of the business.
+ *
+ * "Show me only procurement" is one instruction, and answering it means
+ * filtering three different things that are keyed three different ways:
+ * questions carry a domain, gaps carry a bucket, systems carry a gap list.
+ *
+ * **Nothing new is invented to join them.** The domain's questions already name
+ * the gaps they test, and every gap already sits under exactly one system, so
+ * the chain runs questions → gaps → systems off links that are checked by
+ * `check:data`. A hand-written map from domain to bucket would be a fourth
+ * taxonomy nobody maintains, and it would be the one that goes stale.
+ */
+export interface FocusScope {
+  questionIds: string[];
+  gapIds: string[];
+  systemIds: string[];
+}
+
+export function focusScope(domain: QuestionDomain): FocusScope {
+  const qs = questions.filter((q) => q.domain === domain);
+  const gapIds = [...new Set(qs.flatMap((q) => q.linkedGapIds))];
+  const systemIds = techSystems
+    .filter((s) => s.gapIds.some((id) => gapIds.includes(id)))
+    .map((s) => s.id);
+  return { questionIds: qs.map((q) => q.id), gapIds, systemIds };
+}
+
+/** The domains and tags the *findings* use, in registry order. Same shape as
+ *  the question helpers above and here for the same reason: a filter should
+ *  never offer a value that returns nothing. */
+export const gapDomains = (Object.keys(DOMAIN_LABEL) as QuestionDomain[]).filter((d) =>
+  gaps.some((g) => g.domain === d),
+);
+export const gapTags = (Object.keys(TAG_LABEL) as QuestionTag[]).filter((t) =>
+  gaps.some((g) => g.tags.includes(t)),
+);
+
+/** The tags in use, in the registry's order, so the filter never offers a dead option. */
+export const questionTags = (list: Question[] = questions): QuestionTag[] =>
+  (Object.keys(TAG_LABEL) as QuestionTag[]).filter((t) =>
+    list.some((q) => q.tags.includes(t)),
+  );
+
+/* -------------------------------------------------------------------------- */
+/* The conversation tree                                                       */
+/*                                                                             */
+/* One tier-1 question opens each thread; everything else hangs off a parent    */
+/* with a line saying what answer sends you there. The shape is the deliverable */
+/* rather than the ordering: what was wrong before was not that the eleven were */
+/* in the wrong sequence, it was that a sequence is the wrong model for a       */
+/* conversation. You do not ask question 5 because you have finished 4, you ask */
+/* it because of what came back from 3.                                        */
+/* -------------------------------------------------------------------------- */
+
+/** The openers, in ask order. One per thread, by construction. */
+export const questionThreads = (list: Question[] = questions): Question[] =>
+  list.filter((q) => q.tier === 1).sort((a, b) => a.askOrder - b.askOrder);
+
+/** What to ask next, if the answer goes that way. */
+export const questionChildren = (id: string, list: Question[] = questions): Question[] =>
+  list.filter((q) => q.parentId === id).sort((a, b) => a.askOrder - b.askOrder);
+
+/**
+ * The route to a question, opener first.
+ *
+ * A drill-down on its own is the thing this redesign exists to stop: "what is
+ * your first-time match rate?" is a good third question and a bad first one, so
+ * anything that shows one has to be able to show what earns it.
+ */
+export const questionPath = (id: string): Question[] => {
+  const out: Question[] = [];
+  let at: Question | undefined = questions.find((q) => q.id === id);
+  while (at) {
+    out.unshift(at);
+    at = at.parentId ? questions.find((q) => q.id === at!.parentId) : undefined;
+  }
+  return out;
+};
 
 /* -------------------------------------------------------------------------- */
 /* Claim ledger — the spine of Direction 3                                     */
@@ -2326,6 +3162,15 @@ export interface TechSystem {
    * `DealRisk` exists to prevent.
    */
   fallsTo?: string;
+  /**
+   * Who supplies it, or the honest word when nobody does.
+   *
+   * On a call this is the question that follows "what do you run on" within one
+   * sentence, and it decides who else is in the room: a module supplied by SAP
+   * and managed by an application-management partner is a conversation with
+   * that partner in it. See the incumbent-vendor risk, which names ours.
+   */
+  vendor: string;
   /** The findings that sit here. Each gap appears under exactly one system. */
   gapIds: string[];
   sourceIds: string[];
@@ -2337,6 +3182,7 @@ export const techSystems: TechSystem[] = [
     name: "SAP MM",
     does: "Buying: purchase orders, goods receipts and the supplier master.",
     state: "live",
+    vendor: "SAP",
     gapIds: ["g6", "g9", "g12"],
     sourceIds: ["src-call2", "src-ar25"],
   },
@@ -2345,6 +3191,7 @@ export const techSystems: TechSystem[] = [
     name: "SAP FI",
     does: "Paying: invoices, matching and the payment run.",
     state: "live",
+    vendor: "SAP",
     gapIds: ["g2", "g4"],
     sourceIds: ["src-call2", "src-email"],
   },
@@ -2353,6 +3200,7 @@ export const techSystems: TechSystem[] = [
     name: "SAP SD",
     does: "Selling: orders out, distributors and rebate schemes.",
     state: "live",
+    vendor: "SAP",
     gapIds: ["g10"],
     sourceIds: ["src-call2", "src-ar25"],
   },
@@ -2361,6 +3209,7 @@ export const techSystems: TechSystem[] = [
     name: "Purchase approvals",
     does: "Signing off a purchase above the plant threshold.",
     state: "workaround",
+    vendor: "Nobody. Email and WhatsApp",
     fallsTo: "Email, and WhatsApp when it is urgent. The record is written after the decision, or not at all.",
     gapIds: ["g5"],
     sourceIds: ["src-call1", "src-email"],
@@ -2370,6 +3219,7 @@ export const techSystems: TechSystem[] = [
     name: "Demand planning",
     does: "Deciding how much to make and how much to hold.",
     state: "workaround",
+    vendor: "Nobody. One spreadsheet",
     fallsTo: "One spreadsheet, maintained by the planning team. It is why stock cover runs at 38 days.",
     gapIds: ["g8"],
     sourceIds: ["src-ar25"],
@@ -2379,6 +3229,7 @@ export const techSystems: TechSystem[] = [
     name: "Freight tendering",
     does: "Getting a lorry for a load that needs to move.",
     state: "workaround",
+    vendor: "Nobody. Phone and email",
     fallsTo: "Phone and email, one carrier per lane. Nothing compares a rate against the last one.",
     gapIds: ["g7"],
     sourceIds: ["src-ar25"],
@@ -2388,6 +3239,7 @@ export const techSystems: TechSystem[] = [
     name: "Warehouse management",
     does: "Booking goods in and telling the rest of SAP they arrived.",
     state: "missing",
+    vendor: "Nothing bought",
     fallsTo:
       "Paper, at all three plants. The receipt is posted whenever somebody gets to it, which sets the clock on the match failure.",
     gapIds: ["g11"],
@@ -2398,6 +3250,7 @@ export const techSystems: TechSystem[] = [
     name: "Invoice capture",
     does: "Reading a supplier invoice so nobody has to type it.",
     state: "missing",
+    vendor: "Nothing bought",
     fallsTo: "Nine people in AP, keying about 96,000 invoices a year from PDF and paper.",
     gapIds: ["g1"],
     sourceIds: ["src-call2", "src-email"],
@@ -2407,6 +3260,7 @@ export const techSystems: TechSystem[] = [
     name: "Spend analytics",
     does: "Showing what was bought, from whom, and against which contract.",
     state: "missing",
+    vendor: "Nothing bought",
     fallsTo:
       "Nobody at all, which is why no price on this list is measured from their own data.",
     gapIds: ["g3"],

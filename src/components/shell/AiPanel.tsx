@@ -361,6 +361,30 @@ interface Turn {
 const WORDS_PER_TICK = 3;
 const TICK_MS = 26;
 
+/**
+ * How long the reply is thought about before a word of it appears.
+ *
+ * `Thinking` has been in this file the whole time and nobody ever saw it: the
+ * interval's first tick lands at 26ms, so the loading state existed for one
+ * frame between pressing send and the answer pouring out. An answer that starts
+ * arriving in the same frame as the question does not read as fast, it reads as
+ * canned — the panel is keyword-routing over a static research set, and showing
+ * that seam is the one thing this prototype should not do.
+ *
+ * **Three seconds, on request.** It was 700ms, which is about what a routed
+ * lookup would really cost; three is what a model that reads a dossier before
+ * answering costs, which is the thing this panel is standing in for. It is long
+ * enough that the wait is a state the reader sits in rather than glimpses, so
+ * two things that were nice to have become load-bearing at this length: the
+ * *Stop* control in the composer, and `Stopped` for the turn it leaves behind.
+ * Both are here.
+ *
+ * **It applies under `prefers-reduced-motion` too, unlike the streaming.** A
+ * pause is not motion, and the orb's thinking state is legible when its
+ * animation is off — see the reduce block in `globals.css`.
+ */
+const THINK_MS = 3000;
+
 let nextId = 1;
 
 /**
@@ -461,7 +485,14 @@ export function AiPanel() {
      three levels up that has to hand the answer to an SVG. */
   const [composerLive, setComposerLive] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  /* The pause before the first word. A second ref rather than reusing `timer`:
+     browsers happen to share an id space between `setTimeout` and
+     `setInterval`, so `clearInterval` on a timeout works — and depending on
+     that is how a stop button ends up clearing the wrong thing the day one of
+     them changes. Everything that stops a reply has to clear both. */
+  const think = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /** True from the moment send is pressed: the thinking pause counts. */
   const streaming = turns.some((t) => t.streaming);
 
   /**
@@ -484,13 +515,16 @@ export function AiPanel() {
   const stopStreaming = useCallback(() => {
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
+    if (think.current) clearTimeout(think.current);
+    think.current = null;
     setTurns((ts) => ts.map((t) => (t.streaming ? { ...t, streaming: false } : t)));
   }, []);
 
-  // Clear the interval if the panel unmounts mid-reply, or it keeps ticking
-  // against state nobody is rendering.
+  // Clear both if the panel unmounts mid-reply, or they keep firing against
+  // state nobody is rendering.
   useEffect(() => () => {
     if (timer.current) clearInterval(timer.current);
+    if (think.current) clearTimeout(think.current);
   }, []);
 
   const send = useCallback(
@@ -500,7 +534,10 @@ export function AiPanel() {
          send with an empty box would produce a turn with nothing asked in it,
          and the send button is disabled on an empty draft for the same reason.
          The files stay clipped until there is something to ask about them. */
-      if (!question || timer.current) return;
+      /* `think.current` as well as `timer.current`: during the pause before the
+         first word there is no interval yet, so guarding on the interval alone
+         let a second Enter start a second reply into the same transcript. */
+      if (!question || timer.current || think.current) return;
 
       /* The attachment is the fallback subject, not part of the question.
          `answerFor` routes on what was typed and only falls back to the
@@ -541,36 +578,43 @@ export function AiPanel() {
         typeof window !== "undefined" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-      if (reduce) {
-        setTurns((ts) =>
-          ts.map((t) =>
-            t.id === aiId ? { ...t, text: answer.text, streaming: false } : t,
-          ),
-        );
-        return;
-      }
+      /* The turn is already in the transcript with an empty body, so `Bubble`
+         is rendering `Thinking` from this point. What follows only decides when
+         the first word replaces it. See `THINK_MS`. */
+      think.current = setTimeout(() => {
+        think.current = null;
 
-      const words = answer.text.split(" ");
-      let i = 0;
-      timer.current = setInterval(() => {
-        i += WORDS_PER_TICK;
-        const done = i >= words.length;
-        setTurns((ts) =>
-          ts.map((t) =>
-            t.id === aiId
-              ? {
-                  ...t,
-                  text: words.slice(0, i).join(" "),
-                  streaming: !done,
-                }
-              : t,
-          ),
-        );
-        if (done && timer.current) {
-          clearInterval(timer.current);
-          timer.current = null;
+        if (reduce) {
+          setTurns((ts) =>
+            ts.map((t) =>
+              t.id === aiId ? { ...t, text: answer.text, streaming: false } : t,
+            ),
+          );
+          return;
         }
-      }, TICK_MS);
+
+        const words = answer.text.split(" ");
+        let i = 0;
+        timer.current = setInterval(() => {
+          i += WORDS_PER_TICK;
+          const done = i >= words.length;
+          setTurns((ts) =>
+            ts.map((t) =>
+              t.id === aiId
+                ? {
+                    ...t,
+                    text: words.slice(0, i).join(" "),
+                    streaming: !done,
+                  }
+                : t,
+            ),
+          );
+          if (done && timer.current) {
+            clearInterval(timer.current);
+            timer.current = null;
+          }
+        }, TICK_MS);
+      }, THINK_MS);
     },
     [attachment, clearAttachment, files],
   );
@@ -589,6 +633,8 @@ export function AiPanel() {
   const newChat = useCallback(() => {
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
+    if (think.current) clearTimeout(think.current);
+    think.current = null;
     if (turns.length) setHistory((h) => [archive(turns), ...h]);
     setTurns([]);
     setDraft("");
@@ -615,6 +661,8 @@ export function AiPanel() {
       if (!picked) return;
       if (timer.current) clearInterval(timer.current);
       timer.current = null;
+      if (think.current) clearTimeout(think.current);
+      think.current = null;
 
       /* Both writes are computed from the values already in hand and neither
          updater reads the other's result. Threading one through the other's
@@ -1777,17 +1825,33 @@ function Bubble({ turn }: { turn: Turn }) {
      are on `--card` in the end; what separates them is that the answer runs the
      full width and keeps a document's left edge, because it is the thing being
      read rather than the thing being said. */
+  /* Waiting, with nothing to read yet. It is its own shape rather than a state
+     of the answer card, which is why it branches here and not further down. */
+  const loading = turn.text === "" && turn.streaming;
+
   return (
     <div className="rounded-lg border border-border bg-card p-3 shadow-card">
       {/* The mark beside a reply reads that reply's own flag, not the panel's.
           Scroll back to an old answer while a new one is streaming and the old
-          one is settled, which is true: that turn finished. */}
-      <p className="mb-2 flex items-center gap-2 text-micro font-medium text-muted-foreground">
-        <HelixMark state={turn.streaming ? "thinking" : "idle"} />
-        Helix
-      </p>
+          one is settled, which is true: that turn finished.
+
+          **It is not drawn while the reply is still being waited for**, on
+          request. The byline exists to say who is speaking, and during the wait
+          nobody is: a `Helix` label above a Helix orb was the same name twice in
+          two registers, 20px apart, on the one card that has nothing else in
+          it. What is left is the orb, which says both things at once. */}
+      {!loading && (
+        <p className="mb-2 flex items-center gap-2 text-micro font-medium text-muted-foreground">
+          <HelixMark state={turn.streaming ? "thinking" : "idle"} />
+          Helix
+        </p>
+      )}
       {turn.text === "" ? (
-        <Thinking />
+        loading ? (
+          <Thinking />
+        ) : (
+          <Stopped />
+        )
       ) : (
         <div className="reading space-y-2.5 text-small">
           {turn.text.split("\n\n").map((para, i) => (
@@ -1820,24 +1884,49 @@ function Bubble({ turn }: { turn: Turn }) {
 /**
  * What sits in the reply while there is nothing to read yet.
  *
- * It was three pulsing grey dots, which is the shape every chat has converged
- * on and says nothing about who is working. It is Helix's own loading orb now,
- * which is the mascot's thinking state with the head shading kept: the small
- * circle beside a line of text and the large one on the opening are **the same
- * object at two sizes** rather than a mascot and an unrelated spinner.
+ * **The orb, and nothing else**, on request. It has had three shapes: three
+ * grey dots, then the orb with *Working* beside it, then that plus a row of
+ * travelling dots. Each addition was answering the same worry — that a turning
+ * mark alone does not say enough — and the third made the case against itself:
+ * a card holding an orb, the word Helix, the word Working and three dots was
+ * four things saying one thing, on the one card in the panel with no content in
+ * it. The byline above it goes too; see `Bubble`.
  *
- * The `aria-live` survives the change and the word is now visible rather than
- * `sr-only`. A turning gradient announces nothing, and the three dots did not
- * either — so the one moment in the panel where a screen reader has to be told
- * something is happening was also the one moment a sighted reader was told
- * least. One word covers both, and it is not a second announcement: the orb is
- * `aria-hidden`.
+ * The orb earns being alone because its thinking state is a *different picture*
+ * and not the same picture spinning: the visor dissolves and the swirl appears.
+ * That is a state you can read from a still, which is what lets it carry the
+ * wait without a caption. It is 30px here against the 22 it took beside a line
+ * of text, because it is now the whole message rather than a mark beside one.
+ *
+ * **The word survives as `sr-only`, and that is not a regression to be tidied
+ * away.** A turning gradient announces nothing. This is the one moment in the
+ * panel where a screen reader has to be told something is happening, and it is
+ * a three-second wait — long enough that silence reads as the send having
+ * failed. `aria-live="polite"` on a region whose only visible content is
+ * `aria-hidden` is exactly what `sr-only` is for.
  */
 function Thinking() {
   return (
-    <p className="flex items-center gap-2" aria-live="polite">
-      <HelixOrb state="thinking" px={22} />
-      <span className="text-small text-muted-foreground">Working</span>
+    <p className="flex items-center py-1" aria-live="polite">
+      <HelixOrb state="thinking" px={30} />
+      <span className="sr-only">Working</span>
+    </p>
+  );
+}
+
+/**
+ * A reply that was stopped before it said anything.
+ *
+ * Reachable because the thinking pause is now 700ms rather than one frame:
+ * Escape, the stop button, New chat and opening an old chat all settle the live
+ * turn, and a settled turn with an empty body would otherwise render `Thinking`
+ * for ever — a panel claiming to be working on an answer that nothing is
+ * computing. It says what happened instead.
+ */
+function Stopped() {
+  return (
+    <p className="accent-heading text-small italic text-muted-foreground">
+      Stopped before it answered.
     </p>
   );
 }

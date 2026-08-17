@@ -51,8 +51,14 @@ export function RunButton({ label }: { label: string; tight?: boolean }) {
   const [open, setOpen] = useState(false);
 
   /* The surface is already in the label, so the run does not need a second
-     prop that could disagree with it. */
-  const kind: RunKind = label.includes("Gaps")
+     prop that could disagree with it.
+
+     **`Gap`, not `Gaps`.** The Gaps button says *Run Gap Analysis*, singular,
+     so the plural test never matched and that surface has been running the
+     research script rather than its own. Exactly the failure mode a label-sniff
+     invites: it fails silently and shows a plausible run. If a third label ever
+     drifts, this is the line to look at. */
+  const kind: RunKind = label.includes("Gap")
     ? "gaps"
     : label.includes("Questions")
       ? "questions"

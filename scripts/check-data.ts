@@ -16,6 +16,9 @@
 import {
   buckets,
   bucketTotal,
+  businessContext,
+  businessFactById,
+  businessFacts,
   claims,
   company,
   coverage,
@@ -38,6 +41,7 @@ import {
   valueForSystem,
 } from "../src/lib/suvarna.ts";
 import { entities, nodeById, nodes, pathTo } from "../src/lib/canvas.ts";
+import { lanes, precedentBands, priorWork, reusedValueCr } from "../src/lib/compare.ts";
 
 const r = (n: number) => Math.round(n * 100) / 100;
 const tierValue = (t: string) =>
@@ -353,6 +357,62 @@ const impossible = questions.filter(
 );
 check("this-call questions for people not met", impossible.length, 0);
 
+/* The conversation tree. Every one of these failures is silent: a broken branch
+   renders as a perfectly tidy row that simply never appears under anything, and
+   a drill-down with no condition on it renders as a question with no reason to
+   be asked at that point, which is the fault the tiers exist to fix. */
+const qById = new Map(questions.map((q) => [q.id, q]));
+check(
+  "questions below tier 1 with no parent",
+  questions.filter((q) => q.tier !== 1 && !q.parentId).length,
+  0,
+);
+check(
+  "questions whose parent does not exist",
+  questions.filter((q) => q.parentId && !qById.has(q.parentId)).length,
+  0,
+);
+// A tier-3 question hanging off an opener has skipped the question that decides
+// whether it is the right one to ask.
+check(
+  "questions not exactly one tier below their parent",
+  questions.filter((q) => q.parentId && qById.get(q.parentId)!.tier !== q.tier - 1).length,
+  0,
+);
+check(
+  "openers with a parent",
+  questions.filter((q) => q.tier === 1 && q.parentId).length,
+  0,
+);
+// The follow-up logic itself, guarded the way the counter rule is: a branch with
+// no condition on it is a branch nobody can take.
+check(
+  "follow-ups with no condition, or one too short to act on",
+  questions.filter((q) => q.tier !== 1 && (q.askIf ?? "").split(" ").length < 4).length,
+  0,
+);
+check("openers stating a condition", questions.filter((q) => q.tier === 1 && q.askIf).length, 0);
+// A question nothing follows from is a thread that stops one tier short of the
+// specifics, which is where the money is.
+check(
+  "openers and follow-ups with nothing under them",
+  questions.filter((q) => q.tier !== 3 && !questions.some((c) => c.parentId === q.id)).length,
+  0,
+);
+// Ask order has to run down the tree, or the numbers on the page say ask this
+// first about a question that only exists because of a later one.
+check(
+  "children asked before their parent",
+  questions.filter((q) => q.parentId && qById.get(q.parentId)!.askOrder > q.askOrder).length,
+  0,
+);
+// A thread that changes subject halfway is two threads.
+check(
+  "children in a different domain from their parent",
+  questions.filter((q) => q.parentId && qById.get(q.parentId)!.domain !== q.domain).length,
+  0,
+);
+
 /* --------------------------------------------------------------- coverage */
 section("Coverage");
 
@@ -366,10 +426,71 @@ for (const c of coverage) {
   );
 }
 
+/* -------------------------------------------------------- business context */
+section("Business context");
+
+const allSourceIds = new Set(sources.map((s) => s.id));
+
+// The context page is the one screen a client reads for facts about themselves
+// rather than for findings, so a figure that disagrees with the base every price
+// is built on is worse here than anywhere else: it is wrong about them.
+check(
+  "revenue matches the spend base",
+  businessFactById("bf-revenue").amountCr,
+  spendBase.revenueCr,
+);
+check("cost of goods matches the spend base", businessFactById("bf-cogs").amountCr, spendBase.cogsCr);
+check("direct material matches the spend base", businessFactById("bf-direct").amountCr, spendBase.directCr);
+check("indirect spend matches the spend base", businessFactById("bf-indirect").amountCr, spendBase.indirectCr);
+check("freight matches the spend base", businessFactById("bf-freight").amountCr, spendBase.freightCr);
+// The one derived total on the page, and the base the ₹9.68 Cr is a percentage
+// of. If it stops being the sum of its three parts, the "1.2% of what they buy"
+// comparator beside it becomes a made-up number.
+check(
+  "what they buy is its three parts",
+  businessFactById("bf-bought-in").amountCr,
+  r(spendBase.directCr + spendBase.indirectCr + spendBase.freightCr),
+);
+// Bought-in cannot exceed what they sell, and profit cannot exceed revenue: two
+// failures that sound impossible and are exactly what a mistyped figure looks
+// like.
+expect(
+  "bought-in cost is below revenue",
+  businessFactById("bf-bought-in").amountCr! < spendBase.revenueCr,
+  `${businessFactById("bf-bought-in").amountCr} vs ${spendBase.revenueCr}`,
+);
+expect(
+  "profit is below revenue",
+  businessFactById("bf-pat").amountCr! < businessFactById("bf-ebitda").amountCr!,
+  "profit after tax should sit below EBITDA",
+);
+check(
+  "facts citing a source that does not exist",
+  businessFacts.flatMap((f) => f.sourceIds.filter((id) => !allSourceIds.has(id))).length,
+  0,
+);
+// Nothing on this platform is unattributable (§4), and a fact about the client's
+// own business is the last place to start.
+check("facts with no source at all", businessFacts.filter((f) => f.sourceIds.length === 0).length, 0);
+check(
+  "facts with a duplicate id",
+  businessFacts.length - new Set(businessFacts.map((f) => f.id)).size,
+  0,
+);
+// §7.3. A group where nothing is measured against anything is a table of trivia,
+// so at least half of every group has to carry a comparator.
+for (const g of businessContext) {
+  expect(
+    `${g.title} states what its numbers mean`,
+    g.facts.filter((f) => f.benchmark).length * 2 >= g.facts.length,
+    `${g.facts.filter((f) => f.benchmark).length} of ${g.facts.length} carry a comparator`,
+  );
+}
+
 /* ----------------------------------------------------------------- timing */
 section("Timing signals");
 
-const sourceIds = new Set(sources.map((s) => s.id));
+const sourceIds = allSourceIds;
 
 // A signal with no readings behind it is a count with no base — the same
 // failure §7.11 forbids for a price, arriving through a different door.
@@ -532,6 +653,106 @@ expect(
   "no live system claims a workaround",
   liveWithFallback.length === 0,
   liveWithFallback.map((s) => s.id).join(", "),
+);
+
+/* --------------------------------------------------- gaps and questions */
+section("One vocabulary, two surfaces");
+
+/* The findings and the questions carry the same three axes so one filter row
+   serves both. Authored twice means they can disagree, and the disagreement is
+   silent: a gap filed under `payables` that only procurement questions test
+   simply stops appearing where a consultant looks for it. */
+for (const g of gaps) {
+  const asking = questions.filter((q) => q.linkedGapIds.includes(g.id));
+  if (asking.length === 0) continue;
+  const domains = [...new Set(asking.map((q) => q.domain))];
+  expect(
+    `${g.id} filed where its questions ask`,
+    domains.includes(g.domain),
+    `gap says ${g.domain}, questions say ${domains.join(", ")}`,
+  );
+}
+// A tag on a finding has to come from the same closed list the questions use,
+// or the Tag filter offers a value on one surface and not the other.
+const questionTagSet = new Set(questions.flatMap((q) => q.tags));
+check(
+  "gap tags outside the question vocabulary",
+  gaps.flatMap((g) => g.tags.filter((t) => !questionTagSet.has(t))).length,
+  0,
+);
+
+/* ------------------------------------------------------------- precedent */
+section("What we have built before");
+
+/* A reuse figure is the most flattering number on the platform, which makes it
+   the one to guard hardest. Every failure here inflates it silently. */
+const laneIds = new Set(lanes.map((l) => l.id));
+check(
+  "prior work on a lane that does not exist",
+  priorWork.filter((w) => !laneIds.has(w.laneId)).length,
+  0,
+);
+// Nothing has ever been built at a benchmark, and we cannot have built this
+// client's own findings at this client.
+check(
+  "prior work claimed on the benchmark or on this client",
+  priorWork.filter((w) => {
+    const lane = lanes.find((l) => l.id === w.laneId);
+    return lane?.isBenchmark || lane?.isCurrent;
+  }).length,
+  0,
+);
+check(
+  "prior work covering a gap that does not exist",
+  priorWork.flatMap((w) => w.gapIds.filter((id) => !gapIds.has(id))).length,
+  0,
+);
+// THE ONE THAT MATTERS. A gap credited to two past projects is counted twice in
+// the reuse total, which is §7.12's error in a different currency and reads as
+// more reuse than there is.
+check(
+  "gaps credited to two past projects",
+  gaps.filter((g) => priorWork.filter((w) => w.gapIds.includes(g.id)).length > 1).length,
+  0,
+);
+// The bands are the whole findings list, cut four ways. If they stop adding up,
+// the bar is drawn against a total it does not sum to.
+check(
+  "bands cover every finding",
+  precedentBands().reduce((s, b) => s + b.gaps.length, 0),
+  gaps.length,
+);
+check(
+  "bands sum to the gross total",
+  r(precedentBands().reduce((s, b) => s + b.valueCr, 0)),
+  company.grossLeakageCr,
+);
+expect(
+  "reuse is below the whole list",
+  reusedValueCr() < company.grossLeakageCr,
+  `${reusedValueCr()} of ${company.grossLeakageCr}`,
+);
+// Same doctrine as the counter rule. A row claiming "built before" with nothing
+// against it is a promise made on a call by somebody who will not deliver it,
+// and it renders as a perfectly confident row.
+const noCaveat = priorWork.filter((w) => w.caveat.trim().split(/\s+/).length < 8);
+expect(
+  "every reuse claim says what is different",
+  noCaveat.length === 0,
+  noCaveat.map((w) => w.id).join(", "),
+);
+expect(
+  "every reuse claim says what it took",
+  priorWork.every((w) => w.weeksThere > 0),
+  "a build that took no time did not happen",
+);
+// A match with no verified date cannot go stale, which means it never stops
+// being believed. The row reads the date to decide whether to warn.
+const undated = priorWork.filter((w) => Number.isNaN(new Date(w.verifiedOn).getTime()));
+expect(
+  "every match says when it was last checked",
+  undated.length === 0,
+  undated.map((w) => w.id).join(", "),
 );
 
 console.log(failed === 0 ? "\nAll data checks passed." : `\n${failed} check(s) failed.`);

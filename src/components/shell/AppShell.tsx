@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import {
+  Bookmark,
   CircleUser,
   Columns3,
   FileSearch,
@@ -24,6 +25,8 @@ import { AiButton, AiPanel, AiProvider, useAi } from "./AiPanel";
 import { SelectionAsk } from "./SelectionAsk";
 import { NavButton, NavDrawer } from "./NavDrawer";
 import { WorkspaceProvider } from "./WorkspaceProvider";
+import { SavedProvider } from "./SavedProvider";
+import { ToastProvider } from "./Toast";
 import { useMastheadVisible } from "./useScrollDirection";
 
 /**
@@ -51,16 +54,47 @@ import { useMastheadVisible } from "./useScrollDirection";
  * question for the questions, two columns for the comparison, files for the
  * files.
  */
+/**
+ * **The order is the call, not the pipeline**, on request.
+ *
+ * It used to run Operations, Research, Gaps, Questions, Compare, Sources, which
+ * is the order the product builds things in: map the company, write the
+ * dossier, find the gaps, then ask about them. That is our sequence rather than
+ * Aryan's. What he does with four minutes before a call is read the dossier and
+ * take the questions in with him, so those two lead, and the four that support
+ * them follow in the order they are reached for.
+ *
+ * The leftmost tab is also the cheapest to hit and the first one read, which is
+ * the other half of the argument: on a row of six, position is the only
+ * priority signal there is.
+ */
 const TABS = [
-  { name: "Operations", href: "/operations", Icon: Network },
-  /* Full, not Brief. Brief is the thing you switch *to* in the five minutes
-     before a call; Full is the dossier, and it is what "Research" means when
-     you arrive from the masthead with no particular errand. */
-  { name: "Research", href: "/research/all/full", Icon: FileSearch },
-  { name: "Gaps", href: "/gaps", Icon: TriangleAlert },
+  /* **Prep is off the row**, on request. `/prep` and `PrepView` are untouched
+     and the route still renders — nothing else in the product links to it, so
+     it is reachable only by typing the URL. Putting it back is this one line.
+     If it is meant to go for good, `src/app/(app)/prep/` and
+     `components/surfaces/PrepView.tsx` are the two things to delete. */
+  /* **Brief, not Full**, on request, which reverses what this comment used to
+     say. The old argument was that Full is what "Research" means when you
+     arrive with no particular errand. What it missed is that arriving with no
+     errand is rare: the reason this tab gets pressed is a call, and the
+     one-screen read is what that wants. Full is one tab away and every Brief
+     carries its own way into it. */
+  { name: "Research", href: "/research/company/brief", Icon: FileSearch },
   { name: "Questions", href: "/questions", Icon: MessageCircleQuestion },
+  { name: "Operations", href: "/operations", Icon: Network },
+  /* **"Gaps & problems", not "Gaps"**, on request. The house style everywhere
+     else spells the conjunction ("Sourcing and quotes", "Size and profit"), so
+     this is the one ampersand in the product; it is here because the label was
+     asked for in these words. It is also the longest tab by some way, which is
+     what the measurement below the tab list is about. */
+  { name: "Gaps & problems", href: "/gaps", Icon: TriangleAlert },
   { name: "Compare", href: "/compare", Icon: Columns3 },
   { name: "Sources", href: "/sources", Icon: Files },
+  /* **Last, because it is a list of things from the six before it.** Saved holds
+     whatever has been bookmarked on Questions, Gaps and Research, so it can only
+     ever be read after one of those has been used. */
+  { name: "Saved", href: "/saved", Icon: Bookmark },
 ] as const;
 
 /**
@@ -93,9 +127,19 @@ const WORKSPACE_PAGES = new Set(["", "projects", "team", "settings", "account"])
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <WorkspaceProvider>
-      <AiProvider>
-        <Shell>{children}</Shell>
-      </AiProvider>
+      {/* Outermost of the three, because everything under it reports into the
+          same corner: saving a question, committing a form, writing a file. */}
+      <ToastProvider>
+        {/* Above `Shell`, so the saved set survives moving between surfaces:
+            client navigation keeps React state that lives in the layout. A
+            reload empties it, which is the honest scope of a prototype with no
+            server. */}
+        <SavedProvider>
+          <AiProvider>
+            <Shell>{children}</Shell>
+          </AiProvider>
+        </SavedProvider>
+      </ToastProvider>
     </WorkspaceProvider>
   );
 }
@@ -112,14 +156,20 @@ function Shell({ children }: { children: ReactNode }) {
   const inProject = !WORKSPACE_PAGES.has(surface);
   const tabs = inProject ? TABS : WORKSPACE_TABS;
 
-  // Two surfaces are viewport-locked rather than document-scrolled: Research
-  // Brief, which must be a single screen with no scrolling, and Operations,
-  // which
-  // is a pannable map and would be nonsense inside a scrolling page. Rather
-  // than guess the chrome height in pixels, the shell becomes a fixed-height
-  // flex column and the content area simply cannot overflow.
-  const lockViewport =
-    (onResearch && parts[2] !== "full") || surface === "operations";
+  // One surface is viewport-locked rather than document-scrolled: Operations,
+  // which is a pannable map and would be nonsense inside a scrolling page.
+  // Rather than guess the chrome height in pixels, the shell becomes a
+  // fixed-height flex column and the content area simply cannot overflow.
+  //
+  // **Research Brief used to be the second one**, and it is not any more.
+  // Brief was a single screen with no scrolling, and this lock is what
+  // enforced it from the outside while `BriefFrame`'s own `overflow-hidden`
+  // enforced it from the inside. Brief is Full's layout now — navigator, sheet,
+  // one section — so the lock was clipping an ordinary document against the
+  // bottom of the window with no scrollbar to reach the rest. A page that is
+  // short because it is written short does not need the window to hold it
+  // there.
+  const lockViewport = surface === "operations";
 
   const mastheadVisible = useMastheadVisible();
   const { open: aiOpen, full: aiFull, width: aiWidth } = useAi();
@@ -186,10 +236,12 @@ function Shell({ children }: { children: ReactNode }) {
             page content and map overlays   z-10, z-20
             workspace panel  scrim z-24     z-25
             masthead                        z-30   <- this
+            ask-list tray (Questions)       z-30, its flying mark z-31
             Operations full screen          z-35
             nav drawer      scrim z-36      z-38
             evidence panel  scrim z-40      z-50
             gap panel       scrim z-54      z-56
+            ask-list panel  scrim z-58      z-59
             selection menu                  z-65
             AI panel        scrim z-60      z-70
             dialogs         scrim z-90      z-95
@@ -246,21 +298,23 @@ function Shell({ children }: { children: ReactNode }) {
               <Wordmark />
             </Link>
             <span
-              className="hidden h-4 w-px bg-masthead-border xl:block"
+              className="hidden h-4 w-px bg-masthead-border tabs-fit:block"
               aria-hidden
             />
           </div>
 
-          {/* From `xl`. Below it the row is a drawer: the six tabs come to
-              647px and the rest of the band to 450, so the row needs ~1130px to
-              be whole and at 1024 *Sources* was off the right edge.
+          {/* From `tabs-fit` (1360px, measured — see `globals.css`). Below it
+              the row is a drawer: the seven tabs come to 807px and the rest of
+              the band to about 550, so anything narrower puts *Sources* off the
+              right edge. A horizontal scroller there is a hiding place too, and
+              a worse one, which is the whole reason the drawer exists.
 
               Marked by an underline rather than a filled chip, as the reference
               does: a chip on a dark band has to be a light block, which reads
               as heavier than the page content underneath it. */}
           <nav
             aria-label={inProject ? "Product surfaces" : "Workspace"}
-            className="scroll-slim hidden min-w-0 flex-1 overflow-x-auto xl:ml-2 xl:block"
+            className="scroll-slim hidden min-w-0 flex-1 overflow-x-auto tabs-fit:ml-2 tabs-fit:block"
           >
             {/* A notch more air between tabs, on request: `gap-1` was 4px, and
                 with a mark now sitting in front of every label the six tabs

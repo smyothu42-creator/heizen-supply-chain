@@ -1,25 +1,13 @@
 "use client";
 
-import { cn } from "@/lib/cn";
 import {
   buckets,
-  company,
-  coverage,
   gapById,
-  gaps,
-  type Gap,
-} from "@/lib/suvarna";
+  gaps } from "@/lib/suvarna";
 
-import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
-import { ConfidenceBadge, EffortChip } from "@/components/meridian/Confidence";
-import { Eyebrow } from "@/components/meridian/Primitives";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section , type SectionRef } from "./Frames";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
-import { usePanel } from "@/components/meridian/EvidencePanel";
-
-/** The gaps in one bucket, in the order the bucket lists them. */
-const gapsIn = (bucketId: string) =>
-  (buckets.find((b) => b.id === bucketId)?.gapIds ?? []).map(gapById);
 
 /* -------------------------------------------------------------------------- */
 /* Operation leaks — the same findings, read as failures of the operation      */
@@ -30,85 +18,26 @@ const gapsIn = (bucketId: string) =>
 /* the step that breaks, and this is the only view that puts the step first.    */
 /* -------------------------------------------------------------------------- */
 
-const STAGES = coverage.map((c) => c.stage);
-const inStage = (stage: string) => gaps.filter((g) => g.scor === stage);
 
 /** The three that go wrong most visibly, not the three worth most. */
-const WORST = ["g11", "g2", "g5"].map(gapById);
 
 export function LeaksBrief() {
-  const { open } = usePanel();
-
   return (
     <BriefFrame
       actions={<RunButton label="Run research" tight />}
-      hero={
-        <SurfaceHero
-          tight
-          collapseAtRoomy
-          title="Research"
-          titleNode={
-            <div className="roomy:hidden">
-              <p className="font-display text-h2 leading-[1.15]">
-                Twelve places the operation loses time
-              </p>
-              <p className="reading measure mt-1 text-small text-muted-foreground">
-                Nine of them sit in buying. Nobody has looked at the plants.
-              </p>
-            </div>
-          }
-        />
-      }
+      hero={<SurfaceHero title="Research" />}
       lead={
         <DocumentLead
-          bordered={false}
-          titleNode={
-            <p className="font-display text-h2 leading-[1.15]">
-              Twelve places the operation loses time
-            </p>
-          }
+          title="Where the operation loses time and control"
           standfirst="The same findings as Financial, with the money taken off. What breaks, where it breaks, and how sure we are."
         />
       }
     >
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <Eyebrow>The three that break most visibly</Eyebrow>
-        <ul className="mt-1.5 space-y-2.5">
-          {WORST.map((gap, i) => (
-            <li key={gap.id} className={cn(i === 2 && "hidden sm:block")}>
-              <button
-                type="button"
-                onClick={() => open({ kind: "gap", id: gap.id })}
-                className="group w-full text-left"
-              >
-                <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                  <EffortChip level={gap.effort} />
-                  <span className="text-base font-medium leading-snug transition-colors group-hover:text-muted-foreground">
-                    {gap.title}
-                  </span>
-                </span>
-                <span className="reading mt-0.5 block text-small text-muted-foreground">
-                  {gap.plainLine}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="shrink-0 rounded-md border border-dashed border-border-strong px-4 py-2 sm:py-3">
-        <Eyebrow>Where they sit</Eyebrow>
-        <p className="mt-1 text-small measure">
-          {STAGES.map((s) => `${s} ${inStage(s).length}`).join(" · ")}. Nine of twelve are in
-          one stage, which is where the work has been done rather than where the problems are.
-        </p>
-      </div>
-
+      <Section id="l-brief" title="What breaks, and where nobody has looked" summary={`${gaps.length} places the operation loses time, with no rupee figure on any of them. Nine sit in buying, which is where the work has been done rather than where the problems necessarily are. Nobody has looked at the plants. The three that break most visibly are goods receipts posted late because there is no warehouse module, a three-way match that fails on 42% of invoices, and approvals happening on email and WhatsApp with no audit trail. An operator does not think in leakage, they think in the step that breaks, and this is the only reading that puts the step first.`} />
       <BriefFooter
         href="/research/leaks/full"
-        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
       >
-        All {gaps.length}
+        All twelve
       </BriefFooter>
     </BriefFrame>
   );
@@ -116,11 +45,24 @@ export function LeaksBrief() {
 
 /* -------------------------------------------------------------------------- */
 
+/* Built from the same buckets the sections are. */
 const SECTIONS: SectionRef[] = buckets.map((b) => ({
   id: `l-${b.id}`,
   label: b.name,
-  meta: `${b.gapIds.length} leaks`,
 }));
+
+const WORDS=["No","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve"];
+const Spell=(n:number)=>WORDS[n]??String(n);
+
+/* What an operator should take from each group. No rupee figures anywhere in
+   this direction: the money is Financial's, and the person who reads this one
+   thinks in the step that breaks rather than in leakage. */
+const LEAK_NOTE: Record<string,string> = {
+  "b-pay": "All four are confirmed, and all four are the same invoice moving through the same process, so they break together and they would be fixed together.",
+  "b-buy": "The three-week onboarding is the one a plant feels, because it is the one that decides whether a line waits.",
+  "b-move": "The weakest evidence in the direction. Both of the larger ones are inferred from the FY25 report, because nobody in logistics or planning has been spoken to yet.",
+  "b-recover": "One failure, and the only one here that is about money owed to Suvarna rather than money leaving it.",
+};
 
 export function LeaksFull() {
   return (
@@ -135,38 +77,10 @@ export function LeaksFull() {
       />
 
       {buckets.map((b) => (
-        <Section key={b.id} id={`l-${b.id}`} title={b.name} summary={b.plainLine}>
-          <ul className="divide-y divide-border">
-            {gapsIn(b.id).map((gap) => (
-              <LeakRow key={gap.id} gap={gap} />
-            ))}
-          </ul>
-        </Section>
+        <Section key={b.id} id={`l-${b.id}`} title={b.name} summary={`${b.plainLine} ${Spell(b.gapIds.length)} things go wrong here. ${b.gapIds.map(gapById).map((g) => g.title).join(". ")}. ${LEAK_NOTE[b.id] ?? ""}`}
+      />
       ))}
     </FullFrame>
   );
 }
 
-function LeakRow({ gap }: { gap: Gap }) {
-  const { open } = usePanel();
-
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={() => open({ kind: "gap", id: gap.id })}
-        className="group -mx-2 w-full rounded-md px-2 py-3 text-left transition-colors hover:bg-muted"
-      >
-        <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <EffortChip level={gap.effort} />
-          <span className="text-base font-medium transition-colors group-hover:text-muted-foreground">
-            {gap.title}
-          </span>
-        </span>
-        <span className="reading mt-1 block text-small text-muted-foreground">
-          {gap.hypothesis}
-        </span>
-      </button>
-    </li>
-  );
-}

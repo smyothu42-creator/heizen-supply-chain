@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { useId, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { directions } from "@/lib/directions";
+import { GROUP_LABEL, GROUP_ORDER, directionsInGroup } from "@/lib/directions";
+import { SelectNative } from "@/components/ui/select-native";
 import { SwitchScroller, SwitchTrack, switchItemClass } from "./SwitchTrack";
 
 /**
@@ -21,8 +22,9 @@ import { SwitchScroller, SwitchTrack, switchItemClass } from "./SwitchTrack";
  * What keeps them reading as two questions rather than one six-item control is
  * the labels, not the distance between them.
  *
- * Full is the default view. Brief is the thing you switch *to*, minutes before
- * a call — so Full leads the segment and owns the entry points into Research.
+ * Full is the default view and owns the entry points into Research. **Brief
+ * leads the Detail switch**, on request: the position is about which one is
+ * reached for rather than which one is arrived at. See `ViewSwitch`.
  */
 
 function useResearchRoute() {
@@ -110,10 +112,21 @@ export function ResearchSwitches({
             went for the same reason: this row is the one thing Full and Brief
             share exactly, and it may not change size when you switch between
             them. */}
+        {/* **The four group dropdowns are gone**, on request. What replaced
+            them is the navigator down the left of Full, which lists every
+            category with its readings under it — a tree that shows where you are
+            in one look rather than four boxes that each show it only when you
+            happen to be inside them. See `ResearchNav`.
+            
+            What is left on the row is Detail, and one grouped picker for the
+            widths where the navigator is not there: below `lg` on Full, and on
+            Brief, which has no left column of its own. Removing it as well would
+            leave Research with no way to change direction on a phone, which is
+            the width Brief exists for. */}
         <div className="flex w-max items-stretch gap-6">
           <ViewSwitch />
-          <span className="w-px shrink-0 self-stretch bg-border" aria-hidden />
-          <DirectionSwitch />
+          <span className={cn("w-px shrink-0 self-stretch bg-border", !tight && "lg:hidden")} aria-hidden />
+          <DirectionPicker className={cn(!tight && "lg:hidden")} />
         </div>
       </SwitchScroller>
       {actions && (
@@ -134,23 +147,47 @@ export function ResearchSwitches({
   );
 }
 
-/** Which of the four dossiers you are reading. */
-function DirectionSwitch() {
+/**
+ * One picker, grouped, for the widths the navigator does not cover.
+ *
+ * It is a single `<select>` with an `<optgroup>` per category rather than the
+ * four group dropdowns it replaces: the same tree the navigator draws, in the
+ * one control a phone can hold. `optgroup` is what makes it a tree rather than
+ * a list of eleven — the platform draws the category headings itself, which is
+ * exactly the structure being asked for.
+ *
+ * Native, like every other dropdown in the product: keyboard-operable and
+ * screen-reader correct for free, and on a phone it opens the platform's own
+ * picker. The cost is that these are no longer links, so a direction cannot be
+ * opened in a new tab — which is why the navigator's entries still are.
+ */
+function DirectionPicker({ className }: { className?: string }) {
   const { slug, view } = useResearchRoute();
+  const router = useRouter();
+  const id = useId();
 
   return (
-    <SwitchTrack as="nav" label="Direction">
-      {directions.map((d) => (
-        <Link
-          key={d.slug}
-          href={`/research/${d.slug}/${view}`}
-          aria-current={d.slug === slug ? "page" : undefined}
-          className={switchItemClass(d.slug === slug)}
-        >
-          {d.name}
-        </Link>
-      ))}
-    </SwitchTrack>
+    <div className={cn("flex shrink-0 items-center gap-2 self-center", className)}>
+      <label htmlFor={id} className="shrink-0 text-small font-medium text-muted-foreground">
+        Reading
+      </label>
+      <SelectNative
+        id={id}
+        value={slug}
+        onChange={(e) => router.push(`/research/${e.target.value}/${view}`)}
+        className="h-8 shrink-0 py-0.5 text-small"
+      >
+        {GROUP_ORDER.map((group) => (
+          <optgroup key={group} label={GROUP_LABEL[group]}>
+            {directionsInGroup(group).map((d) => (
+              <option key={d.slug} value={d.slug}>
+                {d.name}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </SelectNative>
+    </div>
   );
 }
 
@@ -160,14 +197,40 @@ function ViewSwitch() {
 
   return (
     <SwitchTrack label="Detail" className="shrink-0">
-      {(["full", "brief"] as const).map((m) => (
+      {/* **Brief leads the pair**, on request, and it reverses the order this
+          file used to argue for. The old reasoning was that Full is what
+          "Research" means when you arrive with no particular errand, so it
+          should own the first position. What that missed is which of the two is
+          *reached for*: Brief is the one-screen read in the five minutes before
+          a call, and the leftmost tab is the cheapest to hit and the first one
+          read.
+
+          **Brief is the landing too**, on request, so the order and the
+          default now agree: the masthead's Research tab points at
+          `/research/company/brief`. Arriving at the dossier with no particular
+          errand and reaching for it before a call are the same act often
+          enough that the one-screen read is the honest first thing to show;
+          Full is one tab away and every Brief carries its own way into it.
+          Prep's deep links still name Full, because each of those points at a
+          specific section of the long document. */}
+      {/* **They say "Brief Research" and "Full Research"**, on request, rather
+          than the bare adjective the route uses. An explicit label pair, not a
+          `capitalize`d value: the moment a tab's words stop being its slug
+          spelled differently, deriving them from the slug is a trick that has
+          to be undone. Same reason `CompareView` writes its two out. */}
+      {(
+        [
+          ["brief", "Brief Research"],
+          ["full", "Full Research"],
+        ] as const
+      ).map(([m, label]) => (
         <Link
           key={m}
           href={`/research/${slug}/${m}`}
           aria-current={m === view ? "true" : undefined}
-          className={cn(switchItemClass(m === view), "capitalize")}
+          className={switchItemClass(m === view)}
         >
-          {m}
+          {label}
         </Link>
       ))}
     </SwitchTrack>

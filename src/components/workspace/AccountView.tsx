@@ -8,7 +8,8 @@ import { ROLE_LABEL, ROLE_MEANING } from "@/lib/workspace";
 import { useWorkspace } from "@/components/shell/WorkspaceProvider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Field, PageHead, Said } from "./Form";
+import { Field, PageHead } from "./Form";
+import { useToast } from "@/components/shell/Toast";
 
 /**
  * The signed-in person, as their own page.
@@ -28,7 +29,7 @@ import { Field, PageHead, Said } from "./Form";
 export function AccountView() {
   const { me, projects, updateMember } = useWorkspace();
   const [name, setName] = useState(me.name ?? "");
-  const [said, setSaid] = useState("");
+  const { notify } = useToast();
 
   /* Owners and admins can open everything, so the honest count for them is the
      whole list rather than the ids on their own row. Same rule `TeamView` reads
@@ -41,7 +42,7 @@ export function AccountView() {
   const save = (e: React.FormEvent) => {
     e.preventDefault();
     updateMember(me.id, { name: name.trim() || undefined });
-    setSaid("Saved to this tab only.");
+    notify("Name saved", { detail: "This tab only. Nothing is stored on a server." });
   };
 
   return (
@@ -91,11 +92,10 @@ export function AccountView() {
                 />
               )}
             </Field>
-            <div className="mt-3 flex items-center gap-3">
+            <div className="mt-3">
               <Button type="submit" size="sm" disabled={(me.name ?? "") === name.trim()}>
                 Save name
               </Button>
-              <Said>{said}</Said>
             </div>
           </form>
 

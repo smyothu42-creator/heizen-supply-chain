@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/cn";
 import { ChevronIcon, DownloadIcon } from "@/components/meridian/Icons";
 import { company, gapById } from "@/lib/suvarna";
 import { UNIT_LABEL, formatDay, formatSpan, type Schedule } from "@/lib/plan";
+import { useToast } from "./Toast";
 
 /**
  * Take the plan out of the tool. **It really downloads.**
@@ -36,7 +36,7 @@ import { UNIT_LABEL, formatDay, formatSpan, type Schedule } from "@/lib/plan";
  */
 export function SaveMenu({ sched }: { sched: Schedule }) {
   const [open, setOpen] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
+  const { notify } = useToast();
   const wrap = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
 
@@ -62,7 +62,14 @@ export function SaveMenu({ sched }: { sched: Schedule }) {
   const take = (f: Format) => {
     const name = `${slug(company.name)}-delivery-plan-${sched.startISO}.${f.ext}`;
     download(name, f.mime, f.build(sched));
-    setDone(name);
+    /* The menu closes and the corner says what arrived. A download is a line in
+       a tray the consultant is not looking at, so a menu that appears to do
+       nothing gets pressed three more times: naming the file is also the only
+       way to say *which* plan came out, now that the name carries the start
+       date. It says it where every other confirmation is said. */
+    setOpen(false);
+    trigger.current?.focus();
+    notify("Plan downloaded", { detail: name });
   };
 
   return (
@@ -74,7 +81,6 @@ export function SaveMenu({ sched }: { sched: Schedule }) {
         aria-expanded={open}
         onClick={() => {
           setOpen((v) => !v);
-          setDone(null);
         }}
         // Same drawn button as Research's *Related resources*, on request: both
         // are the control that takes the thing on screen somewhere else, and a
@@ -114,34 +120,6 @@ export function SaveMenu({ sched }: { sched: Schedule }) {
               <span className="text-micro text-muted-foreground">{f.note}</span>
             </button>
           ))}
-          {/* `role="status"` because the file arrives silently: on most
-              browsers a download is a line in a tray the consultant is not
-              looking at, and a menu that appears to do nothing gets pressed
-              three more times. Naming the file is also the only way to say
-              *which* plan came out, now that the name carries the start date.
-
-              **It says nothing until there is something to say.** On request.
-              It used to rest on "The plan, its waves and its dates, as one
-              file", which is a description of the thing you are standing in
-              front of: the menu is headed Download, sits inside the plan card,
-              and offers three formats. A caption restating the subject under
-              three named options is a fourth line to read before pressing one
-              of them.
-
-              **The element stays mounted rather than being rendered only when
-              `done`.** A live region has to be in the DOM before its content
-              changes or the announcement is missed, which would cost exactly
-              the users this region exists for. Empty, with the border and
-              padding conditional, it collapses to nothing. */}
-          <p
-            role="status"
-            className={cn(
-              "text-micro text-muted-foreground",
-              done && "border-t border-border px-3 py-2",
-            )}
-          >
-            {done ? `Downloaded ${done}` : ""}
-          </p>
         </div>
       )}
     </div>

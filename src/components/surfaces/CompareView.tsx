@@ -1,16 +1,27 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/cn";
 import {
+  CLOSENESS_LABEL,
   HANDLING_LABEL,
   currentLane,
   lanes,
   laneById,
+  daysSinceVerified,
+  isStale,
+  pastProjects,
+  priorWorkOn,
+  proofFor,
+  overallMatch,
+  similarityFor,
   stages,
   type Handling,
   type Lane,
+  type Closeness,
 } from "@/lib/compare";
+import { pluralise } from "@/lib/format";
+import { useAi } from "@/components/shell/AiPanel";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { SwitchTrack, switchItemClass } from "@/components/shell/SwitchTrack";
 import { StickyBar } from "@/components/shell/StickyBar";
@@ -35,7 +46,7 @@ import { ArrowIcon } from "@/components/meridian/Icons";
  * is where Questions' Arrange and Gaps' two dropdowns already sit.
  */
 export function CompareView() {
-  const [view, setView] = useState<"time" | "workflow">("time");
+  const [view, setView] = useState<"precedent" | "time" | "workflow">("precedent");
   const [shown, setShown] = useState<Set<string>>(new Set(["lane-bic"]));
 
   const toggle = (id: string) =>
@@ -61,24 +72,43 @@ export function CompareView() {
         {/* On the page above the material, like Questions' Arrange and Gaps'
             two dropdowns. Both tabs rearrange what the body says and neither
             changes which surface you are on, so neither belongs on the band. */}
+        {/* Three now, and the new one leads. Time and Workflow both compare
+            *processes*; Built before compares the **work**, which is the
+            question somebody actually arrives at this surface with. It is also
+            explicit label pairs rather than a `capitalize`d value, because
+            "Built before" is two words and the old trick could not carry
+            it. */}
         <SwitchTrack label="What to compare">
-          {(["time", "workflow"] as const).map((v) => (
+          {(
+            [
+              ["precedent", "Built before"],
+              ["time", "Time"],
+              ["workflow", "Workflow"],
+            ] as const
+          ).map(([v, label]) => (
             <button
               key={v}
               type="button"
               aria-pressed={view === v}
               onClick={() => setView(v)}
-              className={cn(switchItemClass(view === v), "capitalize")}
+              className={switchItemClass(view === v)}
             >
-              {v}
+              {label}
             </button>
           ))}
         </SwitchTrack>
       </StickyBar>
 
-      <div className="surface-frame pb-5">
-        {/* ------------------------------------------------- lane picker */}
-        <fieldset className="mt-1">
+      <div className="surface-frame under-bar pb-5">
+        {/* ------------------------------------------------- lane picker
+            Hidden on Built before, and that is not a tidying. The picker
+            chooses what to *stack*, and that view is not stacked lanes: it is
+            this client's twelve findings reconciled against every project
+            Heizen has run. Leaving it up would invite unticking a project and
+            watching the reuse figure fall, which would read as a filter on the
+            truth rather than on the view. It also opens with only best in
+            class ticked, which has never built anything. */}
+        <fieldset className={cn("mt-1", view === "precedent" && "hidden")}>
           <legend className="text-micro text-muted-foreground">
             Stack a lane below
           </legend>
@@ -138,7 +168,7 @@ export function CompareView() {
           </div>
         </fieldset>
 
-        {stacked.length === 1 && (
+        {stacked.length === 1 && view !== "precedent" && (
           <div className="mt-5 rounded-lg border border-dashed border-border-strong bg-muted px-4 py-5">
             <p className="text-base font-medium">Nothing to compare against</p>
             <p className="mt-1 text-small text-muted-foreground measure">
@@ -147,7 +177,9 @@ export function CompareView() {
           </div>
         )}
 
-        {view === "workflow" ? (
+        {view === "precedent" ? (
+          <PrecedentLanes />
+        ) : view === "workflow" ? (
           <WorkflowLanes stacked={stacked} reference={reference} />
         ) : (
           /* ------------------------------------------------- the lanes */
@@ -225,6 +257,268 @@ export function CompareView() {
   );
 }
 
+/* ---------------------------------------------------------------- precedent */
+
+/**
+ * How much of this opportunity Heizen has built before.
+ *
+ * The other two tabs compare processes: how long a stage takes, what steps it
+ * is made of. This one compares the *work*, which is the question a consultant
+ * and a delivery lead both arrive with and neither could answer from this
+ * surface. "We have built seven of your twelve, three of them at a
+ * packaged-foods company your size" is the strongest sentence available on a
+ * first call.
+ *
+ * **The first read is one line and one bar.** Count, value, and the four bands
+ * in proportion. Everything under it is the working: which project, what was
+ * built there, what it took, and what was different. §7.1's three reads, with
+ * the answer at the top rather than assembled by the reader from a table.
+ *
+ * **The honest half is a band and not a footnote.** Five findings have no
+ * precedent at all, and they are ₹4.1 Cr of the total. That is where the
+ * estimate is softest, so it gets a labelled band in the bar and a block of its
+ * own rather than being the part you notice is missing.
+ */
+function PrecedentLanes() {
+  return (
+    /* No top margin: the lane picker above it is hidden on this view, so the
+       gap under the control bar is `.under-bar`'s alone, like every other
+       surface. The two views that do show the picker keep their `mt-6`, which
+       is separating two things rather than setting the head of the page. */
+    <div className="space-y-4">
+      {/* **The precedent summary is gone**, on request: the "7 of 12 findings
+          we have built something like before" figure, the ₹5.6 Cr of ₹9.7 Cr
+          beside it, and the four band boxes under it.
+
+          It was the surface's first read, and what it read as was a second
+          scoreboard: a count and a rupee share above four boxes that split the
+          same twelve findings four ways, all of it above the two project cards
+          that actually name the work. `precedentBands`, `reusedGaps` and
+          `reusedValueCr` are untouched in `compare.ts`, and `BandBox` has gone
+          with the section rather than being left unimported — restoring it is
+          one block here and one component back. */}
+      {/* ------------------------------------------------ how close each one is */}
+      {/* **Four readings per project, before any of the detail.** "Have you done
+          this before" is really four questions, and a single yes answers none
+          of them well: the same sector at half the size, the same steps
+          automated, the same problems fixed, and most of the scope covered are
+          four different kinds of reassurance. A consultant needs to know which
+          one he is holding before he says it out loud.
+
+          It sits above the per-project detail because it is the scan: two cards,
+          four readings each, and the sentence to say. */}
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        {pastProjects.map((lane) => (
+          <MatchCard key={lane.id} lane={lane} />
+        ))}
+      </div>
+
+    </div>
+  );
+}
+
+/**
+ * How close one past project is, on the seven axes.
+ *
+ * **It was a paragraph per axis and is now a row per axis**, on request. Each
+ * one had a label, a word, a reading and a full line explaining the reading:
+ * eight sentences across two cards, before any of the detail underneath. The
+ * reading was already legible on its own — *8 of 16 steps* compares itself —
+ * so the sentence was the screen explaining what it had just said.
+ *
+ * **The word became a mark.** Three dots filled to the level, which is the
+ * scale `EffortChip` already uses on every gap row: the product has one way of
+ * drawing a three-step reading and this is it. Four word-chips per card was
+ * four more things to read; four rows of dots is one shape to scan, and the
+ * columns line up so the eye runs down them rather than across each line.
+ *
+ * There is no combined score. The header counts how many axes are close and
+ * leaves the reader to see which, because the weak axis is the one somebody
+ * will ask about.
+ */
+function MatchCard({ lane }: { lane: Lane }) {
+  const axes = similarityFor(lane.id);
+  const proof = proofFor(lane.id);
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-4 shadow-card">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
+        <h3 className="text-base font-medium">{lane.company}</h3>
+        {/* **A percentage, on request**, and it is stated as what it is: the
+            mean of the six axes below that are shares. A single figure with no
+            working is the most persuasive number this surface can carry and the
+            only one nobody can check, so the arithmetic sits directly under it.
+            The source count is a count rather than a proportion and is kept out
+            of the mean rather than quietly scaled into it. */}
+        <p className="shrink-0 text-small text-muted-foreground">
+          <span className="tabular text-base font-medium text-foreground">
+            {overallMatch(lane.id)}%
+          </span>{" "}
+          match
+        </p>
+      </div>
+      <p className="text-small text-muted-foreground">{lane.sector}</p>
+
+      {/* **A table, on request**, and it is the honest element for what this
+          already was: seven rows, three aligned columns, one axis per row. It
+          was a `<dl>` on a three-track grid — the same picture, drawn by a
+          layout rather than stated by the markup, so a screen reader met seven
+          `<dd>` pairs with the mark orphaned as a third term and no column had
+          a name.
+
+          What the conversion buys beyond semantics is the **header**. The
+          middle column carried readings in three different units — a size
+          ratio, five *n of m* counts and a source count — with nothing saying
+          what they had in common. *How close* names it once, at the top, where
+          a caption per row would have been the screen explaining itself.
+
+          It keeps everything the one-column arrangement was for: every label on
+          the same edge, every reading on the next, and the marks stacked into a
+          single right-hand column that reads on its own. Seven dots down the
+          card is the shape of the match before a word of it is read.
+
+          The labels stay sentence case. A tracked micro-cap is a landmark and
+          seven of them stacked is seven landmarks on a card with one subject;
+          the header row is three, which is what a header is for. */}
+      <table className="mt-3 w-full text-small">
+        <caption className="sr-only">
+          How close {lane.company} is to this client, on seven axes
+        </caption>
+        <thead>
+          <tr className="text-micro tracking-[0.12em] text-muted-foreground uppercase">
+            <th scope="col" className="w-[6.5rem] pr-3 pb-1.5 text-left font-medium">
+              Axis
+            </th>
+            <th scope="col" className="pr-3 pb-1.5 text-left font-medium">
+              How close
+            </th>
+            {/* Named for the reader who cannot see the dots. A visible word over
+                a 34px column of marks would be a heading wider than the thing
+                it heads, and the mark carries its own label already. */}
+            <th scope="col" className="pb-1.5 text-right font-medium">
+              <span className="sr-only">Match</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {axes.map((a) => (
+            <tr key={a.key} className="border-t border-border">
+              <th
+                scope="row"
+                className="py-1.5 pr-3 text-left align-middle font-normal text-muted-foreground"
+              >
+                {a.label}
+              </th>
+              <td className="min-w-0 py-1.5 pr-3 align-middle">{a.value}</td>
+              <td className="py-1.5 text-right align-middle">
+                <CloseDots closeness={a.closeness} label={CLOSENESS_LABEL[a.closeness]} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {proof && (
+        /* The sentence that leaves the screen, and the only prose on the card.
+           It is the outcome of whichever build covers the most of this client's
+           list, composed rather than authored so it cannot go stale against the
+           work it quotes. */
+        <div className="mt-3 border-t border-border pt-3">
+          <p className="text-micro font-medium tracking-wide uppercase text-muted-foreground">
+            Say on the call
+          </p>
+          <p className="reading mt-1 text-small">{proof.outcome}</p>
+        </div>
+      )}
+
+      {/* **The one line the removed detail block cannot take with it.** The
+          per-build rows are gone on request, and with them went the date each
+          match was last checked and the route for saying one is wrong. Both had
+          to survive somewhere: a reuse claim ages silently, and §5 says a
+          correction is described to the assistant rather than typed over the
+          record. One line per project does the same job as one line per build. */}
+      <ProjectFreshness lane={lane} />
+    </section>
+  );
+}
+
+/**
+ * How many builds are behind this project, when the oldest was last checked,
+ * and the way to say it is wrong.
+ *
+ * The oldest, not the newest: a project is as current as its stalest match, and
+ * showing the freshest date would be the flattering half of the truth.
+ */
+function ProjectFreshness({ lane }: { lane: Lane }) {
+  const { attach } = useAi();
+  const work = priorWorkOn(lane.id);
+  const oldest = [...work].sort((a, b) => daysSinceVerified(b) - daysSinceVerified(a))[0];
+  if (!oldest) return null;
+  const stale = isStale(oldest);
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+      <p className="tabular text-micro text-muted-foreground">
+        {pluralise(work.length, "build", "builds")} ·{" "}
+        <span className={cn(stale && "text-health-watch")}>
+          {stale
+            ? `not checked for ${Math.round(daysSinceVerified(oldest) / 30)} months`
+            : `checked ${oldest.verifiedOn}`}
+        </span>
+      </p>
+      <button
+        type="button"
+        onClick={() =>
+          attach({
+            kind: "Match",
+            text: `What we have built at ${lane.company}`,
+            query: lane.company,
+          })
+        }
+        className="text-micro text-evidence transition-colors hover:text-foreground"
+      >
+        Not right?
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Closeness as three dots filled to the level, the same scale `EffortChip`
+ * draws on every gap row.
+ *
+ * **Neutral, and shape rather than hue.** Colour on this platform is a reading
+ * about the client's process; how close a past project of ours is is not one.
+ * The word survives as the accessible name, so nothing is carried by the mark
+ * alone.
+ */
+function CloseDots({ closeness, label }: { closeness: Closeness; label: string }) {
+  const filled = closeness === "close" ? 3 : closeness === "partial" ? 2 : 1;
+  return (
+    <span className="flex items-center gap-[3px]" title={label}>
+      <span className="sr-only">{label}</span>
+      {[1, 2, 3].map((i) => (
+        <span
+          key={i}
+          aria-hidden
+          className={cn(
+            "size-[5px] rounded-full",
+            i <= filled ? "bg-foreground" : "bg-foreground/20",
+          )}
+        />
+      ))}
+    </span>
+  );
+}
+
+/**
+ * One thing built at one past project.
+ *
+ * The two numbers on the right are the comparator §7.3 asks for, and they are
+ * the pair a delivery lead reads: what it took there against what we have
+ * estimated here. They disagree on most rows, which is the point of showing
+ * both rather than one.
+ */
 /* ----------------------------------------------------------------- workflow */
 
 /** Every step in the cycle, for the band tile's denominator. */

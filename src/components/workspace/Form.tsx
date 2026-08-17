@@ -153,19 +153,3 @@ export function ConfirmDialog({
   );
 }
 
-/**
- * What just happened, said once, under the control that did it.
- *
- * `role="status"` rather than a toast library. The download menu already makes
- * this argument: a change that reports itself only in a corner nobody is
- * looking at gets made three more times. It is also the only thing on these
- * surfaces that says the change did not go anywhere.
- */
-export function Said({ children }: { children: ReactNode }) {
-  if (!children) return null;
-  return (
-    <p role="status" className="text-micro text-evidence">
-      {children}
-    </p>
-  );
-}

@@ -17,7 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, PageHead, Said } from "./Form";
+import { Field, PageHead } from "./Form";
+import { useToast } from "@/components/shell/Toast";
 
 /**
  * The workspace itself: what it is called, what it looks like, and the one
@@ -33,7 +34,7 @@ export function SettingsView() {
   const [name, setName] = useState(organisation.name);
   const [line, setLine] = useState(organisation.line);
   const [logo, setLogo] = useState<string | undefined>(organisation.logoUrl);
-  const [said, setSaid] = useState("");
+  const { notify } = useToast();
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(false);
 
@@ -49,7 +50,7 @@ export function SettingsView() {
     }
     setError("");
     updateOrganisation({ name: name.trim(), line: line.trim(), logoUrl: logo });
-    setSaid("Saved to this tab only.");
+    notify("Workspace saved", { detail: "This tab only. Nothing is stored on a server." });
   };
 
   const pickLogo = (file: File | undefined) => {
@@ -192,14 +193,12 @@ export function SettingsView() {
                     setName(organisation.name);
                     setLine(organisation.line);
                     setLogo(organisation.logoUrl);
-                    setSaid("");
                   }}
                   className="text-small text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Put it back
                 </button>
               )}
-              <Said>{said}</Said>
             </div>
           )}
         </form>

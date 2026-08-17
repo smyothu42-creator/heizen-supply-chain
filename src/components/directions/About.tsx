@@ -1,12 +1,10 @@
 "use client";
 
-import { cn } from "@/lib/cn";
 import { money } from "@/lib/format";
-import { company, coverage, gaps, sources, type Coverage } from "@/lib/suvarna";
-import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
-import { ConfidenceBadge } from "@/components/meridian/Confidence";
+
+import { businessContext, businessFactById, businessFacts, company, coverage, headlineFacts, sources } from "@/lib/suvarna";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section , type SectionRef } from "./Frames";
 import { Eyebrow } from "@/components/meridian/Primitives";
-import { SourceChip } from "@/components/meridian/Evidence";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
 
@@ -24,12 +22,6 @@ import { RunButton } from "@/components/shell/RunButton";
 /* the total is.                                                               */
 /* -------------------------------------------------------------------------- */
 
-const STATE_LABEL: Record<Coverage["state"], string> = {
-  researched: "Researched",
-  thin: "Thin",
-  "not-researched": "Not looked at",
-};
-
 const covered = coverage.filter((c) => c.state === "researched").length;
 
 export function AboutBrief() {
@@ -46,10 +38,14 @@ export function AboutBrief() {
               <p className="font-display text-h2 leading-[1.15]">
                 {company.name}
               </p>
+              {/* The revenue string comes off the fact rather than out of
+                  `money()`, which has no thousands separator: "₹1150 Cr" here
+                  sat two lines above "₹1,150 Cr" in the list below it. And the
+                  dash is gone, per §6a: it was a second sentence in disguise. */}
               <p className="reading measure mt-1 text-small text-muted-foreground">
-                {company.sector}. {money(company.revenueCr * 1)} revenue is not the number
-                here — {covered} of {coverage.length} stages of their operation have been
-                looked at.
+                {company.sector}. {businessFactById("bf-revenue").value} of revenue is not
+                the number here. {covered} of {coverage.length} stages of their operation
+                have been looked at.
               </p>
             </div>
           }
@@ -59,15 +55,22 @@ export function AboutBrief() {
         <DocumentLead
           bordered={false}
           titleNode={<p className="font-display text-h2 leading-[1.15]">{company.name}</p>}
-          standfirst={`${company.sector}. Six facts, and an honest account of how much of the operation has been researched.`}
+          standfirst={`${company.sector}. What they earn, who they sell to, who they buy from, and an honest account of how much of it has been researched.`}
         />
       }
     >
+      {/* Four facts, one from each group, so the short version is still the
+          shape of the business rather than the top of one list. The detail line
+          is what makes each of them a reading rather than a number, and it is
+          the first thing to cut if this screen ever stops fitting. */}
       <div className="min-h-0 flex-1 overflow-hidden">
         <dl className="divide-y divide-border">
-          {company.facts.slice(0, 4).map((f) => (
-            <div key={f.label} className="flex items-baseline justify-between gap-3 py-2">
-              <dt className="min-w-0 text-small text-muted-foreground">{f.label}</dt>
+          {headlineFacts.map((f) => (
+            <div key={f.id} className="flex items-baseline justify-between gap-3 py-2">
+              <dt className="min-w-0 text-small">
+                {f.label}
+                <span className="block text-micro text-muted-foreground">{f.detail}</span>
+              </dt>
               <dd className="tabular shrink-0 text-base font-medium">{f.value}</dd>
             </div>
           ))}
@@ -88,7 +91,6 @@ export function AboutBrief() {
 
       <BriefFooter
         href="/research/about/full"
-        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
       >
         All the facts
       </BriefFooter>
@@ -98,98 +100,53 @@ export function AboutBrief() {
 
 /* -------------------------------------------------------------------------- */
 
-const SECTIONS: SectionRef[] = [
-  { id: "b-facts", label: "The company", meta: `${company.facts.length} facts` },
-  { id: "b-coverage", label: "What has been looked at", meta: `${covered} of ${coverage.length}` },
-  { id: "b-sources", label: "What we read", meta: String(sources.length) },
+/* The headings this view renders, for the navigator beside it. Built from the
+   same ids the sections carry, so a heading cannot be missing from the list. */
+const ABOUT_SECTIONS: SectionRef[] = [
+  { id: "b-facts", label: "Business context" },
+  { id: "b-coverage", label: "What has been looked at" },
+  { id: "b-sources", label: "What we read" },
 ];
 
 export function AboutFull() {
   return (
     <FullFrame
-      sections={SECTIONS}
+      sections={ABOUT_SECTIONS}
       actions={<RunButton label="Run research" />}
       hero={<SurfaceHero title="Research" />}
     >
       <DocumentLead
         title={company.name}
-        standfirst={`${company.sector}. ${company.facts.length} facts about the business, and an account of how much of its operation has actually been researched — which is what every total on the other screens is a total of.`}
+        standfirst={`${company.sector}. ${businessFacts.length} facts about the business, each with what it should be measured against, and an account of how much of the operation has actually been researched. That last part is what every total on the other screens is a total of.`}
       />
 
-      <Section id="b-facts" title="The company" summary="Read off the filing and the two calls.">
-        <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-          {company.facts.map((f) => (
-            <div key={f.label}>
-              <dt className="text-small text-muted-foreground">{f.label}</dt>
-              <dd className="tabular mt-0.5 text-lead font-medium">{f.value}</dd>
-              <dd className="reading mt-0.5 text-small text-muted-foreground">{f.detail}</dd>
-            </div>
-          ))}
-        </dl>
-      </Section>
+      <Section
+        id="b-facts"
+        title="Business context"
+        summary={`How big they are, what they keep, who they sell to and who they buy from, in ${businessContext.length} groups. Nothing here is a finding, and that is the point: it is the base every price on every other screen is a percentage of. ${money(company.revenueCr)} of revenue in FY25, up 18% on the year before, with EBITDA at 9.0% against a sector that runs 11 to 13%. Two points of margin is \u20b923 Cr, which is more than everything on the findings list put together. Read it before the money screens rather than after, because a rupee figure with no visible base is the number a client challenges first.`}
+        right={
+          <span className="tabular text-small text-muted-foreground">
+            {businessContext.length} groups
+          </span>
+        }
+      />
 
       <Section
         id="b-coverage"
         title="What has been looked at"
-        summary="A total is only a total of what was researched. This is the rest of that sentence."
+        summary={`A total is only a total of what was researched, and this one covers ${covered} of the ${coverage.length} stages of the operation. Source is where the work has been done: nine of the twelve findings sit in it, backed by two calls and an email thread. Plan and Deliver are thin, one and two findings each, both inferred from the FY25 report because nobody in planning or logistics has been spoken to. Make and Return have not been looked at at all. Make is the one that should worry you: three plants, and not a single question asked about any of them, on a business where yield and giveaway is normally the largest line on the board. That is worth \u20b93.6 to \u20b910.7 Cr a year and none of it is in the total.`}
         right={
           <span className="tabular text-small text-muted-foreground">
             {covered} of {coverage.length} stages
           </span>
         }
-      >
-        <ul className="divide-y divide-border">
-          {coverage.map((c) => (
-            <li key={c.stage} className="py-3 first:pt-0 last:pb-0">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <span className="flex items-baseline gap-2.5">
-                  <span className="text-base font-medium">{c.stage}</span>
-                  {/* State as a word, never a hue: colour on this platform is a
-                      reading about the client's process, and this is a reading
-                      about our own research. */}
-                  <span
-                    className={cn(
-                      "text-small",
-                      c.state === "not-researched"
-                        ? "text-health-watch"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {STATE_LABEL[c.state]}
-                  </span>
-                </span>
-                <span className="tabular shrink-0 text-small text-muted-foreground">
-                  {gaps.filter((g) => g.scor === c.stage).length} findings
-                </span>
-              </div>
-              <p className="reading mt-1 text-small text-muted-foreground">{c.line}</p>
-              {c.unclaimedRange && (
-                <p className="reading mt-1.5 border-l-2 border-health-watch pl-3 text-small">
-                  <span className="font-medium">Not in the total. </span>
-                  {c.unclaimedRange}
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
-      </Section>
+      />
 
       <Section
         id="b-sources"
         title="What we read"
-        summary="Everything on every other screen traces back to one of these."
-      >
-        <ul className="flex flex-wrap gap-2">
-          {sources.map((s) => (
-            <li key={s.id}>
-              <SourceChip sourceId={s.id} />
-            </li>
-          ))}
-        </ul>
-        <p className="reading mt-3 text-small text-muted-foreground measure">
-          {company.confidenceReason}
-        </p>
-      </Section>
+        summary={`Everything on every other screen traces back to one of these ${sources.length}: one annual report, two discovery calls, an email thread from the Head of Procurement, filings, and the public web for anything about who joined when. Four of them carry no finding of their own, which is normal rather than a hole. Most documents corroborate rather than produce. What is missing is the thing worth naming out loud on the call: no ERP extract, no spend cube, no invoice-level data. That is the difference between a number that is modelled and a number that is measured, and it is why every price in this dossier is the first kind.`}
+      />
     </FullFrame>
   );
 }

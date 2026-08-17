@@ -114,9 +114,16 @@ export function GapRow({
           /* Delivery mode wraps and value mode does not. Value mode does its
              wrapping inside the title span, which is a different arrangement
              and would fight this one; see the note on it below. */
-          /* Taller rows on Gaps only. Research Brief is a fixed screen that
-             may not scroll, and it renders these same rows. */
-          delivery && "flex-wrap gap-y-1.5 py-4",
+          /* **In delivery mode the row does not draw its own ground.** Gaps
+             puts each finding in a drawn card and the card is what hovers, on
+             its border rather than on a fill — the rule the plan panel's own
+             blocks already follow, and the reason is the same: on `bg-card`
+             there is no tint to shift to that does not undo the card. So the
+             margins, the radius and the hover surface come off here and the
+             padding is the card's to set. Research keeps all three: there the
+             row is a line in a document with nothing drawn round it, and the
+             hover ground is the only thing saying it can be pressed. */
+          delivery && "mx-0 flex-wrap gap-x-3 gap-y-1.5 rounded-none px-0 py-2 hover:bg-transparent",
         )}
       >
         {showRank && (

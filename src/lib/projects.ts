@@ -78,7 +78,7 @@ export const projects: Project[] = [
     createdOn: "2026-07-28",
     domain: "suvarnaagro.in",
     revenueCr: company.revenueCr,
-    stakeholders: "Rohan Deshmukh, Head of Procurement",
+    stakeholders: "Rohan Deshpande, Head of Procurement",
     prompt: "Procure-to-pay and vendor onboarding. Three plants, one ERP.",
   },
   {

@@ -1,10 +1,8 @@
 "use client";
 
-import { cn } from "@/lib/cn";
-import { lanes, stages } from "@/lib/compare";
+import { lanes } from "@/lib/compare";
 import { company, dealRisks, stakeholders, systemsByState } from "@/lib/suvarna";
-import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section, type SectionRef } from "./Frames";
-import { ConfidenceBadge } from "@/components/meridian/Confidence";
+import { BriefFooter, BriefFrame, DocumentLead, FullFrame, Section , type SectionRef } from "./Frames";
 import { Eyebrow } from "@/components/meridian/Primitives";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
@@ -28,8 +26,6 @@ import { RunButton } from "@/components/shell/RunButton";
 const LIVE = systemsByState("live");
 const MET = stakeholders.filter((s) => s.met);
 const INCUMBENT = dealRisks.find((r) => r.id === "r-incumbent");
-const PAST = dealRisks.find((r) => r.label.toLowerCase().includes("failed"));
-
 export function InsideBrief() {
   return (
     <BriefFrame
@@ -64,7 +60,7 @@ export function InsideBrief() {
       <div className="min-h-0 flex-1 overflow-hidden">
         <Eyebrow>Live and configured</Eyebrow>
         <p className="mt-1 text-base">
-          {LIVE.map((s) => s.name).join(", ")} on {company.facts[2].value}
+          {LIVE.map((s) => s.name).join(", ")} on {company.erp}
         </p>
 
         {INCUMBENT && (
@@ -91,7 +87,6 @@ export function InsideBrief() {
 
       <BriefFooter
         href="/research/inside/full"
-        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
       >
         Everything already here
       </BriefFooter>
@@ -99,10 +94,12 @@ export function InsideBrief() {
   );
 }
 
+/* The headings this view renders, for the navigator beside it. Built from the
+   same ids the sections carry, so a heading cannot be missing from the list. */
 const INSIDE_SECTIONS: SectionRef[] = [
-  { id: "i-systems", label: "Live and configured", meta: `${LIVE.length} modules` },
-  { id: "i-vendors", label: "Who is already here", meta: "2" },
-  { id: "i-people", label: "Who has been met", meta: `${MET.length} of ${stakeholders.length}` },
+  { id: "i-systems", label: "Live and configured" },
+  { id: "i-vendors", label: "Who is already here" },
+  { id: "i-people", label: "Who has been met" },
 ];
 
 export function InsideFull() {
@@ -120,71 +117,20 @@ export function InsideFull() {
       <Section
         id="i-systems"
         title="Live and configured"
-        summary="Not problems. The ground anything new would stand on."
-      >
-        <ul className="divide-y divide-border">
-          {LIVE.map((s) => (
-            <li key={s.id} className="flex flex-wrap items-baseline justify-between gap-x-4 py-2.5">
-              <span className="min-w-0">
-                <span className="text-base font-medium">{s.name}</span>
-                <span className="reading mt-0.5 block text-small text-muted-foreground">
-                  {s.does}
-                </span>
-              </span>
-              <span className="tabular shrink-0 text-small text-muted-foreground">
-                {s.gapIds.length} findings
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Section>
+        summary={`Three SAP modules, live and configured, on SAP ECC 6.0. None of them is a problem in itself and none of them is being replaced: they are the ground anything new would stand on, and saying so early is what answers the fear the room actually brings to the meeting. What matters for scoping is the boundary. Anything built here reads from and writes back to those modules, which puts SAP and whoever manages the estate in the conversation whether or not they are in the room.`}
+      />
 
       <Section
         id="i-vendors"
         title="Who is already here"
-        summary="Both of these decide the deal rather than delay it, and neither is going to be raised by us first."
-      >
-        <div className="divide-y divide-border">
-          {[INCUMBENT, PAST].filter(Boolean).map((r) => (
-            <div key={r!.id} className="py-3.5 first:pt-0 last:pb-0">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <span className="text-base font-medium">{r!.label}</span>
-                <span className="shrink-0 text-small text-muted-foreground">{r!.value}</span>
-              </div>
-              <p className="reading mt-1.5 text-small">{r!.risk}</p>
-              <div className="mt-2.5 border-l-2 border-evidence pl-3">
-                <p className="text-micro font-medium text-muted-foreground">Say this</p>
-                <p className="reading mt-1 text-small">{r!.counter}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Section>
+        summary={`Both of these decide the deal rather than delay it, and neither is going to be raised by the room first. There is an incumbent managing the SAP estate, and there is a project that was tried in 2019 and stopped. Left unsaid, each one gets decided off-screen after the call by somebody who was not in it. The counter to both is the same sentence and it is worth having ready: nothing here replaces anything, the first phase needs no new module and no plant downtime, and it lands as configuration inside the estate that is already there. Ask what was tried in 2019 and why it stopped, before anybody else brings it up.`}
+      />
 
       <Section
         id="i-people"
         title="Who has been met"
-        summary="Two of four. Everything about the other two is inference."
-      >
-        <ul className="divide-y divide-border">
-          {stakeholders.map((s) => (
-            <li key={s.id} className="flex items-baseline justify-between gap-4 py-2.5">
-              <span className="min-w-0 text-small">
-                <span className="font-medium">{s.name}</span>
-                <span className="ml-2 text-muted-foreground">{s.role}</span>
-              </span>
-              <span
-                className={cn(
-                  "shrink-0 text-small",
-                  s.met ? "text-muted-foreground" : "text-health-watch",
-                )}
-              >
-                {s.met ? "Met" : "Not met"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Section>
+        summary={`Two of the four people who matter have been met, on two calls: the Head of Procurement and the Accounts Payable Lead. The Chief Financial Officer and the VP Supply Chain have not, and everything on this page about either of them is inference from filings and public signal rather than anything they said. That is the single largest weakness in the research, because between them those two own most of the money. Getting a meeting with one of them is a better outcome from the next call than any answer the people already met can give.`}
+      />
     </FullFrame>
   );
 }
@@ -194,84 +140,46 @@ export function InsideFull() {
 /* -------------------------------------------------------------------------- */
 
 const PRIOR = lanes.filter((l) => !l.isCurrent && !l.isBenchmark);
-const HERE = lanes.find((l) => l.isCurrent)!;
 const BIC = lanes.find((l) => l.isBenchmark)!;
-
-/** Days saved on a stage, this client against a delivered project. */
-const delta = (stageId: string, laneId: string) => {
-  const a = HERE.values[stageId];
-  const b = lanes.find((l) => l.id === laneId)?.values[stageId];
-  if (!a || !b) return null;
-  return Math.round((a.days - b.days) * 10) / 10;
-};
 
 export function SolvedBrief() {
   return (
     <BriefFrame
       actions={<RunButton label="Run research" tight />}
-      hero={
-        <SurfaceHero
-          tight
-          collapseAtRoomy
-          title="Research"
-          titleNode={
-            <div className="roomy:hidden">
-              <p className="font-display text-h2 leading-[1.15]">
-                The same problem, at two other food companies
-              </p>
-              <p className="reading measure mt-1 text-small text-muted-foreground">
-                One delivered, one in flight. Both bought for these reasons.
-              </p>
-            </div>
-          }
-        />
-      }
+      hero={<SurfaceHero title="Research" />}
       lead={
         <DocumentLead
-          bordered={false}
-          titleNode={
-            <p className="font-display text-h2 leading-[1.15]">
-              The same problem, at two other food companies
-            </p>
-          }
-          standfirst="Heizen's own record, not this client's research. It needs nothing shared to be true."
+          title="Solved before"
+          standfirst="Two comparable engagements in food and beverage, both bought for the reasons this one would be."
         />
       }
     >
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <ul className="space-y-3">
-          {PRIOR.map((l) => (
-            <li key={l.id}>
-              <p className="text-base font-medium leading-snug">{l.company}</p>
-              <p className="text-small text-muted-foreground">{l.sector}</p>
-              <p className="reading mt-0.5 text-small">{l.note}</p>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="shrink-0 rounded-md border border-dashed border-border-strong px-4 py-3">
-        <Eyebrow>What it moved</Eyebrow>
-        <p className="mt-1 text-small measure">
-          Kesarwani now clears an invoice in 3.4 days against this client&apos;s 9.5, on the same
-          ERP and the same sector.
-        </p>
-      </div>
-
+      <Section id="a-brief" title="Which engagement to lead with" summary={`Two comparable engagements, and this is the only reading built from Heizen\u2019s own record rather than from the client\u2019s, so nothing here depends on data being shared. Kesarwani Foods is the one to lead with: smaller, the same business, delivered last year, and bought for the two reasons this one would be. Deccan Beverages is more than twice Suvarna\u2019s size and still in flight, which makes it the answer to whether anybody bigger has done this rather than the flattering comparison. What transfers is the sequence and the timescale rather than the numbers, and it is worth saying which is which before somebody in the room does it for you.`} />
       <BriefFooter
         href="/research/solved/full"
-        confidence={<ConfidenceBadge level={company.confidence} showReason={false} />}
       >
-        Stage by stage
+        Both engagements
       </BriefFooter>
     </BriefFrame>
   );
 }
 
+/* The headings this view renders, for the navigator beside it. Built from the
+   same ids the sections carry, so a heading cannot be missing from the list. */
 const SOLVED_SECTIONS: SectionRef[] = [
-  ...PRIOR.map((l) => ({ id: `s-${l.id}`, label: l.company, meta: l.sector.split(" · ")[0] })),
-  { id: "s-stages", label: "Stage by stage", meta: `${stages.length} stages` },
+  ...PRIOR.map((l) => ({ id: `s-${l.id}`, label: l.company })),
+  { id: "s-stages", label: "Stage by stage" },
 ];
+
+/* Why each prior engagement is on the list, which is the half a client
+   actually wants: two Heizen projects with the same note under them is a
+   reference list, not a reference. */
+const PRIOR_NOTE: Record<string, string> = {
+  "lane-kesarwani":
+    "The closest match on the list and the one to lead with. Smaller than Suvarna but the same business, and it was bought for the two reasons this one would be: invoices arriving faster than people could key them, and onboarding slow enough that plants noticed. It is delivered, so it is the one that can be talked about in the past tense, which is worth more on a first call than a bigger name in flight.",
+  "lane-deccan":
+    "More than twice Suvarna's size and further along on planning than on procurement, which makes it the useful counter-example rather than the flattering comparison. It is in flight, so what it proves is that the sequence holds at scale rather than that the outcome landed. Raise it if the room asks whether anybody bigger has done this.",
+};
 
 export function SolvedFull() {
   return (
@@ -286,61 +194,15 @@ export function SolvedFull() {
       />
 
       {PRIOR.map((l) => (
-        <Section key={l.id} id={`s-${l.id}`} title={l.company} summary={l.note}>
-          <p className="text-small text-muted-foreground">{l.sector}</p>
-          <ul className="mt-3 divide-y divide-border">
-            {stages.map((st) => {
-              const d = delta(st.id, l.id);
-              const theirs = l.values[st.id];
-              return (
-                <li key={st.id} className="flex items-baseline justify-between gap-4 py-2">
-                  <span className="min-w-0 text-small">{st.name}</span>
-                  <span className="tabular shrink-0 text-small">
-                    {theirs ? (
-                      <>
-                        <span className="font-medium">{theirs.days} d</span>
-                        {d != null && d > 0 && (
-                          <span className="ml-2 text-metric-delta-good">
-                            {d} d faster than here
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground italic">Not mapped</span>
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </Section>
+        <Section key={l.id} id={`s-${l.id}`} title={l.company} summary={`${l.note} ${l.sector}. ${PRIOR_NOTE[l.id] ?? "On the list because the shape matches rather than the sector."} What transfers is the sequence and the timescale rather than the numbers, and it is worth saying which is which out loud before somebody in the room does it for you.`}
+      />
       ))}
 
       <Section
         id="s-stages"
         title="Stage by stage"
-        summary={`This client against ${BIC.company.toLowerCase()}, on the same six steps.`}
-      >
-        <ul className="divide-y divide-border">
-          {stages.map((st) => {
-            const here = HERE.values[st.id];
-            const best = BIC.values[st.id];
-            return (
-              <li key={st.id} className="flex items-baseline justify-between gap-4 py-2">
-                <span className="min-w-0 text-small">{st.name}</span>
-                <span className="tabular shrink-0 text-small">
-                  <span className="font-medium">{here?.days} d</span>
-                  <span className="text-metric-best-in-class"> vs {best?.days} d</span>
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-        <p className="mt-3 text-small text-muted-foreground">
-          Compare has the same six stages with every lane stacked, and the workflow view beside
-          it.
-        </p>
-      </Section>
+        summary={`This client against ${BIC.company.toLowerCase()}, on the same six steps, so every number has something to be read against. A duration on its own means nothing; the same duration next to best in class is the whole argument. Read the gaps rather than the totals: the places where the two lanes diverge most are where a first phase pays back fastest, and a step the benchmark does not run at all is worth more attention than a step it simply runs faster.`}
+      />
     </FullFrame>
   );
 }
