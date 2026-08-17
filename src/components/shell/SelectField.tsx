@@ -2,21 +2,24 @@
 
 import { useId } from "react";
 import { cn } from "@/lib/cn";
-import { SelectNative } from "@/components/ui/select-native";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /**
  * A labelled dropdown, for a setting whose options are too many or too long to
  * sit on one line as tabs.
  *
- * **It is a native `<select>`, deliberately.** A custom popover would match
- * `ProjectMenu`, but that one is navigation — you press a project and go
- * somewhere. This picks a *value*, which is the element's actual job, and
- * taking the native one buys three things a hand-built menu would have to
- * re-earn: it is keyboard-operable and screen-reader correct for free, it
- * cannot be scrolled off the edge of a card, and on a phone it opens the
- * platform's own picker. That last one matters here more than it usually
- * would — Meridian is read minutes before a call, sometimes on an actual
- * phone, and a native picker beats a 200px popover every time.
+ * **It was a native `<select>` and is now Radix**, on request, and the reason
+ * is the half of a native control that is not ours: the option list is drawn by
+ * the operating system, so on macOS every dropdown in this product opened a
+ * dark sheet in the system font in the middle of a light ivory page. See
+ * `ui/select.tsx` for what that costs, which is mainly the platform picker on a
+ * phone.
  *
  * **The label is visible, and that is a reversal worth naming.** `SwitchTrack`
  * lost its visible labels because beside underline tabs a micro-cap reads as a
@@ -52,16 +55,21 @@ export function SelectField({
       >
         {label}
       </label>
-      {/* The box itself is `SelectNative` in `components/ui` — a native
-          `<select>` wearing shadcn's trigger, so it sits beside a `Button` and
-          an `Input` without looking like a fourth kind of box. */}
-      <SelectNative id={id} value={value} onChange={(e) => onChange(e.target.value)}>
-        {options.map(([v, text]) => (
-          <option key={v} value={v}>
-            {text}
-          </option>
-        ))}
-      </SelectNative>
+      {/* The trigger keeps the shape it had as a native box, so it still sits
+          beside a `Button` and an `Input` without looking like a fourth kind of
+          thing. Only the list it opens has changed. */}
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id={id} className="w-auto">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map(([v, text]) => (
+            <SelectItem key={v} value={v}>
+              {text}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

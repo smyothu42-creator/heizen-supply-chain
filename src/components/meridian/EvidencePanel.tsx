@@ -28,7 +28,7 @@ import { ChevronIcon, CloseIcon, LayersIcon, TierMark } from "./Icons";
 import { HelixOrb } from "@/components/shell/HelixOrb";
 import { SOURCE_ICON, SOURCE_KIND_LABEL } from "./Evidence";
 import { Field } from "./GapRow";
-import { ConfidenceChip } from "./Confidence";
+import { ConfidenceChip, EffortChip } from "./Confidence";
 import { useAi } from "@/components/shell/AiPanel";
 import { EvidenceMark, HealthMark } from "./NodeCard";
 import {
@@ -909,11 +909,20 @@ function NodeDetail({ id }: { id: string }) {
 
       {node.metricIds.length > 0 && (
         <Block title="The numbers here">
-          <ul className="space-y-2">
+          {/* **A rule between the entries, bleeding to the card's edges.** On
+              request. Each entry is two lines that belong together, a reading
+              and the sentence that explains the term in it, and 8px of space
+              could not say that the gloss goes with the line above rather than
+              with the label below: three of them stacked read as six loose
+              sentences. Space alone would have had to be a lot of space, on a
+              panel that already runs several screens. Same argument the
+              Research group row makes for its divider, and the same treatment
+              this box's own header already uses. */}
+          <ul className="-mx-4 divide-y divide-border">
             {node.metricIds.map((mid) => {
               const m = metricById(mid);
               return (
-                <li key={mid} className="text-small">
+                <li key={mid} className="px-4 py-2.5 text-small first:pt-0 last:pb-0">
                   <div className="flex items-baseline justify-between gap-3">
                     <span>{m.label}</span>
                     <span className="tabular shrink-0">
@@ -937,7 +946,7 @@ function NodeDetail({ id }: { id: string }) {
                       decode, so the sentence stays whole. The density win on
                       this panel comes from the strip and the empty states,
                       not from cutting a definition in half. */}
-                  <p className="text-micro text-muted-foreground">{m.gloss}</p>
+                  <p className="mt-1 text-micro text-muted-foreground">{m.gloss}</p>
                 </li>
               );
             })}
@@ -945,15 +954,35 @@ function NodeDetail({ id }: { id: string }) {
         </Block>
       )}
 
+      {/* **A gap reads here the way it reads on Gaps: the finding, and what it
+          costs to deliver.** On request. It was the finding and a rupee figure,
+          which is the one pairing §7.11 rules out — a price with no base, no
+          rate and no range beside it, three or four of them down a panel opened
+          from a map. Gaps took the money off its own rows for exactly that
+          reason, and a consultant who moves from that list to this one should
+          not meet the same twelve findings wearing a different quantity.
+
+          The effort chip is what Gaps puts at the end of the row, so it is what
+          goes here. The value has not gone anywhere: it is on Research › Money,
+          which is the one screen with room to show a price with its base. The
+          strip at the top of this panel still totals it, where it is a reading
+          about the process rather than a label on a finding. */}
       {node.gapIds.length > 0 ? (
         <Block title={`Gaps here · ${node.gapIds.length}`}>
-          <ul className="space-y-1.5">
+          <ul className="-mx-4 divide-y divide-border">
             {node.gapIds.map((gid) => {
               const g = gapById(gid);
               return (
-                <li key={gid} className="flex items-baseline justify-between gap-3 text-small">
+                <li
+                  key={gid}
+                  className="flex items-baseline justify-between gap-3 px-4 py-2 text-small first:pt-0 last:pb-0"
+                >
                   <span className="measure">{g.title}</span>
-                  <span className="tabular shrink-0 font-medium">{money(g.amountCr)}</span>
+                  {/* `self-center`, because the chip is a box among
+                      baseline-aligned text. Same fix the delivery row makes. */}
+                  <span className="shrink-0 self-center">
+                    <EffortChip level={g.effort} />
+                  </span>
                 </li>
               );
             })}
@@ -976,11 +1005,11 @@ function NodeDetail({ id }: { id: string }) {
 
       <Block title={`Sources · ${node.sourceIds.length}`}>
         {node.sourceIds.length > 0 ? (
-          <ul className="space-y-1.5">
+          <ul className="-mx-4 divide-y divide-border">
             {node.sourceIds.map((sid) => {
               const s = sourceById(sid);
               return (
-                <li key={sid} className="text-small">
+                <li key={sid} className="px-4 py-2 text-small first:pt-0 last:pb-0">
                   {s.name}
                   <span className="text-muted-foreground"> · {s.detail}</span>
                 </li>

@@ -61,6 +61,14 @@ interface WorkspaceState {
   newProjectAsked: boolean;
   askNewProject: () => void;
   clearNewProjectAsk: () => void;
+  /** Somebody has just opened a project, so the shell asks whether anything has
+      changed since the last time. A flag rather than a route or a timer,
+      because the question belongs to the *act of arriving* and nothing else:
+      switching surfaces inside a project must not re-ask it, and neither must a
+      re-render. The two ways in set it, the dialog clears it. */
+  updateAsked: boolean;
+  askForUpdates: () => void;
+  clearUpdateAsk: () => void;
 
   members: Member[];
   /** The signed-in person, resolved once so nothing matches on an address. */
@@ -113,8 +121,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [invitations, setInvitations] = useState(seedInvitations);
   const [newProjectAsked, setNewProjectAsked] = useState(false);
 
+  const [updateAsked, setUpdateAsked] = useState(false);
+
   const askNewProject = useCallback(() => setNewProjectAsked(true), []);
   const clearNewProjectAsk = useCallback(() => setNewProjectAsked(false), []);
+  const askForUpdates = useCallback(() => setUpdateAsked(true), []);
+  const clearUpdateAsk = useCallback(() => setUpdateAsked(false), []);
 
   const updateOrganisation = useCallback(
     (patch: Partial<Organisation>) => setOrganisation((o) => ({ ...o, ...patch })),
@@ -267,6 +279,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       newProjectAsked,
       askNewProject,
       clearNewProjectAsk,
+      updateAsked,
+      askForUpdates,
+      clearUpdateAsk,
       members,
       me,
       updateMemberRole,
@@ -289,6 +304,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       newProjectAsked,
       askNewProject,
       clearNewProjectAsk,
+      updateAsked,
+      askForUpdates,
+      clearUpdateAsk,
       members,
       me,
       updateMemberRole,

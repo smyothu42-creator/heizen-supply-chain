@@ -20,7 +20,13 @@ import { TODAY, useWorkspace } from "@/components/shell/WorkspaceProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SelectNative } from "@/components/ui/select-native";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/shell/Checkbox";
 import {
   Dialog,
@@ -193,23 +199,27 @@ function MemberRow({
             <label htmlFor={`role-${member.id}`} className="sr-only">
               Role for {member.name ?? member.email}
             </label>
-            <SelectNative
-              id={`role-${member.id}`}
+            <Select
               value={member.role}
-              onChange={(e) => {
-                const role = e.target.value as Role;
+              onValueChange={(v) => {
+                const role = v as Role;
                 updateMemberRole(member.id, role);
                 onSaid(`${member.name ?? member.email} is now ${ROLE_LABEL[role].toLowerCase()}`, {
                   detail: ROLE_MEANING[role],
                 });
               }}
             >
-              {ROLES.filter((r) => r !== "owner").map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABEL[r]}
-                </option>
-              ))}
-            </SelectNative>
+              <SelectTrigger id={`role-${member.id}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ROLES.filter((r) => r !== "owner").map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {ROLE_LABEL[r]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         ) : (
           <span className="px-1 text-micro text-muted-foreground">
@@ -466,17 +476,18 @@ function InviteDialog({
 
             <Field label="Role" hint={ROLE_MEANING[role]}>
               {(id) => (
-                <SelectNative
-                  id={id}
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as Role)}
-                >
-                  {ROLES.filter((r) => r !== "owner").map((r) => (
-                    <option key={r} value={r}>
-                      {ROLE_LABEL[r]}
-                    </option>
-                  ))}
-                </SelectNative>
+                <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                  <SelectTrigger id={id}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLES.filter((r) => r !== "owner").map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {ROLE_LABEL[r]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </Field>
           </DialogBody>

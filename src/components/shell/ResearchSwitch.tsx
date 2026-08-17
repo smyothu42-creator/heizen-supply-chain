@@ -5,7 +5,15 @@ import { useId, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { GROUP_LABEL, GROUP_ORDER, directionsInGroup } from "@/lib/directions";
-import { SelectNative } from "@/components/ui/select-native";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SwitchScroller, SwitchTrack, switchItemClass } from "./SwitchTrack";
 
 /**
@@ -171,22 +179,23 @@ function DirectionPicker({ className }: { className?: string }) {
       <label htmlFor={id} className="shrink-0 text-small font-medium text-muted-foreground">
         Reading
       </label>
-      <SelectNative
-        id={id}
-        value={slug}
-        onChange={(e) => router.push(`/research/${e.target.value}/${view}`)}
-        className="h-8 shrink-0 py-0.5 text-small"
-      >
-        {GROUP_ORDER.map((group) => (
-          <optgroup key={group} label={GROUP_LABEL[group]}>
-            {directionsInGroup(group).map((d) => (
-              <option key={d.slug} value={d.slug}>
-                {d.name}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </SelectNative>
+      <Select value={slug} onValueChange={(v) => router.push(`/research/${v}/${view}`)}>
+        <SelectTrigger id={id} className="h-8 w-auto shrink-0 py-0.5">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {GROUP_ORDER.map((group) => (
+            <SelectGroup key={group}>
+              <SelectLabel>{GROUP_LABEL[group]}</SelectLabel>
+              {directionsInGroup(group).map((d) => (
+                <SelectItem key={d.slug} value={d.slug}>
+                  {d.name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

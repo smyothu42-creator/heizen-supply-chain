@@ -6,6 +6,13 @@ import { ConfidenceChip } from "@/components/meridian/Confidence";
 import { buckets, sourceById, sources, type Gap } from "@/lib/suvarna";
 import { UNIT_LABEL, type DurationUnit } from "@/lib/plan";
 import { useToast } from "./Toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /**
  * A gap, in a form: the one the research missed, and the one it got wrong.
@@ -192,20 +199,32 @@ export function GapPanel({ gap, onClose }: { gap?: Gap; onClose: () => void }) {
 
             <div className="flex gap-3">
               <Row label="Area" className="min-w-0 flex-1">
-                <select className={`${FIELD} w-full`} defaultValue={gap?.bucketId ?? buckets[0]?.id}>
-                  {buckets.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
+                <Select defaultValue={gap?.bucketId ?? buckets[0]?.id}>
+                  <SelectTrigger className={`${FIELD} w-full border-0 shadow-none`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {buckets.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Row>
               <Row label="Effort" className="w-40 shrink-0">
-                <select className={`${FIELD} w-full`} defaultValue={gap?.effort ?? "Medium"}>
-                  {["Low", "Medium", "High"].map((e) => (
-                    <option key={e}>{e}</option>
-                  ))}
-                </select>
+                <Select defaultValue={gap?.effort ?? "Medium"}>
+                  <SelectTrigger className={`${FIELD} w-full border-0 shadow-none`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["Low", "Medium", "High"].map((e) => (
+                      <SelectItem key={e} value={e}>
+                        {e}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Row>
             </div>
 
@@ -220,13 +239,18 @@ export function GapPanel({ gap, onClose }: { gap?: Gap; onClose: () => void }) {
                 />
                 {/* `flex-1` and not `w-full`: the unit needs room for "months",
                     and at the shared width it rendered "we". */}
-                <select className={`${FIELD} min-w-0 flex-1`} defaultValue="weeks">
-                  {(Object.keys(UNIT_LABEL) as DurationUnit[]).map((u) => (
-                    <option key={u} value={u}>
-                      {UNIT_LABEL[u]}
-                    </option>
-                  ))}
-                </select>
+                <Select defaultValue="weeks">
+                  <SelectTrigger className={`${FIELD} min-w-0 flex-1 border-0 shadow-none`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(UNIT_LABEL) as DurationUnit[]).map((u) => (
+                      <SelectItem key={u} value={u}>
+                        {UNIT_LABEL[u]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </span>
             </Row>
 
@@ -283,14 +307,19 @@ export function GapPanel({ gap, onClose }: { gap?: Gap; onClose: () => void }) {
               /* Not optional, and deliberately last: a gap with nothing behind
                  it is the one thing this product does not produce. */
               <Row label="Where it came from" hint="Every gap traces back to something.">
-                <select className={`${FIELD} w-full`} defaultValue="heard">
-                  <option value="heard">Heard on a call, not in a document</option>
-                  {sources.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                <Select defaultValue="heard">
+                  <SelectTrigger className={`${FIELD} w-full border-0 shadow-none`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="heard">Heard on a call, not in a document</SelectItem>
+                    {sources.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Row>
             )}
 

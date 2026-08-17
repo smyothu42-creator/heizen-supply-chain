@@ -75,7 +75,8 @@ export function ProjectMenu() {
      workspace store rather than from the static module, because a project can
      now be *created*. A switcher reading a frozen import is a switcher that
      does not list the project you made a moment ago on the Projects page. */
-  const { projects, currentProjectId, setCurrentProject, askNewProject, me } = useWorkspace();
+  const { projects, currentProjectId, setCurrentProject, askNewProject, askForUpdates, me } =
+    useWorkspace();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const id = useId();
@@ -211,6 +212,11 @@ export function ProjectMenu() {
                     aria-checked={isCurrent}
                     onClick={() => {
                       setCurrentProject(p.id);
+                      /* Switching client is the other arrival, so it asks the
+                         same question. Not on the row you are already in:
+                         re-picking the open project is a dismissal, not an
+                         entrance. See `UpdateAsk`. */
+                      if (!isCurrent) askForUpdates();
                       setOpen(false);
                       trigger.current?.focus();
                     }}

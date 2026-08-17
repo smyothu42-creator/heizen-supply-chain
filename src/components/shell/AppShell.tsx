@@ -23,6 +23,7 @@ import { ProjectMenu } from "./ProjectMenu";
 import { Wordmark } from "./Wordmark";
 import { AiButton, AiPanel, AiProvider, useAi } from "./AiPanel";
 import { SelectionAsk } from "./SelectionAsk";
+import { UpdateAsk } from "./UpdateAsk";
 import { NavButton, NavDrawer } from "./NavDrawer";
 import { WorkspaceProvider } from "./WorkspaceProvider";
 import { SavedProvider } from "./SavedProvider";
@@ -457,6 +458,11 @@ function Shell({ children }: { children: ReactNode }) {
           and a menu that appears on an accidental drag across a table of
           twelve rows would be noise on five surfaces to be useful on one. */}
       {onResearch && <SelectionAsk />}
+      {/* *Do you have anything to update today?*, on the way into a project.
+          It lives here rather than on a surface because it is not about any one
+          of them: it is asked once on arrival, whichever surface you land on.
+          See `UpdateAsk`. */}
+      <UpdateAsk />
       <AiPanel />
     </div>
   );

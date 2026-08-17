@@ -34,6 +34,7 @@ export function ProjectsView() {
     deleteProject,
     newProjectAsked,
     clearNewProjectAsk,
+    askForUpdates,
   } = useWorkspace();
   const [creating, setCreating] = useState(false);
   const { notify } = useToast();
@@ -98,7 +99,13 @@ export function ProjectsView() {
               project={project}
               canEdit={manage}
               canDelete={manage && projects.length > 1}
-              onOpen={() => setCurrentProject(project.id)}
+              /* Opening a project is one of the two moments the shell asks
+                 whether anything has changed since last time. See
+                 `UpdateAsk`. */
+              onOpen={() => {
+                setCurrentProject(project.id);
+                askForUpdates();
+              }}
               onEdit={(trigger) => {
                 lastEditTrigger.current = trigger;
                 setEditing(project);

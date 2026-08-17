@@ -40,6 +40,13 @@ import { NewGapButton } from "@/components/shell/NewGapButton";
 import { GapPanel } from "@/components/shell/GapPanel";
 import { SaveMenu } from "@/components/shell/SaveMenu";
 import { SelectField } from "@/components/shell/SelectField";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { StickyBar } from "@/components/shell/StickyBar";
 import { useMastheadVisible } from "@/components/shell/useScrollDirection";
 import { DateField } from "@/components/shell/DateField";
@@ -278,21 +285,23 @@ export function GapsView() {
               both name the current order, and a dot appears on the icon whenever
               it is not the default. That is the same affordance the Clear button
               uses — mark the state that is unusual, not the one that is. */}
-          <div className="relative flex size-9 shrink-0 items-center justify-center self-center">
-            <select
+          {/* **The zero-opacity native `<select>` has gone**, on request, along
+              with every other one in the product: its list was the operating
+              system's, so this icon opened a dark system sheet in the middle of
+              an ivory page. The trigger is now the icon box itself, and the
+              list is the product's. The three things the native element gave
+              for free are still here, because Radix gives them too: it is in
+              the tab order, it announces as a combobox with the current order
+              as its name, and Escape returns focus to the icon. */}
+          <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
+            <SelectTrigger
               aria-label={`Order: ${ORDER_LABEL[sort]}`}
               title={`Order: ${ORDER_LABEL[sort]}`}
-              value={sort}
-              onChange={(e) => setSort(e.target.value as Sort)}
-              className="peer absolute inset-0 z-10 cursor-pointer opacity-0"
-            >
-              <option value="sequence">Sequence</option>
-              <option value="effort">Effort</option>
-              <option value="confidence">How sure</option>
-            </select>
-            <span
-              aria-hidden
-              className="pointer-events-none flex size-9 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-card transition-colors peer-hover:border-border-strong peer-hover:text-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background"
+              /* No chevron slot and no value on the face: the icon is the whole
+                 control. `[&_[data-slot=select-chevron]]:hidden` takes off the trigger's own chevron
+                 rather than a variant prop, because this is the one place in
+                 the product that wants a select with nothing written on it. */
+              className="relative size-9 shrink-0 justify-center self-center p-0 text-muted-foreground hover:text-foreground [&_[data-slot=select-chevron]]:hidden"
             >
               <SortIcon />
               {/* Only while the order is not the default. A mark on every state
@@ -301,10 +310,19 @@ export function GapsView() {
                   the page colour: at `rounded-md` a dot placed 6px inside sits
                   exactly on the curve and reads as clipped. */}
               {sort !== "sequence" && (
-                <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-foreground ring-2 ring-background" />
+                <span
+                  aria-hidden
+                  className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-foreground ring-2 ring-background"
+                />
               )}
-            </span>
-          </div>
+            </SelectTrigger>
+            {/* The trigger is 36px, so the list sets its own floor. */}
+            <SelectContent align="start" className="min-w-[9rem]">
+              <SelectItem value="sequence">Sequence</SelectItem>
+              <SelectItem value="effort">Effort</SelectItem>
+              <SelectItem value="confidence">How sure</SelectItem>
+            </SelectContent>
+          </Select>
           <span className="hidden w-px shrink-0 self-stretch bg-border sm:block" aria-hidden />
           {/* Domain, Tag, Kind: the same three, in the same order, with the same
               rules between them as Questions. Two surfaces that filter the same
@@ -975,29 +993,33 @@ function PlanItem({
           </label>
           <label>
             <span className="sr-only">Unit for “{gap.title}”</span>
-            {/* Native, for the reason every other picker here is native: it is
-                keyboard-operable and screen-reader correct for free, and on a
-                phone it opens the platform's own list.
+            {/* The options are words. They were `d`, `w` and `m`, which is the
+                one place in the product a unit was abbreviated, and it is the
+                place with the least context to recover it from.
 
-                The options are words now. They were `d`, `w` and `m`, which is
-                the one place in the product a unit was abbreviated, and it is
-                the place with the least context to recover it from. */}
-            <select
+                It was a native `<select>` and is now the product's, like every
+                other dropdown here: the list it opened was the operating
+                system's, which on a card this small was a dark system sheet
+                over an ivory panel. The trigger keeps the borderless shape it
+                has always had, because it shares one drawn box with the number
+                beside it. */}
+            <Select
               value={item.duration.unit}
-              onChange={(e) =>
-                onDuration(item.id, {
-                  ...item.duration,
-                  unit: e.target.value as DurationUnit,
-                })
+              onValueChange={(v) =>
+                onDuration(item.id, { ...item.duration, unit: v as DurationUnit })
               }
-              className="cursor-pointer appearance-none rounded-r-md border-0 bg-transparent py-0.5 pl-0.5 pr-1.5 text-micro text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             >
-              {(Object.keys(UNIT_LABEL) as DurationUnit[]).map((u) => (
-                <option key={u} value={u}>
-                  {UNIT_LABEL[u]}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-auto w-auto cursor-pointer rounded-r-md border-0 bg-transparent py-0.5 pl-0.5 pr-1.5 text-micro shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&_[data-slot=select-chevron]]:hidden">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="min-w-[7rem]">
+                {(Object.keys(UNIT_LABEL) as DurationUnit[]).map((u) => (
+                  <SelectItem key={u} value={u}>
+                    {UNIT_LABEL[u]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
         </span>
       </p>
