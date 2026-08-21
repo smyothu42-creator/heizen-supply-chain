@@ -22,200 +22,500 @@
    component — when the palette changes, this file changes and nothing else.
    See .claude/skills/design-system.
 
-   **Light is the default and the only automatic theme.** There is no
-   `prefers-color-scheme` block: dark is opt-in through `[data-theme="dark"]`,
-   which the toggle sets and the inline script in `layout.tsx` restores. A tool
-   demoed to investors on an unknown machine should not decide its own palette
-   from that machine's OS setting.
+   **There is one theme now, and it is Heizen's, in three modes.** Brand is the
+   default and lives in `:root`; Dark and Contrast are the same identity on a
+   different ground and at a different legibility floor. Daylight and Studio
+   are gone: a product with its own identity manual does not also ship two
+   palettes that are nobody's, and five entries in a menu whose first two
+   looked alike was a choice being asked for where there was no decision to
+   make. Broadsheet is gone too: a mode that changed the register rather than
+   the ground was a second product's worth of shape to keep true on every
+   surface, for a reader who had no reason to ask for it.
 
-   **Two surfaces.** Chrome — brand, surface tabs, utilities — is a 44px slate
-   strip and is navigation. Everything below is document: ivory page, white
-   cards, ink. The strip is the only dark thing on the screen; the hero band
-   that used to sit under it, with a photograph in it, is gone. See
-   `SurfaceHero`.
+   **What that means for the three blocks below.** Brand carries every token;
+   the other two override only what their mode is about. The brand's Cream,
+   Graphite, Dusty Teal, Dusty Sky Blue and Warm Sand, the 16px corner, the
+   warm lift and the type roles are set once in `:root` and inherited by all
+   three unless a mode has a reason to move them.
 
-   **`--primary` is `#22415b`, a deep slate blue**, and it is one value in two
-   roles: the chrome strip and every filled button. White on it is 10.6:1. It
-   replaced the reference dashboard's indigo `#252150` on request. The ink
-   neutrals moved with it — `--foreground` went from the violet-black `#1a1a2e`
-   to the slate-black `#16222e`, and the canvas ground from a pale indigo to a
-   pale slate — because a near-black carries its hue further than it looks, and
-   violet ink under blue chrome reads as two palettes rather than one.
+   **No mode is ever automatic.** There is no `prefers-color-scheme` block:
+   every mode is opt-in through `[data-theme="..."]`, which `ThemePicker` sets
+   and the inline script in `layout.tsx` restores. A tool demoed to investors on
+   an unknown machine should not decide its own palette from that machine's OS
+   setting, and Contrast in particular is a deliberate choice rather than
+   something to be handed to somebody who merely asked their OS for more
+   legible windows.
 
-   **Contrast is set for a reader who is not twenty-five.** Every ink token is
-   measured against the two grounds it actually lands on — the ivory page and
-   the white card — and the floor is 7:1 rather than AA's 4.5:1 for anything
-   that carries prose. Measured:
+   **A mode may change the voice; it may never change what a mark means.**
+   Colour still encodes health, fill still encodes evidence, the accent still
+   means "somewhere to go" and is still spent once per screen, the chrome is
+   still one strip that is navigation and everything under it is document, and
+   the type *scale* is untouched by all four. A mode that moved any of those
+   would not be a mode, it would be a fork. See *A theme is a register, not a
+   palette* in `DECISIONS.md`.
 
-     muted ink   #4d5064   7.22 page / 7.93 card
-     border      #dcd8d0   the hairline, not a text colour
-     evidence    #0a656f   5.94 page / 6.52 card
-     healthy     #0e6f3d   5.55 page / 6.09 card
-     critical    #b32826   5.86 page / 6.43 card
-     watch       #7f4c10   6.12 page / 6.72 card
-
-   The hue is the reference dashboard's; the lightness is this product's.
-   `pnpm check:ui` is what holds it.
+   **Two surfaces.** Chrome — brand, surface tabs, utilities — is a 44px
+   Graphite strip and is navigation. Everything below is document: cream page,
+   white cards, Graphite ink. The strip is the only dark thing on the screen.
    --------------------------------------------------------------------------- */
 
-:root {
-  /* surface — ivory page, white card, slate ink */
-  --background: #f6f4f1;
-  --foreground: #16222e;
+/* ---------------------------------------------------------------------------
+   Brand — the identity manual, applied, and the default
+
+   Built from `Heizen Brand Guidelines_compressed.pdf` (2025 Identity Manual).
+   It is the only palette in the product whose values come from outside it, so
+   the rule it follows is the one this file has followed through every
+   re-theme: **the hue is the brand's, the lightness is the product's.**
+
+   What the manual specifies, and where each part landed:
+
+     Pure White      #FFFFFF   the card, exactly
+     Cream           #F8F6EF   the page, exactly
+     Graphite        #2A2A2A   the ink and the chrome, exactly
+     Dusty Teal      #5C95A8   the accent — see below
+     Dusty Sky Blue  #ACCBD2   the chrome accent and the evidence tint
+     Warm Sand       #E2D4C4   the hairline
+     Axiforma                  sub-headings and body
+
+   **Dusty Teal is the one value that could not be used as given.** #5C95A8 is
+   3.07:1 on cream and 3.32:1 on white. A brand palette is drawn for a logo, a
+   deck and a business card, where a teal at that weight is correct; this
+   product puts the same role on 14px table text, where WCAG asks 4.5:1. So the
+   brand teal is deepened to #3A6779 for anything *read* — 5.72 cream / 6.18
+   card — and the manual's exact #5C95A8 carries everything merely *seen*:
+   rules, dots, bars, fills, where the floor is 3:1 and it clears it. The
+   identity is intact at every size somebody actually looks at it.
+
+   **Typography is one face.** The manual also specifies Inria Serif Bold
+   Italic for headings and titles, and the product carried it on `.font-display`
+   and `.accent-heading` until it was cut on request: the whole surface sets in
+   the body face now, and headings are separated by weight and tracking.
+   Axiforma is licensed and not on Google Fonts, so the body is Figtree, which
+   is the stand-in this repo has used for it before. See `layout.tsx`.
+
+   **Modern and creative**: 16px corners, cards lifted off the page on a
+   warm-toned shadow, generous margins. The brand is warm and quiet, so the lift
+   is what stops "quiet" becoming "flat" — a cream page and a white card are
+   only 1.06:1 apart, which is a narrower page/card step than any screen theme
+   would normally attempt and could not carry a card on its own.
+
+   The health hues are the ones the product has always used, re-measured on
+   cream: healthy 5.78, critical 5.98, watch 6.60. A brand does not get to
+   restate what a red means.
+
+   Measured, page #F8F6EF / card #FFFFFF:
+
+     ink (Graphite)   #2A2A2A  13.27 / 14.35
+     muted ink        #514E46   7.68 /  8.31
+     accent, read     #3A6779   5.72 /  6.18
+     accent, seen     #5C95A8   3.07 /  3.32   non-text only, floor 3:1
+     cream on chrome  #F8F6EF  13.27
+     sky on chrome    #ACCBD2   8.36
+
+   **`:root` and the attribute selector together, not one or the other.**
+   `:root` is what makes Brand the default with no attribute set; the
+   `[data-theme="heizen"]` half is what lets `ThemePicker` name it explicitly
+   and what makes its swatch — which renders another mode's colours inside a
+   `data-theme` scope on a plain `<span>` — resolve to anything at all.
+   --------------------------------------------------------------------------- */
+:root,
+[data-theme="heizen"] {
+  /* surface — the manual's Cream and Pure White, used exactly */
+  --background: #f8f6ef;
+  --foreground: #2a2a2a;
   --card: #ffffff;
-  --card-foreground: #16222e;
-  --muted: #efece7;
-  --muted-foreground: #4d5064;
-  --border: #dcd8d0;
-  --border-strong: #b8b3a8;
-  --ring: #0a656f;
-  --primary: #22415b;
-  --primary-foreground: #ffffff;
+  --card-foreground: #2a2a2a;
+  --muted: #efe7db;
+  --muted-foreground: #514e46;
+  /* Warm Sand as the hairline, which is the one place a 1.45:1 brand secondary
+     is exactly right: a border is seen, never read. */
+  --border: #e2d4c4;
+  --border-strong: #c3b29c;
+  --ring: #3a6779;
+  --primary: #2a2a2a;
+  --primary-foreground: #f8f6ef;
 
   /* chrome — the masthead strip and what sits on it. A separate family because
      it is a different kind of place, not a darker version of the same one, and
-     because these values do not invert with the theme. Anything placed on the
+     because these values do not invert between modes. Anything placed on the
      strip must be coloured from here; the page greys are ~2:1 on the strip.
 
-     Retuned with `--primary`: these were violet-leaning greys matched to the
-     old indigo and read purple against slate. Muted is 5.90:1 on the strip. */
-  --masthead: #22415b;
-  --masthead-foreground: #ffffff;
-  --masthead-muted: #b3c3d2;
-  --masthead-border: #3a5c78;
-  --masthead-accent: #63d2e3;
+     Graphite, which is a brand primary rather than a darkened teal. Cream on it
+     is 13.27:1. */
+  --masthead: #2a2a2a;
+  --masthead-foreground: #f8f6ef;
+  --masthead-muted: #c0bbb0;
+  --masthead-border: #454341;
+  --masthead-accent: #accbd2;
   /* The ground a tab takes while the pointer is on it: the band and its border
-     line, halfway. It exists because the active tab now fills with
+     line, halfway. It exists because the active tab fills with
      `--masthead-border` and hover had to be a step below that — a hover in the
      same tone as the current tab makes two tabs look current. **Opaque, not an
      alpha of the foreground**, so `check:ui` can read text against it: the
      checker walks to the nearest opaque ancestor and a `/10` tint reports the
-     colour underneath it. White on this is 8.6:1. */
-  --masthead-hover: #2e4f6a;
+     colour underneath it. */
+  --masthead-hover: #3a3836;
 
-  /* brand accent — the deepened cyan for anything read, its brighter twin for
-     anything merely seen (rules, dots, bars, fills) */
-  --accent: #0a656f;
-  --accent-soft: #00a6b8;
+  /* brand accent — Dusty Teal at the weight text needs, and the manual's exact
+     value for everything that is only looked at. */
+  --accent: #3a6779;
+  --accent-soft: #5c95a8;
 
   /* process health — the only axis in the product that uses hue */
   --health-critical: #b32826;
   --health-watch: #7f4c10;
   --health-healthy: #0e6f3d;
-  --health-critical-surface: #fceceb;
-  --health-watch-surface: #faf1e0;
-  --health-healthy-surface: #e7f3ec;
+  --health-critical-surface: #f9e9e6;
+  --health-watch-surface: #f7efdf;
+  --health-healthy-surface: #e6f0e6;
 
   /* Effort. Low is green because low effort is good news: a gap that costs
      little to fix is the one you open with. Its own family and not a reuse of
      health — what a fix costs to deliver is not a statement about how healthy
      anything is, and splitting them later must not mean finding every call
-     site. Shared hex values in light mode are a coincidence, not a link. */
+     site. Shared hex values are a coincidence, not a link. */
   --effort-low: #0e6f3d;
-  --effort-low-surface: #e7f3ec;
+  --effort-low-surface: #e6f0e6;
   --effort-medium: #7f4c10;
-  --effort-medium-surface: #faf1e0;
+  --effort-medium-surface: #f7efdf;
   --effort-high: #b32826;
-  --effort-high-surface: #fceceb;
+  --effort-high-surface: #f9e9e6;
 
-  /* evidence and provenance — the accent cyan at the weight text needs */
-  --evidence: #0a656f;
-  --evidence-muted: #ddeff2;
+  /* evidence and provenance — the brand teal at the weight text needs */
+  --evidence: #3a6779;
+  /* Dusty Sky Blue, lightened to a tint a paragraph can sit on. */
+  --evidence-muted: #dceaee;
 
-  /* confidence — a neutral ramp, never a hue, so it never reads as health */
-  --confidence-low: #6b6e80;
-  --confidence-medium: #4d5064;
-  --confidence-high: #16222e;
+  /* confidence — a neutral ramp, never a hue, so it never reads as health.
+     Warmed to the Graphite ink. */
+  --confidence-low: #676257;
+  --confidence-medium: #514e46;
+  --confidence-high: #2a2a2a;
 
   /* benchmark comparison */
-  --metric-actual: #16222e;
-  --metric-best-in-class: #4d5064;
+  --metric-actual: #2a2a2a;
+  --metric-best-in-class: #514e46;
   --metric-delta: #b32826;
   --metric-delta-good: #0e6f3d;
 
-  /* canvas — a pale slate pulled from the masthead, so the map reads as a
-     different kind of place rather than as another page */
-  --canvas-bg: #e9eef3;
-  --canvas-dot: #cfdae4;
+  /* canvas — a warm ground, so the map reads as a different kind of place
+     rather than as another page. The edge is a meaningful graphic, not
+     decoration: it is the only thing on the map saying what feeds what, so it
+     takes WCAG's 3:1 non-text floor rather than the dot grid's licence to be
+     faint. */
+  --canvas-bg: #efebe2;
+  --canvas-dot: #dad2c4;
   --canvas-node: #ffffff;
-  /* The edge is a meaningful graphic, not decoration: it is the only thing on
-     the map saying what feeds what, so it takes WCAG's 3:1 non-text floor
-     rather than the dot grid's licence to be faint. #869fb4 was 2.42:1 on the
-     canvas and vanished at the zoom Level 1 fits at. 3.38:1, and still well
-     clear of the ink so it does not compete with the nodes. */
-  --canvas-edge: #6b8398;
+  --canvas-edge: #7d7466;
 
-  /* Cards are separated by a hairline and a light elevation. A shadow alone
-     loses the top edge, where it is smallest; a hairline alone reads flat. */
-  --elevation-card: 0 1px 2px rgb(22 34 46 / 0.04), 0 1px 3px rgb(22 34 46 / 0.04);
-  --elevation-raised: 0 1px 2px rgb(22 34 46 / 0.06), 0 4px 16px rgb(22 34 46 / 0.08);
+  /* Lifted, and warm-toned rather than neutral: a grey shadow on a cream page
+     greys the page. This is what carries the card, since cream and white are
+     only 1.06:1 apart. */
+  --elevation-card: 0 1px 2px rgb(42 42 42 / 0.05), 0 8px 24px -8px rgb(42 42 42 / 0.12);
+  --elevation-raised: 0 2px 8px rgb(42 42 42 / 0.1), 0 24px 48px -12px rgb(42 42 42 / 0.22);
 
-  /* shadcn/ui's radius scale. One number, four derived steps. */
-  --radius: 0.5rem;
+  /* shadcn/ui's radius scale. One number, four derived steps. 16px is the
+     softest the product has run; `--radius-sm` lands at 12, which is valid. */
+  --radius: 1rem;
+
+  /* -------------------------------------------------------------------------
+     The structural tokens — what makes a mode a register and not a colourway
+
+     A mode in this product may carry corner language, whether a card is
+     separated by a shadow or by a rule, the body tracking and the page gutter.
+     Two of those already existed as tokens (`--radius`, `--elevation-*`) and
+     cascade for free. The three below are indirections added so the rest can
+     move without touching a component: the rule that re-theming is a
+     `globals.css` change and nothing else still holds.
+
+     They are deliberately few. Every structural token is a value that has to be
+     right in four modes at four viewports, and the type scale in particular is
+     **not** on this list: it is set for a reader who is not twenty-five, and a
+     mode that shrinks it is a mode that fails the one rule no layout can
+     substitute for.
+     ------------------------------------------------------------------------- */
+
+  /* The body's optical tracking. See the note in `@layer base`. */
+  --tracking-body: -0.01em;
+
+  /* The page gutter, opening as the window does. `.surface-frame` reads these,
+     so a mode can set the margin its register wants. The phone value is the one
+     to leave alone: at 375 the gutter is already most of what separates a row
+     from the edge of the screen, and margin bought there comes straight out of
+     the sentence. Widen from `sm` up, where there is width to spend. */
+  --frame-gutter: 1rem;
+  --frame-gutter-sm: 1.875rem;
+  --frame-gutter-xl: 3rem;
+
+  /* -------------------------------------------------------------------------
+     Typography — the manual's two voices
+
+     Three roles, three indirections. `layout.tsx` loads every family and names
+     them nowhere else; this picks which loaded family fills each role. That is
+     what keeps "a mode is a block in this stylesheet" true now that the product
+     carries a typeface as well as a palette.
+
+     **One face now, on request: the serif is gone from the whole product.**
+     It was Inria Serif Bold Italic on `.font-display` and `.accent-heading`,
+     so every section heading, every document lead and the band on What to
+     build were set in a bold italic serif. All three roles point at the body
+     face, and the two heading roles are separated from it by weight and
+     tracking rather than by family.
+
+     This is exactly the change the indirection was built for: three lines
+     here, no sweep through call sites, and the classes keep their names so
+     nothing downstream has to know the voice changed. **The two heading roles
+     stay separate tokens** even though they now resolve to the same family —
+     collapsing them would make a future split a sweep again.
+
+     Figtree stands in for Axiforma. All modes inherit it: the brand's voice is
+     not a property of the ground it is set on.
+
+     **The type *scale* is still not themeable and must not become so.**
+     ------------------------------------------------------------------------- */
+  --font-body-family: var(--font-geom-family);
+  --font-display-family: var(--font-geom-family);
+  --font-accent-family: var(--font-geom-family);
+
+  /* **Upright, and tracked in.** Both heading roles were italic 700 with
+     tracking near zero, which is what an italic serif wants: it is already
+     wide, and the -0.02em a grotesque asks for pinches it. On a geometric sans
+     the settings invert — it takes negative tracking at display sizes and
+     italic on a heading now reads as emphasis rather than as the brand.
+     Weight is what separates a heading from body text here, so display keeps
+     700 and the section voice sits at 600. */
+  --display-style: normal;
+  --display-weight: 700;
+  --display-tracking: -0.02em;
+  --accent-heading-style: normal;
+  --accent-heading-weight: 600;
+  --accent-heading-tracking: -0.015em;
 }
 
-/* Dark is opt-in, never automatic. It exists because the health colours have
-   separate dark values and a designer has to be able to check both. */
+/* ---------------------------------------------------------------------------
+   Dark — the brand on Graphite
+
+   The identity inverted rather than a different palette that happens to be
+   dark: Graphite stops being the ink and becomes the ground, Cream stops being
+   the page and becomes the ink, and Dusty Sky Blue — the manual's own light
+   secondary — takes the accent role that Dusty Teal cannot hold on a dark
+   ground. Nothing here is a hue the brand does not own.
+
+   It exists for two reasons, and the second is the one that matters. A
+   consultant opening a dossier on a phone in a car park at 7pm is the first.
+   The second is that the health colours have separate dark values, and a
+   designer has to be able to check both.
+
+   **The teal swaps roles rather than being brightened past recognition.**
+   #3A6779 is 1.7:1 on Graphite and unusable; the manual's #ACCBD2 is 9.93:1
+   there. So Dusty Sky Blue is the read accent and a mid teal #7FADBC carries
+   what is only seen. Same split as Brand, in the other direction.
+
+   Measured, page #1C1C1C / card #262524:
+
+     ink (Cream)      #F8F6EF  15.76 / 14.19
+     muted ink        #C0BBB0   8.91 /  8.02
+     accent, read     #ACCBD2   9.93 /  8.94
+     healthy          #6FDB97   9.15 /  8.24
+     critical         #F79993   8.34 /  7.51
+     watch            #E8BD6D   9.71 /  8.74
+   --------------------------------------------------------------------------- */
 [data-theme="dark"] {
-  --background: #0f1922;
-  --foreground: #eef3f7;
-  --card: #182531;
-  --card-foreground: #eef3f7;
-  --muted: #223140;
-  --muted-foreground: #a9bccb;
-  --border: #2b3d4d;
-  --border-strong: #445a6d;
-  --ring: #5fd6e4;
-  --primary: #eef3f7;
-  --primary-foreground: #0f1922;
+  /* surface — Graphite as the ground, Cream as the ink */
+  --background: #1c1c1c;
+  --foreground: #f8f6ef;
+  --card: #262524;
+  --card-foreground: #f8f6ef;
+  --muted: #33312e;
+  --muted-foreground: #c0bbb0;
+  --border: #3a3836;
+  --border-strong: #56534f;
+  --ring: #accbd2;
+  /* A filled button is Cream on Graphite here, which is the same two brand
+     values as Brand mode with the roles swapped. */
+  --primary: #f8f6ef;
+  --primary-foreground: #1c1c1c;
 
-  --masthead: #152736;
-  --masthead-foreground: #eef3f7;
-  --masthead-muted: #a9bccb;
-  --masthead-border: #2f4557;
-  --masthead-accent: #5fd6e4;
-  /* Band and border line, halfway, as in light. Foreground on it is 11.3:1. */
-  --masthead-hover: #223546;
+  /* chrome — a step below the page rather than above it, so the strip is still
+     the one place that is not document. */
+  --masthead: #141414;
+  --masthead-foreground: #f8f6ef;
+  --masthead-muted: #b0aba1;
+  --masthead-border: #333130;
+  --masthead-accent: #accbd2;
+  /* Band and border line, halfway, as in every mode. */
+  --masthead-hover: #242322;
 
-  --accent: #5fd6e4;
-  --accent-soft: #4cc5d5;
+  /* brand accent — Dusty Sky Blue read, mid teal seen */
+  --accent: #accbd2;
+  --accent-soft: #7fadbc;
 
+  /* process health — the dark values of the same three readings. A hue may be
+     retuned for its ground; it may not be reassigned. */
   --health-critical: #f79993;
   --health-watch: #e8bd6d;
   --health-healthy: #6fdb97;
-  --health-critical-surface: #2e1620;
-  --health-watch-surface: #2b2114;
-  --health-healthy-surface: #12251f;
+  /* The surfaces are warm rather than the blue-black a generic dark theme would
+     use: a cool tint on a Graphite page reads as a second palette. */
+  --health-critical-surface: #33211f;
+  --health-watch-surface: #302617;
+  --health-healthy-surface: #1e2c22;
 
+  /* Effort. Its own family, sharing values with health by coincidence and not
+     by link, exactly as in every mode. */
   --effort-low: #6fdb97;
-  --effort-low-surface: #12251f;
+  --effort-low-surface: #1e2c22;
   --effort-medium: #e8bd6d;
-  --effort-medium-surface: #2b2114;
+  --effort-medium-surface: #302617;
   --effort-high: #f79993;
-  --effort-high-surface: #2e1620;
+  --effort-high-surface: #33211f;
 
-  --evidence: #5fd6e4;
-  --evidence-muted: #142e35;
+  --evidence: #accbd2;
+  --evidence-muted: #23302f;
 
-  --confidence-low: #87a0b3;
-  --confidence-medium: #c2d1dd;
-  --confidence-high: #eef3f7;
+  /* confidence — a neutral ramp, never a hue, warmed to the Cream ink */
+  --confidence-low: #8f887c;
+  --confidence-medium: #c0bbb0;
+  --confidence-high: #f8f6ef;
 
-  --metric-actual: #eef3f7;
-  --metric-best-in-class: #a9bccb;
+  --metric-actual: #f8f6ef;
+  --metric-best-in-class: #c0bbb0;
   --metric-delta: #f79993;
   --metric-delta-good: #6fdb97;
 
-  --canvas-bg: #111d27;
-  --canvas-dot: #24384a;
-  --canvas-node: #1a2833;
-  --canvas-edge: #6f8da6;
+  --canvas-bg: #171716;
+  --canvas-dot: #302e2b;
+  --canvas-node: #232221;
+  /* WCAG's 3:1 non-text floor, held at 3.98:1 on the map ground. */
+  --canvas-edge: #7d766a;
 
   /* A shadow does nothing on a dark ground — elevation there is carried by the
      card being lighter than the page. The values stay defined so no component
-     has to branch on theme. */
+     has to branch on the mode. */
   --elevation-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px rgb(0 0 0 / 0.25);
   --elevation-raised: 0 1px 2px rgb(0 0 0 / 0.35), 0 4px 16px rgb(0 0 0 / 0.35);
+}
+
+/* ---------------------------------------------------------------------------
+   Contrast — the brand at maximum legibility
+
+   Not a fourth colourway. It is the same identity with one variable pushed:
+   every ink that carries meaning clears 7:1 against both grounds it lands on,
+   and most clear 9:1. It is for the projector in a client's meeting room that
+   eats saturation, the laptop screen at an angle across a table, and the
+   reader for whom Brand's Warm Sand hairline is a rumour rather than a line.
+
+   **The shadow comes off and the rule comes on.** Brand separates page from
+   card with a warm lift over a 1.06:1 step, which is exactly the separation a
+   low-contrast viewing situation destroys first. Here the hairline is #6B6558
+   — 5.79:1 on the card, a line rather than a suggestion — and
+   `--elevation-card` is `none`, because a shadow that cannot be seen is a
+   separation that is not there. The 16px corner stays: the brand's shape is
+   not what was hard to see.
+
+   **The teal deepens a second time.** Brand already deepened #5C95A8 to
+   #3A6779 to clear 4.5:1 on 14px text; #17444F clears 9.49:1 on the page, and
+   #3A6779 drops to the *seen* role where the floor is 3:1 and it holds 5.52.
+   The accent still means "somewhere to go" and is still spent once per screen:
+   a mode that spent it more often would be a mode nobody can find anything on,
+   which is the opposite of what this is for.
+
+   The health hues deepen with everything else, and keep their tints: a red
+   that means "critical" is still a red, and the non-colour carriers — the
+   filled dots on `EffortChip`, the dashed stroke on an `unknown` node — are
+   unchanged, because those are what make the readings survive a mode like this
+   in the first place.
+
+   Measured, page #F5F2E9 / card #FFFFFF:
+
+     ink              #000000  17.76 / 21.00
+     muted ink        #33312C  11.42 / 13.50
+     accent, read     #17444F   9.49 / 10.63
+     accent, seen     #3A6779   5.52 /  6.18   non-text only, floor 3:1
+     critical         #8E1B19   8.08 /  9.05
+     watch            #5F3708   9.21 / 10.32
+     healthy          #0A5230   8.29 /  9.29
+     hairline         #6B6558   4.90 /  5.79   non-text, floor 3:1
+   --------------------------------------------------------------------------- */
+[data-theme="contrast"] {
+  /* surface — the cream deepened a step so the white card can still be found,
+     and ink that is actually black */
+  --background: #f5f2e9;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --muted: #e6dfd0;
+  --muted-foreground: #33312c;
+  /* A line, not a suggestion. This is the token doing the work `--elevation-card`
+     usually does. */
+  --border: #6b6558;
+  --border-strong: #2a2a2a;
+  --ring: #17444f;
+  --primary: #1a1a1a;
+  --primary-foreground: #ffffff;
+
+  /* chrome — Graphite pushed to near-black, so the strip separates from the
+     page at 15:1 rather than at Brand's 13. */
+  --masthead: #1a1a1a;
+  --masthead-foreground: #ffffff;
+  --masthead-muted: #d8d4cb;
+  --masthead-border: #57544f;
+  --masthead-accent: #accbd2;
+  /* Band and border line, halfway, as in every mode. */
+  --masthead-hover: #2e2c2a;
+
+  /* brand accent — deepened once more for reading, with Brand's read value
+     dropping to the seen role */
+  --accent: #17444f;
+  --accent-soft: #3a6779;
+
+  /* process health — the same three readings, deepened. Hue preserved: past a
+     point a red, a green and an amber become three browns, and these stop just
+     short of it. */
+  --health-critical: #8e1b19;
+  --health-watch: #5f3708;
+  --health-healthy: #0a5230;
+  --health-critical-surface: #f7e4e1;
+  --health-watch-surface: #f6ecd6;
+  --health-healthy-surface: #e2f0e4;
+
+  /* Effort. Its own family, sharing values with health by coincidence and not
+     by link, exactly as in every mode. */
+  --effort-low: #0a5230;
+  --effort-low-surface: #e2f0e4;
+  --effort-medium: #5f3708;
+  --effort-medium-surface: #f6ecd6;
+  --effort-high: #8e1b19;
+  --effort-high-surface: #f7e4e1;
+
+  --evidence: #17444f;
+  --evidence-muted: #d5e6ea;
+
+  /* confidence — a neutral ramp, never a hue. The three steps stay
+     distinguishable from each other as well as from the ground, which is the
+     part a contrast pass usually flattens. */
+  --confidence-low: #4a463d;
+  --confidence-medium: #2a2823;
+  --confidence-high: #000000;
+
+  --metric-actual: #000000;
+  --metric-best-in-class: #33312c;
+  --metric-delta: #8e1b19;
+  --metric-delta-good: #0a5230;
+
+  /* canvas — the same warm ground, with the grid and the edges pushed. The
+     edge carries far more than 3:1 here on purpose: on a map, the lines saying
+     what feeds what are the first thing a bad projector loses. */
+  --canvas-bg: #ede8dc;
+  --canvas-dot: #b9b0a0;
+  --canvas-node: #ffffff;
+  --canvas-edge: #4a443a;
+
+  /* Rules instead of shadows, for the reason in the header: a lift nobody can
+     see is not a separation. A drawer over a document genuinely is above it and
+     still says so, at an alpha that survives a washed-out screen. */
+  --elevation-card: none;
+  --elevation-raised: 0 2px 6px rgb(0 0 0 / 0.2), 0 20px 44px -10px rgb(0 0 0 / 0.35);
 }
 
 @theme inline {
@@ -336,12 +636,14 @@
   --text-display: 2.75rem;
   --text-display--line-height: 1.05;
 
-  /* One face for everything: Inter. The three roles stay separate tokens so a
-     future split is a change here and not a sweep through call sites. */
-  --font-sans: var(--font-sans-family), ui-sans-serif, system-ui, sans-serif;
+  /* One face, three roles: Figtree carries the body and both heading voices,
+     which are separated from it by weight and tracking. The roles stay
+     separate tokens so a future split is a change in the block above and not a
+     sweep through call sites. */
+  --font-sans: var(--font-body-family), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono-family), ui-monospace, monospace;
-  --font-display: var(--font-sans-family), ui-sans-serif, system-ui, sans-serif;
-  --font-accent: var(--font-sans-family), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-family), ui-sans-serif, system-ui, sans-serif;
+  --font-accent: var(--font-accent-family), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -350,12 +652,16 @@
     color: var(--foreground);
     font-family: var(--font-sans);
     font-size: var(--text-base);
-    /* Inter's optical tracking. It was -0.014em, tuned to stop a 15px Brief
-       clipping at 375×667 — a layout fix wearing a typography setting. At 16px
-       the letterfit no longer needs the help, and tight tracking is the first
-       thing to cost a reader with less than perfect vision. -0.008em is the
-       optical correction alone. `pnpm check:ui` is what holds the fit. */
-    letter-spacing: -0.008em;
+    /* The body face's optical tracking. It was -0.014em, tuned to stop a 15px
+       Brief clipping at 375×667 — a layout fix wearing a typography setting. At
+       16px the letterfit no longer needs the help, and tight tracking is the
+       first thing to cost a reader with less than perfect vision. -0.01em is
+       the optical correction alone. `pnpm check:ui` is what holds the fit.
+
+       It reads a token because tracking is part of a mode's voice: a printed
+       register sets at normal tracking and a screen register sets slightly
+       tight, and that difference is doing as much work as the paper colour. */
+    letter-spacing: var(--tracking-body);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -370,8 +676,10 @@
   /* The headline voice: sans at 700, tracked in. Applied here rather than at
      every call site so the whole product moves together if the face is swapped. */
   .font-display {
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-family: var(--font-display);
+    font-style: var(--display-style);
+    font-weight: var(--display-weight);
+    letter-spacing: var(--display-tracking);
   }
 
   /* The second heading voice. Ink at 600, tracked between body and display so
@@ -379,8 +687,9 @@
      being a signal and becomes decoration on a working tool. */
   .accent-heading {
     font-family: var(--font-accent);
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-style: var(--accent-heading-style);
+    font-weight: var(--accent-heading-weight);
+    letter-spacing: var(--accent-heading-tracking);
     color: var(--foreground);
   }
 
@@ -444,18 +753,18 @@
 .surface-frame {
   width: 100%;
   margin-inline: auto;
-  padding-inline: 1rem;
+  padding-inline: var(--frame-gutter);
 }
 
 @media (min-width: 640px) {
   .surface-frame {
-    padding-inline: 1.75rem;
+    padding-inline: var(--frame-gutter-sm);
   }
 }
 
 @media (min-width: 1280px) {
   .surface-frame {
-    padding-inline: 2.5rem;
+    padding-inline: var(--frame-gutter-xl);
   }
 }
 
@@ -510,8 +819,10 @@
 }
 
 /* Prose in the dossier caps its line length. `ch` is the width of a digit, and
-   Inter's is 0.6em against an average lowercase of about 0.5em, so 64ch renders
-   ~77 characters. If the face changes, this number is wrong again. */
+   Figtree's is 0.6em against an average lowercase of about 0.5em, so 64ch
+   renders ~77 characters. If the body face changes, this number is wrong
+   again — it was measured against Inter, which happens to have the same
+   ratio, and that is luck rather than a property of sans faces. */
 .measure {
   max-width: 64ch;
 }
@@ -888,13 +1199,21 @@
 /* The width at which the surface tabs stop being a drawer.
  *
  * It was Tailwind's `xl` (1280px), measured when the longest tab was "Research".
- * With "Gaps & problems" on the row the tabs need 807px against the 734 a 1280
- * window leaves them, so *Sources* scrolled off the right edge — which is the
- * hiding place the drawer exists to avoid, arriving through the back door.
+ * That failed once the row grew "Gaps & problems", which needed more than a
+ * 1280 window leaves it, so *Sources* scrolled off the right edge — which is
+ * the hiding place the drawer exists to avoid, arriving through the back door.
+ * 1360 is the number that fixed it then.
  *
- * 1360 is the measured fit, not a guess: at 1360 the row needs 814 and has 814.
- * If a tab is renamed again, re-measure and move this number; it is the only
- * place either side of the switch reads it from.
+ * **Re-measured after two changes that both shrank the row**: "Gaps &
+ * problems" went back to "Gaps", and the project switcher and theme control
+ * dropped their visible names down to a monogram/swatch plus a chevron. The
+ * eight surface tabs plus the masthead's fixed left and right content now need
+ * 1351px of window width, against the 1360px this variant switches at, so
+ * there is about 9px of margin rather than an exact fit. Left as 1360 rather
+ * than tightened further: a few spare pixels cost nothing and a breakpoint
+ * measured to the pixel is a breakpoint one more rename knocks over. If a tab
+ * is renamed again, re-measure and move this number; it is the only place
+ * either side of the switch reads it from.
  */
 @custom-variant tabs-fit (@media (min-width: 1360px));
 

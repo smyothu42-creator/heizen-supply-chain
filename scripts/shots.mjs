@@ -1,12 +1,21 @@
 /** Writes screenshots/ for review. Needs `pnpm build && pnpm start -p 4311`. */
 import { chromium } from "playwright";
+import { readFileSync } from "node:fs";
 
 const B = "http://localhost:4311";
+/* The modes, read out of the stylesheet rather than typed here, so a mode
+   added to `globals.css` gets screenshots without anyone remembering to. Brand
+   arrives as `heizen`, which its block carries alongside `:root`. */
+const THEMES = [
+  ...[...readFileSync("src/app/globals.css", "utf8").matchAll(/\[data-theme="([\w-]+)"\]/g)].map(
+    (m) => m[1],
+  ),
+].filter((t, i, all) => all.indexOf(t) === i);
 const D = ["all", "about", "leaks", "build", "tech", "solved", "money", "risk", "stakeholder"];
-const SURFACES = ["operations", "gaps", "questions", "compare", "sources"];
+const SURFACES = ["build", "operations", "gaps", "questions", "compare", "sources"];
 
 const b = await chromium.launch();
-for (const theme of ["light", "dark"]) {
+for (const theme of THEMES) {
   const phone = await b.newPage({ viewport: { width: 375, height: 667 }, reducedMotion: "reduce" });
   const desk = await b.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
   const shoot = async (page, path, file, full) => {

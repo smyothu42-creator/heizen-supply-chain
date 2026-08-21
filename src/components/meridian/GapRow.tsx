@@ -12,6 +12,7 @@ import {
 } from "@/lib/suvarna";
 import { EvidenceChain } from "./Evidence";
 import { ConfidenceChip, EffortChip, TIER_LABEL } from "./Confidence";
+import { precedentLine } from "./Precedent";
 import { MetricLine } from "./MetricDelta";
 import { usePanel } from "./EvidencePanel";
 import { ValuationBridge } from "./ValuationBridge";
@@ -425,10 +426,15 @@ export function GapRow({
                 surfaces that hide the row's copy still have them one click
                 away. `TIER_LABEL` too — on Research the shape has gone with
                 them and the tier would otherwise be stated nowhere on the
-                object itself. */}
+                object itself.
+
+                **Atlas's clause joins the same sentence rather than opening a
+                new one**, on the §6a rule against a dash standing in for a
+                second sentence: "done before in Konkan Marine Foods" reads as
+                part of what the weeks figure is, not as a separate claim. */}
             {!delivery && (
               <span>
-                {gap.weeks} weeks to deliver · {TIER_LABEL[gap.tier]} · sits with{" "}
+                {precedentLine(gap)} · {TIER_LABEL[gap.tier]} · sits with{" "}
                 {stakeholderById(gap.ownerId).name} · {gap.scor} → {gap.level1} →{" "}
                 {gap.level2}
               </span>

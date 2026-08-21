@@ -17,6 +17,8 @@ import { lanes } from "./compare";
  * broke. Same rule as the data-source connectors: designed as real, labelled
  * honestly.
  */
+export type Priority = "high" | "medium" | "low";
+
 export interface Project {
   id: string;
   name: string;
@@ -28,6 +30,16 @@ export interface Project {
       from the name — same rule as the connectors: designed as real, labelled
       honestly, and one field away from being the real thing. */
   photoUrl?: string;
+  /** Out of the working list but not deleted. A delivered engagement and a lead
+      that went cold are records worth keeping — Compare reads Kesarwani —
+      and a list that only ever grows is unusable by September at several new
+      projects a day. Archived projects still open; they just live behind the
+      Archived filter. */
+  archived?: boolean;
+  /** The consultant's own triage, not a pipeline claim. What "sort by priority"
+      sorts on; a fresh lead arrives without one and sorts after the triaged,
+      which is honest — nobody has looked at it yet. */
+  priority?: Priority;
 
   /* ------------------------------------------------------------------------
      What the create form collects, and what the projects list shows.
@@ -75,6 +87,7 @@ export const projects: Project[] = [
     sector: company.sector,
     status: `Researched ${company.researchedOn} · ${company.confidence.toLowerCase()} confidence`,
     researched: true,
+    priority: "high",
     createdOn: "2026-07-28",
     domain: "suvarnaagro.in",
     revenueCr: company.revenueCr,
@@ -87,6 +100,10 @@ export const projects: Project[] = [
     sector: sectorOf("lane-kesarwani"),
     status: "Delivered Q4 FY25 · invoice automation and vendor onboarding",
     researched: false,
+    /* Delivered means done: the engagement is a record now, not a lead. Compare
+       still reads its lane — archiving hides a project from the working list
+       and touches nothing else. */
+    archived: true,
     createdOn: "2025-11-04",
     domain: "kesarwanifoods.com",
     revenueCr: 880,
@@ -98,8 +115,14 @@ export const projects: Project[] = [
     sector: sectorOf("lane-deccan"),
     status: "In flight · further along on planning than procurement",
     researched: false,
+    priority: "medium",
     createdOn: "2026-06-15",
-    domain: "deccanmills.in",
+    /* Matches the lane's company name. It said `deccanmills.in` while the name
+       came from `lane-deccan`, which is Deccan **Beverages** — so the card
+       showed one company and linked to another's site. The name is derived and
+       the domain was typed, which is the shape this kind of error always
+       takes. */
+    domain: "deccanbeverages.in",
     revenueCr: 2400,
     stakeholders: "Not known yet",
   },
@@ -122,62 +145,88 @@ export const projects: Project[] = [
      Some carry no stakeholder and no prompt on purpose. Empty is normal
      (§7.7): a first lead is a company name and a sector, and the form asks for
      nothing else.
+
+     **They are drawn to look like the companies Heizen actually sells to, and
+     they are deliberately not real ones.** Two rules, and both are load-bearing
+     on a product demoed to investors and prospective clients:
+
+     - **Named like real Indian mid-market industry**, because that is what makes
+       a pipeline read as a pipeline. Founder or deity name, or a place, plus
+       what the company makes: `Anjani Textile Mills`, `Nandi Precision
+       Components`. Sectors are how the industry describes itself rather than
+       how a taxonomy would, revenue sits where a company that size really sits,
+       the domain matches the name and takes the TLD an Indian company of that
+       size really uses, and the statuses are the states a real CRM holds — a
+       call booked, a folder half ingested, a proposal out, one gone quiet.
+     - **Checked against real companies, and moved when they collided.**
+       `Coromandel Cold Chain` and `Meghna Steel Tubes` went, because Coromandel
+       International and the Meghna Group are real businesses and every one of
+       these rows carries an invented revenue, an invented contact and an
+       invented claim about a commercial relationship with Heizen. Attaching
+       that to a company somebody can look up is a fabricated record about a
+       real third party, on a screen shown to outsiders. **If these are ever
+       swapped for the real pipeline, the names have to come from Heizen and the
+       findings have to come from the pipeline** — not one of each.
      --------------------------------------------------------------------- */
   {
-    id: "p-rajdhani",
-    name: "Rajdhani Textiles",
-    sector: "Textiles and apparel",
+    id: "p-anjani",
+    name: "Anjani Textile Mills",
+    sector: "Cotton spinning and knitwear",
     status: "Call booked 18 Aug · nothing ingested yet",
     researched: false,
+    priority: "high",
     createdOn: "2026-08-04",
-    domain: "rajdhanitextiles.com",
-    revenueCr: 1450,
+    domain: "anjanitextiles.co.in",
+    revenueCr: 1182,
     stakeholders: "Priya Nair, COO",
-    prompt: "Cotton sourcing and dyeing. Two units, heavy job work.",
+    prompt: "Cotton sourcing and dyeing at Tiruppur. Two units, heavy job work.",
   },
   {
     id: "p-nandi",
-    name: "Nandi Auto Components",
-    sector: "Auto components",
+    name: "Nandi Precision Components",
+    sector: "Auto components, Tier 1",
     status: "Sources arriving · three files in, transcripts to come",
     researched: false,
+    priority: "medium",
     createdOn: "2026-07-30",
-    domain: "nandiauto.in",
-    revenueCr: 3100,
-    stakeholders: "Head of Supply Chain, plant finance",
-    prompt: "Tier 1 supplier. Schedule adherence and inbound freight.",
+    domain: "nandiprecision.in",
+    revenueCr: 2240,
+    stakeholders: "Arun Kulkarni, Head of Supply Chain",
+    prompt: "Tier 1 into Chakan. Schedule adherence and inbound freight.",
   },
   {
-    id: "p-coromandel",
-    name: "Coromandel Cold Chain",
-    sector: "Cold chain logistics",
+    id: "p-sagar",
+    name: "Sagar Cold Chain",
+    sector: "Cold chain and warehousing",
     status: "First call done · waiting on the ERP export",
     researched: false,
+    priority: "medium",
     createdOn: "2026-07-12",
-    domain: "coromandelcoldchain.com",
-    revenueCr: 640,
+    domain: "sagarcoldchain.com",
+    revenueCr: 613,
     stakeholders: "Vikram Rao, CFO",
   },
   {
     id: "p-girija",
-    name: "Girija Pharma",
-    sector: "Pharmaceutical manufacturing",
+    name: "Girija Pharmaceuticals",
+    sector: "Pharmaceutical formulations",
     status: "Proposal out · decision expected in September",
     researched: false,
+    priority: "high",
     createdOn: "2026-05-22",
     domain: "girijapharma.in",
-    revenueCr: 1980,
-    stakeholders: "Head of Quality, procurement lead",
-    prompt: "Batch release and supplier qualification. Regulated, so evidence matters.",
+    revenueCr: 1645,
+    stakeholders: "Meera Iyer, Head of Quality",
+    prompt: "Batch release and supplier qualification at Baddi. Regulated, so evidence matters.",
   },
   {
-    id: "p-meghna",
-    name: "Meghna Steel Tubes",
-    sector: "Steel and metal fabrication",
+    id: "p-jaidev",
+    name: "Jaidev Steel Tubes",
+    sector: "Steel tubes and fabrication",
     status: "Lead only · sector and name, nothing else yet",
     researched: false,
     createdOn: "2026-08-08",
-    revenueCr: 5200,
+    revenueCr: 4120,
   },
   {
     id: "p-anantha",
@@ -185,10 +234,50 @@ export const projects: Project[] = [
     sector: "Speciality chemicals",
     status: "Gone quiet since April · worth one more call",
     researched: false,
+    priority: "low",
     createdOn: "2026-02-19",
-    domain: "anantha-chem.in",
-    revenueCr: 2750,
+    domain: "ananthachem.in",
+    revenueCr: 1930,
     stakeholders: "Procurement head, since moved on",
+  },
+
+  /* Two leads from this week and one lost deal, because the filters have to be
+     demoable: Recent needs rows created days ago, Archived needs more than the
+     one delivered engagement, and a pipeline taking several new projects a day
+     should look like one. Jaidev and these two carry no priority on purpose —
+     untriaged is a real state and it sorts last, where it belongs. */
+  {
+    id: "p-keshav",
+    name: "Keshav Industrial Fasteners",
+    sector: "Fasteners and forgings",
+    status: "Created yesterday · intro call being scheduled",
+    researched: false,
+    createdOn: "2026-08-10",
+    domain: "keshavfasteners.in",
+    revenueCr: 740,
+    stakeholders: "Sandeep Joshi, Plant Head",
+  },
+  {
+    id: "p-malhar",
+    name: "Malhar Agro Equipment",
+    sector: "Farm equipment and implements",
+    status: "Lead only · came in through the Pune reference",
+    researched: false,
+    createdOn: "2026-08-09",
+    revenueCr: 1510,
+  },
+  {
+    id: "p-rukmini",
+    name: "Rukmini Packaging Films",
+    sector: "Flexible packaging",
+    status: "Went with a competitor in March · kept for the record",
+    researched: false,
+    archived: true,
+    priority: "low",
+    createdOn: "2025-12-18",
+    domain: "rukminifilms.com",
+    revenueCr: 960,
+    stakeholders: "CFO, led the evaluation",
   },
 ];
 

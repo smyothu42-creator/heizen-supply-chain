@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Files } from "lucide-react";
 import { useWorkspace } from "./WorkspaceProvider";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +37,16 @@ import {
  * it: a dialog that reappears on every navigation is one that gets dismissed
  * without being read, which is worse than never asking.
  *
+ * **The icon in the header is Sources' own**, `Files`, the same glyph on the
+ * Sources tab in the masthead. That is the whole reason it is there: a dialog
+ * that appears over the page with no chrome around it has to say what it is
+ * about before the sentence is read, and this one is about the surface it
+ * sends you to. A brand mark would have signed the box without saying anything
+ * a consultant did not already know, and a generic upload arrow would have
+ * pointed at an action rather than at a place. It is `aria-hidden` — the title
+ * is the thing that gets read out, and the icon is repeating the destination
+ * the button already names.
+ *
  * **Nothing is remembered across a reload**, which is the honest scope of a
  * prototype with no server. When this is wired, the thing to store is when the
  * project last had a source added, so the question can go unasked on a day when
@@ -51,7 +62,10 @@ export function UpdateAsk() {
   return (
     <Dialog open={updateAsked} onOpenChange={(v) => !v && close()}>
       <DialogContent className="max-w-md">
-        <DialogHeader>
+        <DialogHeader className="flex flex-row items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+            <Files className="size-[1.05rem]" aria-hidden />
+          </span>
           <DialogTitle>Do you have anything to update today?</DialogTitle>
         </DialogHeader>
 

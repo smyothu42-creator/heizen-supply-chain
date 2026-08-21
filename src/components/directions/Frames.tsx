@@ -268,9 +268,12 @@ function scanSheet(root: HTMLElement | null, raw: string, ids: Set<string>): Fin
  */
 function ResearchColumns({
   sections,
+  nav,
   children,
 }: {
   sections: SectionRef[];
+  /** Overrides the research table of contents. See `FullFrame`. */
+  nav?: ReactNode;
   children: ReactNode;
 }) {
   const sheet = useRef<HTMLDivElement>(null);
@@ -292,7 +295,7 @@ function ResearchColumns({
 
   return (
     <div className="prose-full reading-airy surface-frame under-bar grid gap-x-10 gap-y-6 pb-12 sm:pb-16 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
-      <SectionNav sections={sections} />
+      {nav ?? <SectionNav sections={sections} />}
       {/* The attribute is what `useFind`'s parser looks for when it fetches
           this same page for another reading's count. A class would work until
           somebody changed the class. */}
@@ -332,12 +335,48 @@ function ResearchColumns({
  *   branch of headings runs past a short window, and a navigator that pushes its
  *   own last entry off the screen is one you cannot use to reach that entry.
  */
+
+/**
+ * Scroll-spy on a page's headings: the last one that has passed the point where
+ * a reader would say they are in it.
+ *
+ * 160px is the two pinned things above the document — the masthead at 48 and
+ * the switch row at 72 — plus a little, so a heading counts as reached when it
+ * clears them rather than when it touches the top of the window. `passive`,
+ * because this runs on every scroll frame.
+ *
+ * Exported because Calls draws its own navigator (a column of agenda steps
+ * rather than eleven directions) and a second copy of this loop would be the
+ * thing that drifts.
+ */
+export function useSectionSpy(sections: SectionRef[]): string | undefined {
+  const [active, setActive] = useState(sections[0]?.id);
+  const ids = sections.map((s) => s.id).join(",");
+
+  useEffect(() => {
+    const list = ids ? ids.split(",") : [];
+    const onScroll = () => {
+      let current = list[0];
+      for (const id of list) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= 160) current = id;
+      }
+      setActive(current);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [ids]);
+
+  return active;
+}
+
 function SectionNav({ sections }: { sections: SectionRef[] }) {
   const pathname = usePathname();
   const parts = pathname.split("/").filter(Boolean);
   const slug = parts[1] ?? "";
   const view = parts[2] === "brief" ? "brief" : "full";
-  const [active, setActive] = useState(sections[0]?.id);
+  const active = useSectionSpy(sections);
 
   /* `version` is unused by name and load-bearing: it changes when a reading
      finishes parsing, which is what makes `readingHits` below recount. */
@@ -392,26 +431,6 @@ function SectionNav({ sections }: { sections: SectionRef[] }) {
     (n, r) => n + r.shown.reduce((m, s) => m + s.hits.total, 0),
     0,
   );
-
-  /* Scroll-spy on the headings of the reading you are on: the last one that has
-     passed the point where a reader would say they are in it. 160px is the two
-     pinned things above the document — the masthead at 48 and the switch row at
-     72 — plus a little, so a heading counts as reached when it clears them
-     rather than when it touches the top of the window. `passive`, because this
-     runs on every scroll frame. */
-  useEffect(() => {
-    const onScroll = () => {
-      let current = sections[0]?.id;
-      for (const s of sections) {
-        const el = document.getElementById(s.id);
-        if (el && el.getBoundingClientRect().top <= 160) current = s.id;
-      }
-      setActive(current);
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [sections]);
 
   return (
     /* `hidden lg:block`: below `lg` the document is one column and a navigator
@@ -506,7 +525,9 @@ function SectionNav({ sections }: { sections: SectionRef[] }) {
               to be separated from. */
           <div
             key={group}
-            className="-mx-1.5 mt-3 border-t border-border px-1.5 pt-3 first:mt-0 first:border-t-0 first:pt-0"
+            className={cn(
+              "-mx-1.5 mt-3 border-t border-border px-1.5 pt-3 first:mt-0 first:border-t-0 first:pt-0",
+            )}
           >
             {/* The category, as a label rather than a link: there is no page for
                 a category and a heading that looks pressable and is not is worse
@@ -685,6 +706,7 @@ export function FullFrame({
   sections,
   hero,
   actions,
+  nav,
   children,
 }: {
   /** The headings on this page, for the navigator beside it. */
@@ -692,6 +714,12 @@ export function FullFrame({
   hero?: ReactNode;
   /** Shares the switch row. See `ResearchSwitches`. */
   actions?: ReactNode;
+  /**
+   * The navigator beside the sheet. Research's own lists eleven directions and
+   * threads this page's headings under the active one; the two agendas have no
+   * directions to list, so they pass a column of their own steps.
+   */
+  nav?: ReactNode;
   children: ReactNode;
 }) {
   // Full width on the surface frame, like every other surface. It was capped
@@ -740,7 +768,9 @@ export function FullFrame({
           40px between sections against ~12px inside one. What has to hold is
           the ratio, not the pixel: at 32px the page read as one
           undifferentiated column. */}
-      <ResearchColumns sections={sections}>{children}</ResearchColumns>
+      <ResearchColumns sections={sections} nav={nav}>
+        {children}
+      </ResearchColumns>
     </>
   );
 }

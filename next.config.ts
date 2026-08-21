@@ -26,8 +26,23 @@ const nextConfig: NextConfig = {
       // sat on the URL it started from. A dead redirect is worse than the 404.
       { source: "/project/:id/:path+", destination: "/:path+", permanent: false },
       { source: "/project/:id", destination: "/operations", permanent: false },
-      { source: "/research", destination: "/research/all/full", permanent: false },
-      { source: "/research/:direction", destination: "/research/:direction/full", permanent: false },
+      /* **`/research/all/full` was a dead target and both of these pointed at
+         it.** `all` came off the direction list when the row was re-cut, so
+         the route's guard rejected it and the bare `/research` landed on a
+         404 — the exact failure the note above the project redirect warns
+         about, in the same file. They point where the masthead tab points. */
+      { source: "/research", destination: "/research/company/brief", permanent: false },
+      /* **The negative lookahead is what keeps the two call agendas alive.**
+         They are one-segment routes under `/research`, so a bare
+         `:direction` catch-all swallowed them and sent `/research/intro` to
+         `/research/intro/full`, which is not a page. The pattern excludes
+         them by name; a new agenda needs adding here as well as to
+         `ResearchSwitch`. */
+      {
+        source: "/research/:direction((?!intro$|discovery$)[^/]+)",
+        destination: "/research/:direction/full",
+        permanent: false,
+      },
     ];
   },
 };

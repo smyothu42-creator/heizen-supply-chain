@@ -29,6 +29,7 @@ import { HelixOrb } from "@/components/shell/HelixOrb";
 import { SOURCE_ICON, SOURCE_KIND_LABEL } from "./Evidence";
 import { Field } from "./GapRow";
 import { ConfidenceChip, EffortChip } from "./Confidence";
+import { PrecedentBadge, precedentReason } from "./Precedent";
 import { useAi } from "@/components/shell/AiPanel";
 import { EvidenceMark, HealthMark } from "./NodeCard";
 import {
@@ -689,6 +690,16 @@ function GapDetail({ id }: { id: string }) {
 
         <Field label="Expected impact" boxed>
           {gap.impact}
+        </Field>
+
+        {/* Atlas's whole contribution to this card. The badge restates the
+            collapsed row's `EffortChip` as a real number rather than a
+            three-word tier, and the body says which past engagement it is
+            standing on, or that there is none — the sentence Research states
+            in its own meta line instead, which is why this card is only
+            here. */}
+        <Field label="What it takes to build" boxed right={<PrecedentBadge gap={gap} />}>
+          {precedentReason(gap)}
         </Field>
 
         {gap.stillUnknown.length > 0 && (

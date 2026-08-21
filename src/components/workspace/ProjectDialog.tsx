@@ -1,11 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import type { Project } from "@/lib/projects";
+import type { Priority, Project } from "@/lib/projects";
 import { useWorkspace, type ProjectDraft } from "@/components/shell/WorkspaceProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogBody,
@@ -65,6 +72,10 @@ export function ProjectDialog({
     stakeholders: project?.stakeholders ?? "",
     prompt: project?.prompt ?? "",
   });
+  /* `SelectField` takes a string, and "not triaged" is a real option here, not
+     an absence the control can leave unrepresented. "none" is the sentinel;
+     everything else round-trips as-is. */
+  const [priority, setPriority] = useState<"none" | Priority>(project?.priority ?? "none");
   /* Revenue is a string in the form and a number on the record. A box that
      holds a number cannot express "typed nothing" and "typed a word" as
      different states, and both have to be told apart before it is saved. */
@@ -88,6 +99,7 @@ export function ProjectDialog({
     const patch: ProjectDraft = {
       ...draft,
       revenueCr: revenue.trim() ? Number(revenue) : undefined,
+      priority: priority === "none" ? undefined : priority,
     };
 
     if (editing) {
@@ -160,6 +172,34 @@ export function ProjectDialog({
                     onChange={(e) => set({ domain: e.target.value })}
                     placeholder="suvarnaagro.in"
                   />
+                )}
+              </Field>
+
+              {/* The consultant's own triage, not a pipeline reading — that is
+                  why it sits with the other things a person typed rather than
+                  with `status`, which the pipeline writes and this form never
+                  touches. "Not triaged" is a real option, not the absence of
+                  one: a fresh lead is untriaged on purpose and the dropdown
+                  says so instead of picking a level for it.
+
+                  A raw `Select`, not `SelectField` — that component pairs its
+                  label beside the box on one line, which is the shape Order and
+                  Reading want elsewhere; every field in this form has its label
+                  above the box instead, and mixing the two here would be the
+                  one row in the grid that does not line up with its neighbours. */}
+              <Field label="Priority">
+                {(id) => (
+                  <Select value={priority} onValueChange={(v) => setPriority(v as "none" | Priority)}>
+                    <SelectTrigger id={id}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Not triaged</SelectItem>
+                      <SelectItem value="high">High priority</SelectItem>
+                      <SelectItem value="medium">Medium priority</SelectItem>
+                      <SelectItem value="low">Low priority</SelectItem>
+                    </SelectContent>
+                  </Select>
                 )}
               </Field>
 

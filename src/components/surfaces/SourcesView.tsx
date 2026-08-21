@@ -616,7 +616,7 @@ function Empty() {
       </span>
       <p className="mt-3 text-base font-medium">No sources yet</p>
       <p className="mt-1 text-small text-muted-foreground">
-        Add a file or paste text and the six surfaces have something to be about.
+        Add a file or paste text and the seven surfaces have something to be about.
       </p>
     </div>
   );

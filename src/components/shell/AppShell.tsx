@@ -10,6 +10,8 @@ import {
   FileSearch,
   Files,
   FolderKanban,
+  Lightbulb,
+  Map,
   MessageCircleQuestion,
   Network,
   Settings,
@@ -18,7 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PanelProvider } from "@/components/meridian/EvidencePanel";
-import { ThemeToggle } from "./ThemeToggle";
+import { ThemePicker } from "./ThemePicker";
 import { ProjectMenu } from "./ProjectMenu";
 import { Wordmark } from "./Wordmark";
 import { AiButton, AiPanel, AiProvider, useAi } from "./AiPanel";
@@ -81,15 +83,37 @@ const TABS = [
      errand is rare: the reason this tab gets pressed is a call, and the
      one-screen read is what that wants. Full is one tab away and every Brief
      carries its own way into it. */
+  /* **"What to build" leads the row, and opening a project lands on it.** It
+     is the only surface that answers a question about Heizen rather than about
+     the client: three recommended builds, ranked, one line of rationale each.
+     Research used to be first and is now second, which is the whole top-down
+     argument in one swap — the dossier is what you read when the answer is
+     challenged, not before you have one. Everything the recommendation rests
+     on is a link at the bottom of it. */
+  { name: "What to build", href: "/build", Icon: Lightbulb },
   { name: "Research", href: "/research/company/brief", Icon: FileSearch },
+  /* **There is no Calls tab.** The two agendas had one for a revision and are
+     views on Research's own switch again, on request: `/research/intro` and
+     `/research/discovery`, third and fourth on the track after Brief and Full.
+     A consultant reaching for an agenda is already in the dossier with a call
+     starting, and the material is the same material at a different altitude.
+     See `ViewSwitch` in `ResearchSwitch.tsx`. */
   { name: "Questions", href: "/questions", Icon: MessageCircleQuestion },
   { name: "Operations", href: "/operations", Icon: Network },
-  /* **"Gaps & problems", not "Gaps"**, on request. The house style everywhere
-     else spells the conjunction ("Sourcing and quotes", "Size and profit"), so
-     this is the one ampersand in the product; it is here because the label was
-     asked for in these words. It is also the longest tab by some way, which is
-     what the measurement below the tab list is about. */
-  { name: "Gaps & problems", href: "/gaps", Icon: TriangleAlert },
+  /* **Atlas, between Operations and Gaps.** It is Heizen's own capability map,
+     not this company's: every domain Heizen has worked in, and which past
+     engagement proves the capability. Gaps reads it to say whether a fix has
+     been built before — that is done work, and its badge is what this tab
+     exists to back up — so it sits where a consultant checks it, right before
+     the surface it feeds. `Map`, not `Network`: Operations draws *this*
+     company's chain, Atlas draws Heizen's whole territory. */
+  { name: "Atlas", href: "/atlas", Icon: Map },
+  /* **"Gaps", not "Gaps & problems"**, on request, reversing the ampersand
+     note this comment used to carry. The longer label was the one house-style
+     exception in the product and the longest tab by some way; both of those
+     went with it, and the width note beside `tabs-fit` in `globals.css` has
+     been re-measured against it. */
+  { name: "Gaps", href: "/gaps", Icon: TriangleAlert },
   { name: "Compare", href: "/compare", Icon: Columns3 },
   { name: "Sources", href: "/sources", Icon: Files },
   /* **Last, because it is a list of things from the six before it.** Saved holds
@@ -304,11 +328,13 @@ function Shell({ children }: { children: ReactNode }) {
             />
           </div>
 
-          {/* From `tabs-fit` (1360px, measured — see `globals.css`). Below it
-              the row is a drawer: the seven tabs come to 807px and the rest of
-              the band to about 550, so anything narrower puts *Sources* off the
-              right edge. A horizontal scroller there is a hiding place too, and
-              a worse one, which is the whole reason the drawer exists.
+          {/* From `tabs-fit` (1360px, re-measured — see `globals.css`). Below
+              it the row is a drawer: the eight surface tabs, the masthead's
+              own left content and its right-hand controls need 1351px between
+              them, against 1360px available, so there is a little over 8px of
+              margin rather than an exact fit. A horizontal scroller there is a
+              hiding place too, and a worse one, which is the whole reason the
+              drawer exists.
 
               Marked by an underline rather than a filled chip, as the reference
               does: a chip on a dark band has to be a light block, which reads
@@ -413,7 +439,7 @@ function Shell({ children }: { children: ReactNode }) {
             {/* Beside the theme control, which is the other thing you operate
                 on the band rather than navigate with. */}
             <AiButton />
-            <ThemeToggle />
+            <ThemePicker />
           </div>
         </div>
       </header>

@@ -8,7 +8,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { account, currentProject, projects as seedProjects, type Project } from "@/lib/projects";
+import {
+  account,
+  currentProject,
+  projects as seedProjects,
+  type Project,
+  type Priority,
+} from "@/lib/projects";
 import {
   currentMemberId,
   organisation as seedOrganisation,
@@ -51,6 +57,9 @@ interface WorkspaceState {
       `status` or `researched`: those are the pipeline's readings, and §5's rule
       against hand-editing AI output is about exactly that half. */
   updateProject: (id: string, patch: ProjectDraft) => void;
+  /** In or out of the working list. Reversible, unlike delete, so it takes no
+      confirm dialog; the row moves to the Archived filter and back. */
+  setProjectArchived: (id: string, archived: boolean) => void;
   deleteProject: (id: string) => void;
   /** Somebody pressed *New project* somewhere that is not the Projects page.
       The form asks six questions and one of them is a paragraph, so it lives on
@@ -93,6 +102,9 @@ export interface ProjectDraft {
   revenueCr?: number;
   stakeholders?: string;
   prompt?: string;
+  /** The consultant's own triage. Absent means not triaged, which the form
+      offers as its own option rather than defaulting to a level nobody chose. */
+  priority?: Priority;
 }
 
 const WorkspaceContext = createContext<WorkspaceState | null>(null);
@@ -149,6 +161,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       revenueCr: draft.revenueCr,
       stakeholders: draft.stakeholders?.trim() || undefined,
       prompt: draft.prompt?.trim() || undefined,
+      priority: draft.priority,
     };
     setProjects((ps) => [project, ...ps]);
     /* Whoever created it is on it. An admin who makes a project and then cannot
@@ -180,10 +193,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
                 revenueCr: patch.revenueCr,
                 stakeholders: patch.stakeholders?.trim() || undefined,
                 prompt: patch.prompt?.trim() || undefined,
+                priority: patch.priority,
               }
             : p,
         ),
       ),
+    [],
+  );
+
+  const setProjectArchived = useCallback(
+    (id: string, archived: boolean) =>
+      setProjects((ps) => ps.map((p) => (p.id === id ? { ...p, archived } : p))),
     [],
   );
 
@@ -275,6 +295,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setCurrentProject: setCurrentProjectId,
       createProject,
       updateProject,
+      setProjectArchived,
       deleteProject,
       newProjectAsked,
       askNewProject,
@@ -300,6 +321,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       currentProjectId,
       createProject,
       updateProject,
+      setProjectArchived,
       deleteProject,
       newProjectAsked,
       askNewProject,

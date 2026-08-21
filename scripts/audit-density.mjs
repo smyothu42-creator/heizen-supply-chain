@@ -12,7 +12,7 @@ const BASE = "http://localhost:4311";
    improvement, which is the worst possible direction for that error to run in.
    Read off `src/lib/directions.ts` if this list ever looks doubtful again. */
 const PAGES = [
-  "/prep", "/operations", "/gaps", "/questions", "/compare", "/sources",
+  "/build", "/prep", "/operations", "/gaps", "/questions", "/compare", "/sources",
   "/research/all/brief", "/research/all/full",
   "/research/about/brief", "/research/about/full",
   "/research/leaks/brief", "/research/leaks/full",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import {
   gapById,
   gaps,
@@ -36,7 +37,6 @@ import { GapRow } from "@/components/meridian/GapRow";
 import { TIER_LABEL } from "@/components/meridian/Confidence";
 import { SurfaceHero } from "@/components/shell/SurfaceHero";
 import { RunButton } from "@/components/shell/RunButton";
-import { NewGapButton } from "@/components/shell/NewGapButton";
 import { GapPanel } from "@/components/shell/GapPanel";
 import { SaveMenu } from "@/components/shell/SaveMenu";
 import { SelectField } from "@/components/shell/SelectField";
@@ -52,7 +52,8 @@ import { useMastheadVisible } from "@/components/shell/useScrollDirection";
 import { DateField } from "@/components/shell/DateField";
 import { ToggleField } from "@/components/shell/ToggleField";
 import { EditIcon, SortIcon } from "@/components/meridian/Icons";
-import { SaveButton } from "@/components/shell/SavedProvider";
+import { BookmarkIcon, useSaved } from "@/components/shell/SavedProvider";
+import { MenuItem, OverflowMenu } from "@/components/shell/OverflowMenu";
 import { Panel } from "@/components/meridian/Primitives";
 import { Checkbox } from "@/components/shell/Checkbox";
 
@@ -83,6 +84,11 @@ const ORDER_LABEL: Record<Sort, string> = {
 
 const EFFORT_RANK = { Low: 0, Medium: 1, High: 2 } as const;
 const TIER_RANK = { confirmed: 0, inferred: 1, unverified: 2 } as const;
+/* Atlas's own tiebreak: proven before unproven, within the same effort tier.
+   A gap Heizen has already built somewhere else is the safer of two equally
+   cheap promises, so it sorts first rather than sitting wherever `rank`
+   happens to land it. */
+const PRECEDENT_RANK = (id: string) => (gapById(id).precedentId ? 0 : 1);
 
 /* The suggested order across the whole list, not just the ticked rows: the
    position a gap would take if you did all twelve. It is a sort key here and
@@ -91,7 +97,11 @@ const TIER_RANK = { confirmed: 0, inferred: 1, unverified: 2 } as const;
 const SEQUENCE_RANK = new Map(
   sequenceWaves(gaps.map((g) => g.id)).flatMap((wave, i) =>
     [...wave]
-      .sort((a, b) => EFFORT_RANK[gapById(a).effort] - EFFORT_RANK[gapById(b).effort])
+      .sort(
+        (a, b) =>
+          EFFORT_RANK[gapById(a).effort] - EFFORT_RANK[gapById(b).effort] ||
+          PRECEDENT_RANK(a) - PRECEDENT_RANK(b),
+      )
       .map((id, j) => [id, i * 100 + j] as const),
   ),
 );
@@ -183,7 +193,11 @@ export function GapsView() {
     );
     return list.sort((a, b) => {
       if (sort === "effort")
-        return EFFORT_RANK[a.effort] - EFFORT_RANK[b.effort] || a.rank - b.rank;
+        return (
+          EFFORT_RANK[a.effort] - EFFORT_RANK[b.effort] ||
+          PRECEDENT_RANK(a.id) - PRECEDENT_RANK(b.id) ||
+          a.rank - b.rank
+        );
       if (sort === "confidence") return TIER_RANK[a.tier] - TIER_RANK[b.tier] || a.rank - b.rank;
       return (SEQUENCE_RANK.get(a.id) ?? 0) - (SEQUENCE_RANK.get(b.id) ?? 0);
     });
@@ -217,7 +231,7 @@ export function GapsView() {
 
   return (
     <>
-      <SurfaceHero title="Gaps & problems" />
+      <SurfaceHero title="Gaps" />
       {/* **The settings row is pinned while the list scrolls**, on request, and
           twelve rows plus a plan panel is exactly the length that makes it
           worth it: Order and Area decide what is in the list, and a control you
@@ -266,64 +280,31 @@ export function GapsView() {
             as one, which is the same measurement the Research group row
             arrived at. */}
         <div className="flex flex-wrap items-stretch gap-x-4 gap-y-2">
-          {/* **Sorting is icon-only**, on request. It is the one control on this
-              row that is not a filter — Domain, Tag, Kind and How sure decide
-              *which* findings are listed, this decides only the order — and at
-              36px square it stops competing with the four boxes beside it.
+          {/* **Every filter is on the strip, on request**, and the collapse
+              control that used to hold them is gone.
 
-              **A real `<select>` at zero opacity, laid over the icon**, which is
-              the trick `DateField` uses on the plan panel. The element keeps its
-              place in the tab order, its screen-reader semantics and the
-              platform's own picker on a phone; what is presented is a button.
-              The moment this becomes a `<button>` pretending to be a select, all
-              three of those have to be rebuilt by hand.
-
-              **The cost, so it stays a decision.** Twelve findings in one order
-              look exactly like twelve findings in another, so with the value off
-              the face there is nothing on screen saying which way the list runs.
-              Three things carry it instead: the accessible name and the tooltip
-              both name the current order, and a dot appears on the icon whenever
-              it is not the default. That is the same affordance the Clear button
-              uses — mark the state that is unusual, not the one that is. */}
-          {/* **The zero-opacity native `<select>` has gone**, on request, along
-              with every other one in the product: its list was the operating
-              system's, so this icon opened a dark system sheet in the middle of
-              an ivory page. The trigger is now the icon box itself, and the
-              list is the product's. The three things the native element gave
-              for free are still here, because Radix gives them too: it is in
-              the tab order, it announces as a combobox with the current order
-              as its name, and Escape returns focus to the icon. */}
-          <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
-            <SelectTrigger
-              aria-label={`Order: ${ORDER_LABEL[sort]}`}
-              title={`Order: ${ORDER_LABEL[sort]}`}
-              /* No chevron slot and no value on the face: the icon is the whole
-                 control. `[&_[data-slot=select-chevron]]:hidden` takes off the trigger's own chevron
-                 rather than a variant prop, because this is the one place in
-                 the product that wants a select with nothing written on it. */
-              className="relative size-9 shrink-0 justify-center self-center p-0 text-muted-foreground hover:text-foreground [&_[data-slot=select-chevron]]:hidden"
-            >
-              <SortIcon />
-              {/* Only while the order is not the default. A mark on every state
-                  is a mark that says nothing. */}
-              {/* A badge on the corner, deliberately overhanging with a ring in
-                  the page colour: at `rounded-md` a dot placed 6px inside sits
-                  exactly on the curve and reads as clipped. */}
-              {sort !== "sequence" && (
-                <span
-                  aria-hidden
-                  className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-foreground ring-2 ring-background"
-                />
-              )}
-            </SelectTrigger>
-            {/* The trigger is 36px, so the list sets its own floor. */}
-            <SelectContent align="start" className="min-w-[9rem]">
-              <SelectItem value="sequence">Sequence</SelectItem>
-              <SelectItem value="effort">Effort</SelectItem>
-              <SelectItem value="confidence">How sure</SelectItem>
-            </SelectContent>
-          </Select>
-          <span className="hidden w-px shrink-0 self-stretch bg-border sm:block" aria-hidden />
+              It was one "Filter and sort" button opening a row underneath, and
+              the argument for it was that a reader arriving at Gaps is here to
+              read twelve findings rather than to configure a list. The argument
+              against, which wins: these are the surface's working controls, and
+              a control you have to open a panel to reach is one you stop using.
+              What the collapsed version was really fixing was that the row
+              looked like nine competing objects — that part is fixed by what
+              stayed from the change rather than by hiding anything. Three
+              dividers came off, and the icon-only sort became a labelled
+              *Order* select, so the strip now reads as five like-shaped
+              dropdowns and a toggle instead of an icon, four boxes and a
+              pile of rules. */}
+          <SelectField
+            label="Order"
+            value={sort}
+            onChange={(v) => setSort(v as Sort)}
+            options={[
+              ["sequence", "Sequence"],
+              ["effort", "Effort"],
+              ["confidence", "How sure"],
+            ]}
+          />
           {/* Domain, Tag, Kind: the same three, in the same order, with the same
               rules between them as Questions. Two surfaces that filter the same
               way should not disagree about what the controls are called or how
@@ -337,7 +318,6 @@ export function GapsView() {
               ...gapDomains.map((d) => [d, DOMAIN_LABEL[d]] as [string, string]),
             ]}
           />
-          <span className="hidden w-px shrink-0 self-stretch bg-border sm:block" aria-hidden />
           <SelectField
             label="Tag"
             value={tag ?? "all"}
@@ -347,7 +327,6 @@ export function GapsView() {
               ...gapTags.map((t) => [t, TAG_LABEL[t]] as [string, string]),
             ]}
           />
-          <span className="hidden w-px shrink-0 self-stretch bg-border sm:block" aria-hidden />
           <SelectField
             label="Kind"
             value={lens ?? "all"}
@@ -358,7 +337,6 @@ export function GapsView() {
               ["technical", LENS_LABEL.technical],
             ]}
           />
-          <span className="hidden w-px shrink-0 self-stretch bg-border sm:block" aria-hidden />
           {/* The fourth, and the one Questions has no use for: how sure we are
               is what decides whether a finding may be said out loud. */}
           <SelectField
@@ -372,11 +350,9 @@ export function GapsView() {
               ["unverified", TIER_LABEL.unverified],
             ]}
           />
-          {/* A rule, on request, and it is doing more work than the first one:
-              the three settings to its left are filters, and this separates all
-              of them from a control that is not one. They change *which* gaps
-              are listed; Plan changes whether there is a second column on the
-              page. */}
+          {/* The one rule left on the strip, and it earns its place: everything
+              to its left changes *which* findings are listed, and Plan changes
+              whether there is a second column on the page. */}
           <span className="hidden w-px shrink-0 self-stretch bg-border sm:block" aria-hidden />
           <ToggleField label="Plan" checked={planMode} onChange={setPlanMode} />
           <div className="ml-auto flex shrink-0 items-center gap-2 self-center">
@@ -393,10 +369,28 @@ export function GapsView() {
                 {visible.length} of {gaps.length} · Clear
               </button>
             )}
-            <NewGapButton ref={addButton} onClick={() => setAdding(true)} />
+            {/* **A plus beside Run, not a menu**, on request. It was an
+                overflow with one item in it, which is a menu you have to open
+                to find out it holds nothing. Icon-only rather than *Add a gap*
+                spelled out: it sits directly beside the filled primary, and two
+                labelled buttons in one corner read as two things of equal
+                weight when only one of them is. The words survive as the
+                accessible name and the tooltip, which is the same trade the
+                theme control makes. */}
+            <button
+              type="button"
+              ref={addButton}
+              onClick={() => setAdding(true)}
+              aria-label="Add a gap"
+              title="Add a gap"
+              className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-card transition-colors hover:border-border-strong hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Plus className="size-4" />
+            </button>
             <RunButton label="Run Gap Analysis" />
           </div>
         </div>
+
       </StickyBar>
 
       <div className="surface-frame under-bar pb-5">
@@ -1132,10 +1126,21 @@ function SelectableGapRow({
   gap: Gap;
   checked: boolean;
   onToggle: () => void;
-  onEdit: (trigger: HTMLButtonElement) => void;
+  onEdit: (trigger: HTMLButtonElement | null) => void;
   /** Plan mode. See below — the tick-box has nothing to do without it. */
   selectable: boolean;
 }) {
+  const { has, save, remove } = useSaved();
+  const item = { kind: "gap" as const, id: gap.id, label: gap.plainLine, href: "/gaps" };
+  const saved = has("gap", gap.id);
+  const toggleSave = () => (saved ? remove("gap", gap.id) : save(item));
+  /* The row's own overflow trigger, so the correction dialog can put focus
+     back on the thing that was pressed. It is a ref per row, which the note on
+     `lastEditTrigger` in `ProjectsView` argues against for a *list* — but that
+     is a map of refs keyed by id, and this is one ref inside one row's own
+     component instance, created and discarded with the row. */
+  const menuTrigger = useRef<HTMLButtonElement>(null);
+
   return (
     /* **A drawn card per finding**, on request, and it is the shape Questions
        already uses one surface across: `rounded-lg border border-border bg-card
@@ -1196,20 +1201,53 @@ function SelectableGapRow({
           vertical padding, so they move if `py-2` does — and it just did, when
           the row stopped drawing its own ground and the card took over the
           spacing. */}
-      <div className="mt-0.5 flex shrink-0 items-center gap-1.5">
-        <SaveButton
-          item={{ kind: "gap", id: gap.id, label: gap.plainLine, href: "/gaps" }}
-          className="size-8 rounded-lg"
-        />
-        <button
-          type="button"
-          onClick={(e) => onEdit(e.currentTarget)}
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-card transition-colors hover:border-border-strong hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <span className="sr-only">Edit “{gap.title}”</span>
-          <EditIcon />
-        </button>
-      </div>
+      {/* **Both controls are in one overflow now**, and the row went from four
+          trailing objects to three. Twelve findings each carrying a bookmark
+          and a pencil drew twenty-four controls a reader had to look past to
+          read twelve sentences, and neither is an action anybody takes while
+          scanning: you save once you have chosen and you correct once you have
+          read. Both are one press away rather than gone — see `OverflowMenu`.
+
+          **Saved state survives the move**, which is the one thing hiding a
+          bookmark could have cost. It is a dot on the trigger, and the menu row
+          itself carries the tick and announces as pressed. */}
+      {/* **`self-center`, not a top margin.** It carried `mt-0.5` to sit on the
+          row's first baseline, which is what the pair of controls it replaced
+          wanted: two 32px boxes beside a finding read as belonging to the first
+          line of it. One 28px box does not — against a card that is taller than
+          its single line of text it read as pinned to the top corner. The card
+          keeps `items-start` for the tick-box, which does still belong on the
+          first line, so this centres itself rather than the row centring
+          everything. */}
+      <OverflowMenu label={gap.title} marked={saved} triggerRef={menuTrigger} className="self-center">
+        {(close) => (
+          <>
+            <MenuItem
+              pressed={saved}
+              icon={<BookmarkIcon filled={saved} />}
+              onSelect={() => {
+                toggleSave();
+                close();
+              }}
+            >
+              {saved ? "Saved for the call" : "Save for the call"}
+            </MenuItem>
+            <MenuItem
+              icon={<EditIcon />}
+              onSelect={() => {
+                /* The trigger is handed up so focus can be put back on it when
+                   the correction dialog closes. The menu's own trigger is the
+                   thing that was pressed, so that is what goes up — `close()`
+                   has already returned focus to it. */
+                close();
+                onEdit(menuTrigger.current);
+              }}
+            >
+              Needs correction
+            </MenuItem>
+          </>
+        )}
+      </OverflowMenu>
     </li>
   );
 }

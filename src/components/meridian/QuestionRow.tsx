@@ -331,7 +331,27 @@ function QuestionTip({
       {question.gloss && (
         <p className="reading mt-1 text-small text-muted-foreground">{question.gloss}</p>
       )}
-      <dl className="mt-2.5 space-y-2 border-t border-border pt-2.5">
+      {/* A rule between each block, matching the one under the question above
+          them. Three labelled paragraphs on one ground read as a single column
+          of grey text with bold words in it, and the two that most need telling
+          apart — the weak answer and the good one — are adjacent and similar in
+          length. The rule is what makes them three answers to three questions
+          rather than one passage.
+
+          **Not `divide-y` with `space-y`, and the reason is a Tailwind v4
+          change worth knowing.** Both of those compile to
+          `:where(& > :not(:last-child))` with *bottom* edges now, where v3 used
+          `& > * + *` with top ones. So the rule landed on the bottom of the
+          preceding block with its margin below it: measured, 0px above the rule
+          and 20px under it, which reads as a line belonging to the paragraph it
+          is touching rather than as a divider between two. Margin-top plus
+          border-top plus padding-top on the *following* sibling puts the gap on
+          both sides: 10px, rule, 10px.
+
+          It stops at the content width rather than bleeding to the card edge,
+          because the rule under the question does too, and two rules of
+          different lengths in one small box read as two kinds of divider. */}
+      <dl className="mt-2.5 border-t border-border pt-2.5 [&>div+div]:mt-2.5 [&>div+div]:border-t [&>div+div]:border-border [&>div+div]:pt-2.5">
         <Field label="Why this matters">{question.whyItMatters}</Field>
         <Field label="Weak answer">{question.badAnswer}</Field>
         <Field label="Good answer">{question.goodAnswer}</Field>

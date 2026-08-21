@@ -35,11 +35,39 @@ import { SwitchScroller, SwitchTrack, switchItemClass } from "./SwitchTrack";
  * reached for rather than which one is arrived at. See `ViewSwitch`.
  */
 
-function useResearchRoute() {
+/**
+ * Where the reader is, in the two coordinates this row sets.
+ *
+ * **Four views, and only two of them take a direction.** Brief and Full are one
+ * direction at a time, so their route carries a slug: `/research/company/full`.
+ * An agenda is *across* the eleven by construction, so Intro and Discovery live
+ * at `/research/intro` and `/research/discovery` with no slug in the URL. That
+ * is why this hook reads the *shape* of the path rather than one segment: two
+ * segments after `research` is a reading, one is an agenda.
+ *
+ * The slug it returns on an agenda is `company`, the direction Research lands
+ * on, so the two reading tabs always point somewhere. Carrying the last-read
+ * slug across would need state on a control whose whole job is to be a link.
+ */
+type ResearchView = "brief" | "full" | "intro" | "discovery";
+
+/** The two that are agendas rather than readings. See `ViewSwitch`. */
+const AGENDAS = ["intro", "discovery"] as const;
+
+function isAgenda(seg: string | undefined): seg is (typeof AGENDAS)[number] {
+  return (AGENDAS as readonly string[]).includes(seg ?? "");
+}
+
+function useResearchRoute(): { slug: string; view: ResearchView } {
   const parts = usePathname().split("/").filter(Boolean);
+
+  if (isAgenda(parts[1]) && parts[2] === undefined) {
+    return { slug: "company", view: parts[1] };
+  }
+
   return {
     slug: parts[1] ?? "money",
-    view: parts[2] === "brief" ? ("brief" as const) : ("full" as const),
+    view: parts[2] === "brief" ? "brief" : "full",
   };
 }
 
@@ -86,6 +114,9 @@ export function ResearchSwitches({
   tight?: boolean;
   actions?: ReactNode;
 }) {
+  const { view } = useResearchRoute();
+  const agenda = isAgenda(view);
+
   return (
     // `items-end`, so the button's baseline lands on the rule the tabs sit on
     // rather than floating above it. It wraps below `sm`, where the tracks need
@@ -131,10 +162,21 @@ export function ResearchSwitches({
             Brief, which has no left column of its own. Removing it as well would
             leave Research with no way to change direction on a phone, which is
             the width Brief exists for. */}
+        {/* **The Reading picker is off on the two agendas.** They are across the
+            eleven directions by construction, so a control that changes which
+            direction you are reading would change nothing on the page in front
+            of you, and a control that does nothing is worse than no control. */}
         <div className="flex w-max items-stretch gap-6">
           <ViewSwitch />
-          <span className={cn("w-px shrink-0 self-stretch bg-border", !tight && "lg:hidden")} aria-hidden />
-          <DirectionPicker className={cn(!tight && "lg:hidden")} />
+          {!agenda && (
+            <>
+              <span
+                className={cn("w-px shrink-0 self-stretch bg-border", !tight && "lg:hidden")}
+                aria-hidden
+              />
+              <DirectionPicker className={cn(!tight && "lg:hidden")} />
+            </>
+          )}
         </div>
       </SwitchScroller>
       {actions && (
@@ -200,42 +242,54 @@ function DirectionPicker({ className }: { className?: string }) {
   );
 }
 
-/** How much of it. */
+/** Which of the four, in one track. */
 function ViewSwitch() {
   const { slug, view } = useResearchRoute();
 
   return (
-    <SwitchTrack label="Detail" className="shrink-0">
-      {/* **Brief leads the pair**, on request, and it reverses the order this
-          file used to argue for. The old reasoning was that Full is what
-          "Research" means when you arrive with no particular errand, so it
-          should own the first position. What that missed is which of the two is
-          *reached for*: Brief is the one-screen read in the five minutes before
-          a call, and the leftmost tab is the cheapest to hit and the first one
-          read.
+    <SwitchTrack label="View" className="shrink-0">
+      {/* **Four tabs, on request: the two readings and the two agendas back on
+          one track.** They were split for a revision, the agendas going to a
+          `/calls` surface of their own, on the argument that a control may only
+          ask one question and this one was asking two — *how much of this
+          subject* for the first pair, *what do I say on Tuesday* for the second.
 
-          **Brief is the landing too**, on request, so the order and the
-          default now agree: the masthead's Research tab points at
-          `/research/company/brief`. Arriving at the dossier with no particular
-          errand and reaching for it before a call are the same act often
-          enough that the one-screen read is the honest first thing to show;
-          Full is one tab away and every Brief carries its own way into it.
-          Prep's deep links still name Full, because each of those points at a
-          specific section of the long document. */}
-      {/* **They say "Brief Research" and "Full Research"**, on request, rather
-          than the bare adjective the route uses. An explicit label pair, not a
-          `capitalize`d value: the moment a tab's words stop being its slug
-          spelled differently, deriving them from the slug is a trick that has
+          What that cost is the trip the pair exists to remove. A consultant
+          reaching for an agenda is already in Research with a call starting,
+          and sending him to the masthead to find the dossier's own agenda is a
+          navigation for something that is the same material at a different
+          altitude — every line of both agendas is read off the data these
+          eleven directions render, see `lib/calls.ts`.
+
+          So they are one track again, and what keeps the two questions apart is
+          the order rather than a second bar: the readings first, in the order
+          they are reached for, then the meetings in the order they happen. The
+          rule under the tabs runs the whole width either way.
+
+          **Brief leads**, which is about which one is *reached for* rather than
+          which one is arrived at: it is the one-screen read in the five minutes
+          before a call, and the leftmost tab is the cheapest to hit and the
+          first one read. It is the landing too — the masthead's Research tab
+          points at `/research/company/brief`.
+
+          **They say "Brief Research" and "Full Research"**, not the bare
+          adjective the route uses, and beside "Intro call" and "Discovery call"
+          that pays for itself twice: four tabs where two name a reading and two
+          name a meeting need the noun to say which kind each is. An explicit
+          label pair, not a `capitalize`d slug — the moment a tab's words stop
+          being its slug spelled differently, deriving them is a trick that has
           to be undone. Same reason `CompareView` writes its two out. */}
       {(
         [
-          ["brief", "Brief Research"],
-          ["full", "Full Research"],
+          ["brief", "Brief Research", `/research/${slug}/brief`],
+          ["full", "Full Research", `/research/${slug}/full`],
+          ["intro", "Intro call", "/research/intro"],
+          ["discovery", "Discovery call", "/research/discovery"],
         ] as const
-      ).map(([m, label]) => (
+      ).map(([m, label, href]) => (
         <Link
           key={m}
-          href={`/research/${slug}/${m}`}
+          href={href}
           aria-current={m === view ? "true" : undefined}
           className={switchItemClass(m === view)}
         >

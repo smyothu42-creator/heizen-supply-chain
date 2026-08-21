@@ -123,14 +123,15 @@ export function ProjectMenu() {
         aria-expanded={open}
         aria-controls={id}
         aria-haspopup="menu"
+        /* The trigger's only accessible name, now that the visible label is
+           gone: the avatar's initials are `aria-hidden` and its `<img>` has an
+           empty `alt`, both deliberately so the monogram is not read twice.
+           Without this the button would announce as nothing at all. */
+        aria-label={`Project: ${project.name}. Switch project`}
         onClick={() => {
           setOpen((v) => !v);
           setQuery("");
         }}
-        // `max-w-full`, because a <button> sizes to its content rather than to
-        // its parent — `min-w-0` on the flex children is not enough on its own,
-        // and without this the trigger ran 23px past the 7.5rem cap the
-        // masthead puts on it, straight over the first surface tab at 375.
         className="flex min-w-0 max-w-full items-center gap-2 rounded-md py-1 pl-1 pr-1 text-small text-masthead-muted transition-colors hover:text-masthead-foreground"
       >
         <Avatar
@@ -138,15 +139,12 @@ export function ProjectMenu() {
           photoUrl={project.photoUrl}
           className="h-6 w-6"
         />
-        {/* The name goes below `sm`: on the right of the band it is competing
-            with the theme control for the last 120px of a 375px line, and the
-            monogram already says which project you are in.
-
-            `min-w-0` as well as `truncate`. A flex child's min-width is `auto`,
-            so the span refused to shrink below its text and the button ran 23px
-            past the cap the masthead puts on it. The cap only bites once the
-            child can. */}
-        <span className="hidden min-w-0 truncate sm:block">{project.name}</span>
+        {/* **The name is gone from the trigger, on request**, the same change
+            `ThemePicker` just took. The monogram already says which project is
+            open and the chevron already says the control opens something; the
+            name stays in `aria-label` below so it is still announced. This
+            also retires the width note that used to live here: the trigger no
+            longer has a string in it that can run past the masthead's cap. */}
         <ChevronIcon
           className={cn(
             "shrink-0 rotate-90 transition-transform",

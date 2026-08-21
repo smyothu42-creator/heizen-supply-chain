@@ -174,6 +174,13 @@ export interface Gap {
   valuation?: Valuation;
   effort: Effort;
   weeks: number;
+  /** A `PastProject.id` from `atlas.ts`, when Heizen has already built this
+   *  fix somewhere else. Present on roughly two-thirds of these twelve —
+   *  Suvarna's process territory is not unusual, so most of it has been
+   *  walked before. Absent means new build, and that is the honest majority
+   *  state everywhere Atlas has not been yet, not a gap in this gap. See
+   *  `PrecedentBadge`. */
+  precedentId?: string;
   /** Is the OBSERVATION true. Says nothing about the price — see valuation.basis. */
   tier: Tier;
   confidence: ConfidenceLevel;
@@ -1144,6 +1151,9 @@ export const gaps: Gap[] = [
     level1: "Sourcing",
     level2: "Indirect category management",
     nodeId: "l2-category",
+    /* Malwa Auto Components ran exactly this: twelve indirect categories
+       routed through contracted suppliers. Medium effort, sixteen weeks, is
+       what this costs to build from nothing — it has already been built. */
     amountCr: 2.1,
     valuation: {
       baseLabel: "Indirect spend not under contract",
@@ -1158,8 +1168,9 @@ export const gaps: Gap[] = [
       benchmarkNote:
         "The published range for food processing is 4 to 10%. We carry the low end because the base itself is an estimate.",
     },
-    effort: "Medium",
-    weeks: 16,
+    effort: "Low",
+    weeks: 8,
+    precedentId: "pp-malwa",
     tier: "inferred",
     confidence: "Medium",
     confidenceReason:
@@ -1287,8 +1298,11 @@ export const gaps: Gap[] = [
       benchmarkNote:
         "Freight at 4.6% of revenue against a 3.2% sector best implies ₹16.1 Cr. Do not say that number. The ratio moves with product density and lane length. We claim 5% of what can realistically be tendered, against a first-tender range of 8 to 12%.",
     },
-    effort: "Medium",
-    weeks: 14,
+    effort: "Low",
+    weeks: 7,
+    /* Konkan Marine Foods moved freight off phone calls onto a lane-by-lane
+       tender sheet. */
+    precedentId: "pp-konkan",
     tier: "inferred",
     confidence: "Medium",
     confidenceReason:
@@ -1353,6 +1367,9 @@ export const gaps: Gap[] = [
     },
     effort: "Low",
     weeks: 6,
+    /* Sahyadri Dairy Foods built exactly this: automatic early-payment
+       capture instead of whoever remembered. */
+    precedentId: "pp-sahyadri",
     tier: "confirmed",
     confidence: "Medium-high",
     confidenceReason:
@@ -1397,6 +1414,8 @@ export const gaps: Gap[] = [
     level1: "Sourcing",
     level2: "Vendor onboarding",
     nodeId: "l2-onboarding",
+    /* Kesarwani built a five-day onboarding flow to replace a three-week one.
+       Same sub-process, same fix. */
     amountCr: 0.75,
     valuation: {
       baseLabel: "Spot and emergency purchases made while waiting on onboarding",
@@ -1409,8 +1428,9 @@ export const gaps: Gap[] = [
       whoseNumbers:
         "The 21 days and the spot-buy behaviour are Rohan's, given twice. The ₹25 Cr of affected spend and the 3% premium are ours.",
     },
-    effort: "Medium",
-    weeks: 12,
+    effort: "Low",
+    weeks: 6,
+    precedentId: "pp-kesarwani",
     tier: "confirmed",
     confidence: "Medium-high",
     confidenceReason:
@@ -1469,8 +1489,11 @@ export const gaps: Gap[] = [
       benchmarkNote:
         "The 12,000 hours a year spent clearing exceptions is real, but it is not bankable. AP is already at benchmark headcount and two weeks behind. The saving is avoided hiring against growth, not salary removed.",
     },
-    effort: "Medium",
-    weeks: 14,
+    effort: "Low",
+    weeks: 7,
+    /* Kesarwani rebuilt three-way match against PO and GR. Same match, same
+       system. */
+    precedentId: "pp-kesarwani",
     tier: "confirmed",
     confidence: "High",
     confidenceReason:
@@ -1629,6 +1652,7 @@ export const gaps: Gap[] = [
     level1: "Accounts payable",
     level2: "Invoice capture",
     nodeId: "l2-invoice-capture",
+    /* Kesarwani's invoice capture is the same build. */
     amountCr: 0.3,
     valuation: {
       baseLabel: "AP cost base of nine clerks, against a 20% volume rise from Sangli",
@@ -1645,6 +1669,7 @@ export const gaps: Gap[] = [
     },
     effort: "Low",
     weeks: 8,
+    precedentId: "pp-kesarwani",
     tier: "confirmed",
     confidence: "High",
     confidenceReason:
@@ -1756,6 +1781,8 @@ export const gaps: Gap[] = [
     level1: "Purchasing",
     level2: "Requisition and approval",
     nodeId: "l2-requisition",
+    /* Tarang Precision Forgings took approvals off email and WhatsApp onto a
+       workflow with an audit trail. Same fix. */
     amountCr: 0.25,
     valuation: {
       baseLabel: "Rework and dispute handling on off-system approvals",
@@ -1772,6 +1799,7 @@ export const gaps: Gap[] = [
     },
     effort: "Low",
     weeks: 6,
+    precedentId: "pp-tarang",
     tier: "confirmed",
     confidence: "High",
     confidenceReason:
@@ -1823,6 +1851,9 @@ export const gaps: Gap[] = [
     amountCr: null,
     unpricedReason:
       "Rejection volumes have not been shared. Ask for 12 months of rejection data by supplier and this becomes priceable.",
+    /* Cauvery Paperboard Mills built exactly this scorecard. Unpriced here for
+       want of Suvarna's own rejection data, not because the build is unproven. */
+    precedentId: "pp-cauvery",
     effort: "Low",
     weeks: 8,
     tier: "unverified",

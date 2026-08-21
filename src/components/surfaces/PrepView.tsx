@@ -322,7 +322,7 @@ function FirstCall({ scope }: { scope: FocusScope | null }) {
             title="What is probably wrong"
             more={`The other ${Math.max(0, likely.length - 3)} findings`}
             href="/gaps"
-            hrefLabel="Gaps & problems"
+            hrefLabel="Gaps"
           >
             <p className="reading text-small text-muted-foreground">
               Confirmed first, then inferred. The order is how sure we are, not how big it
@@ -478,7 +478,7 @@ function FirstCall({ scope }: { scope: FocusScope | null }) {
             title="Why now, and what they are buying"
             more="All six signals"
             href="/gaps"
-            hrefLabel="Gaps & problems"
+            hrefLabel="Gaps"
           >
             <p className="reading text-small">
               <span className="font-medium">{urgency.verdict}. </span>
@@ -769,7 +769,7 @@ function SecondCall({ scope }: { scope: FocusScope | null }) {
         title="What we think is happening, and what would settle it"
         more="Where each one came from"
         href="/gaps"
-        hrefLabel="Gaps & problems"
+        hrefLabel="Gaps"
       >
         <ul className="divide-y divide-border">
           {toTest.map((g) => (
@@ -1053,7 +1053,7 @@ function Expansion({ scope }: { scope: FocusScope | null }) {
         title="Findings that were never in the first plan"
         more="What each one needs first"
         href="/gaps"
-        hrefLabel="Gaps & problems"
+        hrefLabel="Gaps"
       >
         <p className="reading text-small text-muted-foreground">
           Everything after the first wave of the sequence. These were not dropped, they

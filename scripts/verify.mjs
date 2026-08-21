@@ -10,6 +10,24 @@
  * every element carrying transition-colors reports a false contrast failure.
  */
 import { chromium } from "playwright";
+import { readFileSync } from "node:fs";
+
+/* Every mode is contrast-checked, and the list comes out of the stylesheet
+   rather than being typed here. A mode is a `[data-theme="x"]` block in
+   `globals.css`, so a mode added there is checked whether or not anyone
+   remembered this file. The failure that matters is a mode nobody can see being
+   wrong, not one nobody can pick.
+
+   Brand needs no entry of its own: its block carries `[data-theme="heizen"]`
+   alongside `:root`, so the regex finds it and setting the attribute paints
+   exactly what no attribute paints. */
+const THEMES = [
+  ...new Set(
+    [...readFileSync("src/app/globals.css", "utf8").matchAll(/\[data-theme="([\w-]+)"\]/g)].map(
+      (m) => m[1],
+    ),
+  ),
+].filter((t, i, all) => all.indexOf(t) === i);
 
 const BASE = "http://localhost:4311";
 const RM = { reducedMotion: "reduce" };
@@ -50,6 +68,9 @@ const PAGES = [
   "/projects",
   "/team",
   "/settings",
+  "/build",
+  "/research/intro",
+  "/research/discovery",
   "/operations",
   "/gaps",
   "/questions",
@@ -64,6 +85,9 @@ const PAGES = [
  * first — which is the real user path anyway.
  */
 const PANEL_TRIGGERS = {
+  /* The three recommendation cards each carry their own panel control, so no
+     expand step: the button is on the collapsed card. */
+  "/build": { click: 'button:has-text("Evidence and what it takes")' },
   "/operations": { click: "[data-node] button" },
   "/sources": { click: "ul button" },
   "/gaps": { expand: "li > div > button", click: 'button:has-text("Open in panel")' },
@@ -111,29 +135,44 @@ for (const vp of VIEWPORTS) {
     viewport: { width: vp.width, height: vp.height },
     ...RM,
   });
-  for (const path of BRIEFS) {
-    await page.goto(BASE + path, { waitUntil: "networkidle" });
-    const m = await page.evaluate(() => ({
-      docScroll: document.documentElement.scrollHeight,
-      docClient: document.documentElement.clientHeight,
-      overflowing: [...document.querySelectorAll("*")]
-        .filter(
-          (el) =>
-            el.scrollHeight > el.clientHeight + 1 &&
-            getComputedStyle(el).overflowY !== "visible",
-        )
-        .map((el) => ({
-          cls: el.className?.toString?.().slice(0, 45) ?? el.tagName,
-          overflowPx: el.scrollHeight - el.clientHeight,
-        }))
-        .filter((x) => !x.cls.includes("sr-only")),
-    }));
-    results.scroll.push({
-      viewport: vp.name,
-      path,
-      scrolls: m.docScroll > m.docClient + 1,
-      clipped: m.overflowing,
-    });
+  /* Every theme, not just the default. A theme here carries tracking, gutter
+     and corner language as well as colour, so a fit assertion measured in one
+     theme says nothing about the others.
+
+     `BRIEFS` is empty today — Brief takes Full's scrolling layout now — so this
+     loop currently runs zero times. It is written theme-first anyway so that
+     repopulating `BRIEFS` restores a check that covers every theme rather than
+     one that quietly covers the default alone. */
+  for (const theme of THEMES) {
+    for (const path of BRIEFS) {
+      await page.goto(BASE + path, { waitUntil: "networkidle" });
+      await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
+      // The attribute changes tracking and padding, so the layout has to be
+      // re-read after it lands rather than measured from the default paint.
+      await page.waitForTimeout(120);
+      const m = await page.evaluate(() => ({
+        docScroll: document.documentElement.scrollHeight,
+        docClient: document.documentElement.clientHeight,
+        overflowing: [...document.querySelectorAll("*")]
+          .filter(
+            (el) =>
+              el.scrollHeight > el.clientHeight + 1 &&
+              getComputedStyle(el).overflowY !== "visible",
+          )
+          .map((el) => ({
+            cls: el.className?.toString?.().slice(0, 45) ?? el.tagName,
+            overflowPx: el.scrollHeight - el.clientHeight,
+          }))
+          .filter((x) => !x.cls.includes("sr-only")),
+      }));
+      results.scroll.push({
+        viewport: vp.name,
+        theme,
+        path,
+        scrolls: m.docScroll > m.docClient + 1,
+        clipped: m.overflowing,
+      });
+    }
   }
   await page.close();
 }
@@ -141,7 +180,7 @@ for (const vp of VIEWPORTS) {
 /* ---- 2. Text contrast, light and dark, every page --------------------- */
 {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, ...RM });
-  for (const theme of ["light", "dark"]) {
+  for (const theme of THEMES) {
     for (const path of PAGES) {
       await page.goto(BASE + path, { waitUntil: "networkidle" });
       await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
@@ -324,13 +363,13 @@ console.log(JSON.stringify(results, null, 2));
 const failures = [];
 
 for (const s of results.scroll) {
-  if (s.scrolls) failures.push(`${s.path} scrolls at ${s.viewport}`);
+  if (s.scrolls) failures.push(`${s.path} scrolls at ${s.viewport} in ${s.theme}`);
   for (const c of s.clipped) {
     // `.cls` and `.overflowPx`, not `.text` — the first version of this line
     // printed "[object Object]", which told you a Brief clipped and nothing
     // about where or by how much.
     failures.push(
-      `${s.path} clips by ${c.overflowPx}px at ${s.viewport} — .${c.cls}`,
+      `${s.path} clips by ${c.overflowPx}px at ${s.viewport} in ${s.theme} — .${c.cls}`,
     );
   }
 }
