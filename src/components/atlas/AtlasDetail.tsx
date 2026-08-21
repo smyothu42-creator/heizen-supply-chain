@@ -198,12 +198,24 @@ function DomainDetail({ domainId }: { domainId: string }) {
                 <p className="text-small font-medium leading-tight">{sub.name}</p>
                 <ProvenMark project={project?.name} />
               </div>
-              <p className="reading mt-1 text-micro text-muted-foreground">{sub.plainLine}</p>
-              {project && (
-                <p className="reading mt-1 text-micro text-muted-foreground">
-                  {formatDay(project.deliveredOn)}: {project.built}
-                </p>
-              )}
+              {/* **One prose line per sub-process, never two.** Twelve names,
+                  each with a gloss *and* a delivery sentence under it, made
+                  the rail a page of small grey text that nobody reads to the
+                  bottom — §7.1, and the exact failure Research is still being
+                  dug out of.
+
+                  Which line survives depends on what the sub-process has. A
+                  proven one gets the past project: what was built and when is
+                  the thing you say out loud, and the gloss is guessable from a
+                  name you have just been told Heizen has shipped. An unbuilt
+                  one has no project to name, so it keeps the plain-language
+                  line — which is where §7.6 actually bites, because that is
+                  the name with nothing else to explain it. */}
+              <p className="reading mt-1 text-micro text-muted-foreground">
+                {project
+                  ? `${formatDay(project.deliveredOn)}: ${project.built}`
+                  : sub.plainLine}
+              </p>
             </li>
           );
         })}

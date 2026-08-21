@@ -18,7 +18,6 @@ import { EffortChip } from "@/components/meridian/Confidence";
 import { PrecedentBadge } from "@/components/meridian/Precedent";
 import { GapRow } from "@/components/meridian/GapRow";
 import { ArrowIcon, InfoIcon } from "@/components/meridian/Icons";
-import { ValuationBasisBadge } from "@/components/meridian/ValuationBridge";
 import { usePanel } from "@/components/meridian/EvidencePanel";
 import { useWorkspace } from "@/components/shell/WorkspaceProvider";
 
@@ -488,25 +487,18 @@ function PriceBlock({ gap }: { gap: Gap }) {
             figure. */}
         {v.baseCr != null && ` on ${money(v.baseCr)}: ${v.baseLabel}`}.
       </p>
-      {/* **The range and whose numbers, both still stated, both now short.**
-          §7.11 asks for four things: a named base, a stated rate, the range,
-          and whose numbers they are. The first two are the line above; these
-          are the other two.
+      {/* **The range and the basis badge came off this card**, on request. What
+          is left is the figure, what it is a percentage of, and the base it is
+          taken on — which is §7.11's first half, the half a client challenges
+          first.
 
-          **`whoseNumbers` was the sentence and the basis badge is the answer.**
-          It read "Rohan's 'less than half' gives the 53% uncontracted share;
-          the ₹66 Cr indirect line and the 6% rate are both ours" — forty words
-          of provenance on a card whose job is to be scanned in a corridor. The
-          badge says *Sector default*, which is that sentence's conclusion and
-          the thing the token exists to carry. The sentence itself is untouched
-          in the data and still renders in full on Research › Money, where
-          there is room to argue with it. */}
-      <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-micro text-muted-foreground">
-        <span className="tabular">
-          {money(v.lowCr)} to {money(v.highCr)} either way
-        </span>
-        <ValuationBasisBadge basis={v.basis} />
-      </p>
+          The other half is not lost, it is one surface away: the full range,
+          the basis and the whole provenance sentence all render on Research ›
+          Money, where there is room to argue with them, and the panel this
+          card opens carries the same. What this card is for is deciding which
+          three builds to talk about, and a low-to-high band under every one of
+          them is a second number to weigh per card before the first one has
+          landed. */}
     </>
   );
 }

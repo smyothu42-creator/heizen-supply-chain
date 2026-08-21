@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/cn";
 import { atlasDomains, provenCountOf } from "@/lib/atlas";
@@ -52,22 +52,41 @@ import { atlasDomains, provenCountOf } from "@/lib/atlas";
  * dots follow.
  */
 
-const W = 760;
+/** The narrowest the canvas is ever drawn. Below this the frame scrolls. */
+const MIN_W = 760;
 const H = 440;
-const CENTER = { x: W / 2, y: H / 2 };
+const CENTER_Y = H / 2;
 const CENTER_R = 56;
-const RING_R = 168;
+/** Vertical radius, fixed: the height is fixed, so this one cannot breathe. */
+const RING_RY = 168;
+/** Horizontal radius at `MIN_W`, and the floor for the measured one. */
+const MIN_RX = 168;
+/** Past this the ring stops spreading. Five nodes on a 900px-wide ellipse read
+    as a row of cards with faint lines behind them, not as a thing with a
+    centre, and the edges get long enough that following one is work. */
+const MAX_RX = 320;
 const NODE_W = 156;
 const NODE_H = 88;
 
-const domainPositions = atlasDomains.map((domain, i) => {
-  const angle = (i * (360 / atlasDomains.length) - 90) * (Math.PI / 180);
-  return {
+const ANGLES = atlasDomains.map((domain, i) => ({
+  domain,
+  angle: (i * (360 / atlasDomains.length) - 90) * (Math.PI / 180),
+}));
+
+/** The ring is an ellipse, not a circle, and the width of it is measured.
+
+    The canvas was a fixed 760 box centred in a frame that is half again as
+    wide on a laptop and twice as wide on a monitor, so the dot grid had more
+    area than the graph did and the whole thing read as a small diagram adrift
+    in a large box. The height is fixed and the width is not, so the radius
+    that can respond is the horizontal one: the ring stretches to whatever the
+    frame gives it, up to `MAX_RX`, and the five nodes spread with it. */
+const positionsFor = (rx: number, boxW: number) =>
+  ANGLES.map(({ domain, angle }) => ({
     domain,
-    x: CENTER.x + RING_R * Math.cos(angle),
-    y: CENTER.y + RING_R * Math.sin(angle),
-  };
-});
+    x: boxW / 2 + rx * Math.cos(angle),
+    y: CENTER_Y + RING_RY * Math.sin(angle),
+  }));
 
 export function AtlasGraph({
   selectedId,
@@ -97,6 +116,27 @@ export function AtlasGraph({
     el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
   }, []);
 
+  /* The measured width, which is what the ring is drawn against. It starts at
+     `MIN_W` so the first paint is the narrow ring rather than a flash of
+     nothing, and a `ResizeObserver` rather than a window listener because the
+     rail beside it changes this column's width without the window moving. */
+  const [boxW, setBoxW] = useState(MIN_W);
+  useEffect(() => {
+    const el = frame.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) =>
+      setBoxW(Math.max(MIN_W, entry.contentRect.width)),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  /* Half the room left once a node's own width and a margin are taken off
+     both ends, so the outermost node never touches the frame. */
+  const rx = Math.min(MAX_RX, Math.max(MIN_RX, (boxW - NODE_W - 64) / 2));
+  const domainPositions = positionsFor(rx, boxW);
+  const centerX = boxW / 2;
+
   return (
     <div
       ref={frame}
@@ -112,12 +152,13 @@ export function AtlasGraph({
     >
       {/* Fixed pixel canvas rather than a responsive viewBox — the same trade
           `SwitchScroller` documents for a track wider than its frame: below
-          the canvas's own width it scrolls rather than the domains crowding
-          each other or the labels truncating to nothing. */}
-      <div className="relative mx-auto" style={{ width: W, height: H }}>
+          the canvas's own minimum it scrolls rather than the domains crowding
+          each other or the labels truncating to nothing. Above it the box is
+          the frame's width and the ring spreads into it. */}
+      <div className="relative mx-auto" style={{ width: boxW, height: H }}>
         <svg
           className="pointer-events-none absolute left-0 top-0"
-          width={W}
+          width={boxW}
           height={H}
           aria-hidden
         >
@@ -126,8 +167,8 @@ export function AtlasGraph({
             return (
               <line
                 key={domain.id}
-                x1={CENTER.x}
-                y1={CENTER.y}
+                x1={centerX}
+                y1={CENTER_Y}
                 x2={x}
                 y2={y}
                 // `--canvas-edge` at a third opacity at rest, full when the
@@ -160,7 +201,7 @@ export function AtlasGraph({
             "border-border-strong bg-canvas-node hover:border-foreground",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--canvas-bg)]",
           )}
-          style={{ left: CENTER.x, top: CENTER.y, width: CENTER_R * 2, height: CENTER_R * 2 }}
+          style={{ left: centerX, top: CENTER_Y, width: CENTER_R * 2, height: CENTER_R * 2 }}
         >
           <span className="px-2 text-small font-semibold leading-tight">Supply chain</span>
           <span className="text-micro text-muted-foreground">

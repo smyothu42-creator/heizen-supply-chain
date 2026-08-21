@@ -502,51 +502,22 @@ function ProjectCard({ project, canEdit, canDelete, onOpen, onEdit, onArchive, o
         )}
       </div>
 
-      {/* One line, and it is the only thing on the card that differs by more
-          than a name: where this project has got to. The research prompt and
-          the stakeholder line used to sit under it and both came off. They are
-          the *inputs the consultant typed*, echoed back at him on a screen
-          whose whole job is picking which company to open, and between them
-          they were half the height of every card. Restoring either is one line
-          here; the data is untouched.
+      {/* **The status line came off, and it is the reason this block is now
+          nothing.** A card used to carry two clamped lines of prose about
+          where the project had got to, which the list row does not — and the
+          row dropped it first, for the reason recorded on `ProjectRow`: with
+          priority, revenue and the created date each in their own slot, a
+          sentence that restates part of them is one read too many. Two
+          layouts of one list may differ in density; they may not differ in
+          what they are a list *of*, or the toggle stops being a display
+          preference and becomes two screens.
 
-          **Two lines, always, which is what makes the cards uniform.** The
-          status is the one variable-height thing on the card: "Lead only ·
-          sector and name, nothing else yet" sets to one line and Suvarna's
-          researched line sets to two, so a grid of them stepped. `line-clamp-2`
-          caps the tall ones and the height reserves the second line for the
-          short ones. **The height is in `em` and not a pixel**, because
-          `.reading` sets line-height 1.55 and 2 × 1.55 is the whole
-          calculation: change that class and this number is wrong.
-
-          **It is `h-`, not `min-h-`, and the difference is one pixel that was
-          visible.** Under a floor, a one-line status takes the floor's 43.4px
-          and a two-line one takes whatever its two line boxes round to, which
-          at 375 came out 43 — so the cards were 232 and 233. A fixed height is
-          the same computed value on every card, so there is nothing left to
-          round differently.
-
-          **`mb-5` and not `pb-5`, which is the trap this hit first.** The space
-          above the divider is a margin because `min-h` is border-box here, so
-          padding inside the element is *subtracted* from the two lines it is
-          meant to reserve: the short statuses floored at 43px, which is one
-          line plus the padding, and the list stepped again at 375 where the
-          long ones wrap. A margin sits outside the box the floor applies to.
-
-          **The margin above the divider is 4px, and that is deliberately
-          almost nothing.** It went 20 → 12 → 4 across two requests to reduce
-          it, and the reason it kept looking like too much is that the margin
-          was never most of the gap: the status box reserves two lines so the
-          cards stay uniform, so on every project whose status fits one line
-          there is another ~22px of blank line above the rule that no spacing
-          value here can reach. Cutting the margin to 4 leaves the reserved
-          line doing the separating on its own. **If it is still too much, the
-          lever is the reserve, not this number** — clamping the status to one
-          line closes it entirely and costs the second line at 375, where
-          several statuses genuinely wrap. */}
-      <p className="reading mt-3 mb-1 line-clamp-2 h-[3.1em] px-4 text-small text-muted-foreground">
-        {project.status}
-      </p>
+          Everything the machinery below used to say about reserving exactly
+          two lines, `h-` versus `min-h-`, and `mb-5` versus `pb-5` went with
+          it. Every block on the card is a fixed number of lines again, so the
+          heights match without anything being reserved. `project.status` is
+          untouched in the data, and putting it back is one paragraph — with
+          the clamp, or the grid steps. */}
 
       {/* Two facts and the priority chip, no icons, on the footer's own line
           rather than a block of their own. A globe beside a domain and a
@@ -578,6 +549,13 @@ function ProjectCard({ project, canEdit, canDelete, onOpen, onEdit, onArchive, o
             group keeps the button pinned to the row's far end instead of
             dropping with it. */}
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
+          {/* The same two facts the row states in its own columns, in the
+              order the row states them: revenue, then when the project was
+              created. The domain link came off with the status line — the row
+              has no column for it, and it was also the one cyan word on the
+              card, so a set of cards read as a set of links to other people's
+              websites. It is on the project's own edit dialog, and in the
+              search index, which is where a consultant looks for it. */}
           <dl className="flex min-w-0 items-center gap-x-1.5 text-micro text-muted-foreground">
             <span className="flex shrink-0 items-center whitespace-nowrap">
               <dt className="sr-only">Annual revenue</dt>
@@ -591,41 +569,9 @@ function ProjectCard({ project, canEdit, canDelete, onOpen, onEdit, onArchive, o
             <span aria-hidden className="shrink-0">
               ·
             </span>
-            <span className="flex min-w-0 items-center">
-              <dt className="sr-only">Website</dt>
-              {/* **The domain is a link, on request, and it is the one place on
-                  this card where cyan is correct**: it is the only thing here
-                  that goes somewhere, and somewhere outside the product. The
-                  page's rule is that a coloured word means somewhere to go, so
-                  spending it on the one string that leaves is spending it
-                  exactly once.
-
-                  `target="_blank"` because a consultant reading the list is
-                  choosing between companies, not leaving to browse one; losing
-                  the list to a supplier's homepage is the wrong trade.
-                  `rel="noreferrer"` comes with it — `noopener` is implied by
-                  modern browsers but stated anyway, since the whole point of the
-                  pair is that a target page cannot reach back.
-
-                  **`block` on the anchor, not just `truncate`.** An inline
-                  element has no width to truncate against, so the ellipsis
-                  silently does nothing and a long domain pushes the grid column
-                  past the frame — the same failure the `min-w-0` note on the
-                  list item above records. */}
-              {project.domain ? (
-                <dd className="min-w-0">
-                  <a
-                    href={`https://${project.domain}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block truncate text-evidence transition-colors hover:text-foreground"
-                  >
-                    {project.domain}
-                  </a>
-                </dd>
-              ) : (
-                <dd className="truncate">No site given</dd>
-              )}
+            <span className="flex shrink-0 items-center whitespace-nowrap">
+              <dt className="sr-only">Created</dt>
+              <dd>{formatDay(project.createdOn)}</dd>
             </span>
           </dl>
           {/* The sort key, as its own chip rather than folded into the `dl`'s
@@ -642,17 +588,11 @@ function ProjectCard({ project, canEdit, canDelete, onOpen, onEdit, onArchive, o
             of them: one verb, so the list has one action rather than a button
             on some rows and a grey excuse on the others.
 
-            The honest label has moved rather than gone. It used to be an
-            unpressable *No research yet* in this corner; it is now a line
-            beside the button, so a card still says whether there is anything
-            behind it before you press. The page's own standfirst says the same
-            thing once for the whole list. */}
+            The *No research yet* note beside it has gone the same way as the
+            status line: the row does not carry it, and the page's own
+            standfirst says it once for the whole list rather than on the cards
+            that happen to be in that state. */}
         <div className="flex shrink-0 items-center justify-end gap-3">
-          {!project.researched && (
-            <span className="whitespace-nowrap text-micro text-muted-foreground">
-              No research yet
-            </span>
-          )}
           {/* Outline and fully rounded, on request, and the same on every card
               including the one already loaded — nine cards with one button in a
               different weight would read as one row being special rather than
